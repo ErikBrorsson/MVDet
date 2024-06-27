@@ -12,6 +12,13 @@ python main.py -d wildtrack
 
 ### implement EMA teacher
 
+- [x]
+- [ ]
+- [x]
+
+
+
+
 
 ### create pseudo labels
 The model predicts both head/feet positions in each image as well as occupancy map in bev. 

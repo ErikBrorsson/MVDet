@@ -1,0 +1,33 @@
+{
+    "build": {
+        "dockerfile": "../Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "ms-python.python",
+                "ms-python.pylint"
+            ]
+            // "settings": {
+            //     "python.defaultInterpreterPath": "/opt/conda/bin/python"
+            //     "[python]": {
+            //       "editor.defaultFormatter": "ms-python.black-formatter",
+            //       "editor.formatOnSave": true
+            //     }
+            // }
+        }
+    },
+    "forwardPorts": [
+        3000
+    ],
+    "mounts": [
+        "source=/home/gpss1/remote/datasets/Wildtrack_dataset,target=/data/Wildtrack,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--gpus",
+        "all",
+        "--ipc", //got out of memory error when I tried debuggin in devcontainer. Added this for possible remedy
+        "host"
+    ]
+}

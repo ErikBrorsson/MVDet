@@ -275,6 +275,7 @@ class UDATrainer(BaseTrainer):
         self.alpha = alpha
 
         self.dropview = True
+        self.pseudo_threshold = 0.7
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
@@ -305,7 +306,16 @@ class UDATrainer(BaseTrainer):
             optimizer.zero_grad()
 
             # create pseudo-labels
-            map_pseudo_label, imgs_pseudo_labels = self.teacher(data_target)
+            map_pred_teacher, imgs_teacher_pred = self.teacher(data_target)
+            map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
+            map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
+
+            # compute target loss weight
+            ps_large_p = map_pseudo_label_prob.ge(self.pseudo_threshold).long() == 1
+            ps_size = torch.numel(map_pseudo_label_prob)
+            pseudo_weight = torch.sum(ps_large_p).item() / ps_size
+            # pseudo_weight = pseudo_weight * torch.ones(
+            #     pseudo_prob.shape, device=logits.device)
 
             # apply augmentation to target images and pseudo-labels prior to student training
             data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
@@ -318,6 +328,7 @@ class UDATrainer(BaseTrainer):
                     loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), None)
             loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) + \
                    loss / len(imgs_gt) * self.alpha
+            loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
             loss.backward()
             optimizer.step()
             losses_target += loss.item()
@@ -345,9 +356,9 @@ class UDATrainer(BaseTrainer):
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()
                 t_epoch = t1 - t0
-                print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f},'
+                print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f}, target_weight: {:.2f}'
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
-                    epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), precision_s.avg * 100, recall_s.avg * 100,
+                    epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), pseudo_weight, precision_s.avg * 100, recall_s.avg * 100,
                     t_epoch, t_forward / batch_idx, t_backward / batch_idx, map_res.max()))
                 pass
 
