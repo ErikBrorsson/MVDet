@@ -18,14 +18,17 @@ def _traget_transform(target, kernel):
     return target
 
 
-def test(dataset_name='multiviewx'):
+def test(dataset_name='multiviewx', pred=False):
     if dataset_name == 'multiviewx':
         result_fpath = '/home_ssd/houyz/Code/multiview_one_stage/logs/multiviewx_frame_40/default/2020-03-03_01-05-16/test.txt'
         dataset = frameDataset(MultiviewX(os.path.expanduser('~/Data/MultiviewX')), False,
                                T.Compose([T.Resize([270, 480]), T.ToTensor(), ]))
     elif dataset_name == 'wildtrack':
-        result_fpath = '/home_ssd/houyz/Code/multiview_one_stage/logs/wildtrack_frame/default/2020-03-04_15-45-27/test.txt'
-        dataset = frameDataset(Wildtrack(os.path.expanduser('~/Data/Wildtrack')), False,
+        # result_fpath = '/home_ssd/houyz/Code/multiview_one_stage/logs/wildtrack_frame/default/2020-03-04_15-45-27/test.txt'
+        result_fpath = '/data/Wildtrack_dataset/moda_pred.txt'
+        # dataset = frameDataset(Wildtrack(os.path.expanduser('~/Data/Wildtrack')), False,
+        #                        T.Compose([T.Resize([270, 480]), T.ToTensor(), ]))
+        dataset = frameDataset(Wildtrack('/data/Wildtrack_dataset'), False,
                                T.Compose([T.Resize([270, 480]), T.ToTensor(), ]))
     else:
         raise Exception('must choose from [wildtrack, multiviewx]')
@@ -33,14 +36,34 @@ def test(dataset_name='multiviewx'):
     bbox_by_pos_cam = dataset.base.read_pom()
     results = np.loadtxt(result_fpath)
 
-    video = cv2.VideoWriter(f'{dataset_name}_test.avi', cv2.VideoWriter_fourcc(*"MJPG"), 2, (1580, 1060))
+    video = cv2.VideoWriter(f'{dataset_name}_test_pred_100.avi', cv2.VideoWriter_fourcc(*"MJPG"), 2, (1580, 1060))
     for index in tqdm.tqdm(range(len(dataset))):
         img_comb = np.zeros([1060, 1580, 3]).astype('uint8')
         map_res = np.zeros(dataset.reducedgrid_shape)
         imgs, map_gt, imgs_gt, frame = dataset.__getitem__(index)
-        res_map_grid = results[results[:, 0] == frame, 1:]
+        # print("frame ", frame)
+
+        if pred:
+            res_map_grid = results[results[:, 0]*5 == frame, 1:]
+            temp = np.zeros_like(res_map_grid)
+            temp[:, 0] = res_map_grid[:, 1]
+            temp[:, 1] = res_map_grid[:, 0]
+            res_map_grid = temp.astype(np.int64)
+        else:
+            res_map_grid = results[results[:, 0] == frame, 1:]
+
+
+
+        # print("res_map_grid ", res_map_grid)
         for ij in res_map_grid:
-            i, j = (ij / dataset.grid_reduce).astype(int)
+            # print("ij", ij)
+            # j, i = (ij / dataset.grid_reduce).astype(int)
+            i,j = (ij / dataset.grid_reduce).astype(int)
+            # print("i, j", i, j)
+            # if i>= res_map_grid.shape[0]:
+            #     continue
+            # if j >= res_map_grid.shape[1]:
+            #     continue
             if dataset.base.indexing == 'xy':
                 i, j = j, i
                 map_res[i, j] = 1
@@ -58,6 +81,7 @@ def test(dataset_name='multiviewx'):
         # plt.imshow(cv2.cvtColor(img_comb.astype('uint8'), cv2.COLOR_BGR2RGB))
         # plt.show()
 
+        print("res_map_grid: ", res_map_grid)
         res_posID = dataset.base.get_pos_from_worldgrid(res_map_grid.transpose())
         gt_map_grid = map_gt[0].nonzero().cpu().numpy() * dataset.grid_reduce
         gt_posID = dataset.base.get_pos_from_worldgrid(gt_map_grid.transpose())
@@ -86,5 +110,5 @@ def test(dataset_name='multiviewx'):
 
 
 if __name__ == '__main__':
-    test('multiviewx')
-    test('wildtrack')
+    # test('multiviewx')
+    test('wildtrack', pred=True)
