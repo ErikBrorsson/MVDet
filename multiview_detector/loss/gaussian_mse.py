@@ -10,8 +10,11 @@ class GaussianMSE(nn.Module):
         super().__init__()
 
     def forward(self, x, target, kernel):
-        target = self._traget_transform(x, target, kernel)
-        return F.mse_loss(x, target)
+        if kernel is None:
+            return F.mse_loss(x, target)
+        else:
+            target = self._traget_transform(x, target, kernel)
+            return F.mse_loss(x, target)
 
     def _traget_transform(self, x, target, kernel):
         target = F.adaptive_max_pool2d(target, x.shape[2:])

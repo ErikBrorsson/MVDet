@@ -274,9 +274,12 @@ class UDATrainer(BaseTrainer):
         self.denormalize = denormalize
         self.alpha = alpha
 
+        self.dropview = True
+
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
         losses = 0
+        losses_target = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()
         t0 = time.time()
         t_b = time.time()
@@ -296,18 +299,28 @@ class UDATrainer(BaseTrainer):
                    loss / len(imgs_gt) * self.alpha
             loss.backward()
             optimizer.step()
+            losses += loss.item()
 
             # train on target data
             optimizer.zero_grad()
+
+            # create pseudo-labels
+            map_pseudo_label, imgs_pseudo_labels = self.teacher(data_target)
+
+            # apply augmentation to target images and pseudo-labels prior to student training
+            data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
+
+            # predict and update student
             map_res_target, imgs_res_target = self.model(data_target)
-            map_pseudo_label, imgs_pseudo_labels = map_gt_target, imgs_gt_target# self.teacher(data_target)
             loss = 0
             for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-                loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
-            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+                if not img_pseudo_label is None:
+                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), None)
+            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) + \
                    loss / len(imgs_gt) * self.alpha
             loss.backward()
             optimizer.step()
+            losses_target += loss.item()
 
 
             # update learning rate
@@ -318,7 +331,6 @@ class UDATrainer(BaseTrainer):
                     cyclic_scheduler.step()
 
             # logging
-            losses += loss.item()
             pred = (map_res > self.cls_thres).int().to(map_gt.device)
             true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
             false_positive = pred.sum().item() - true_positive
@@ -333,17 +345,17 @@ class UDATrainer(BaseTrainer):
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()
                 t_epoch = t1 - t0
-                print('Train Epoch: {}, Batch:{}, Loss: {:.6f}, '
+                print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f},'
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
-                    epoch, (batch_idx + 1), losses / (batch_idx + 1), precision_s.avg * 100, recall_s.avg * 100,
+                    epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), precision_s.avg * 100, recall_s.avg * 100,
                     t_epoch, t_forward / batch_idx, t_backward / batch_idx, map_res.max()))
                 pass
 
         t1 = time.time()
         t_epoch = t1 - t0
-        print('Train Epoch: {}, Batch:{}, Loss: {:.6f}, '
+        print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f},'
               'Precision: {:.1f}%, Recall: {:.1f}%, Time: {:.3f}'.format(
-            epoch, len(data_loader), losses / len(data_loader), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+            epoch, len(data_loader), losses / len(data_loader),losses_target / len(data_loader_target), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
         return losses / len(data_loader), precision_s.avg * 100
 
@@ -434,4 +446,26 @@ class UDATrainer(BaseTrainer):
             losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
         return losses / len(data_loader), precision_s.avg * 100, moda
+    
+
+    def strong_augmentation(self, imgs, map_pseudo_label, imgs_pseudo_labels):
+        # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
+
+        # print("imgs.shape", imgs.shape)
+        # print("map_gt.shape", map_gt.shape)
+        # for img_gt in imgs_gt:
+        #     print("img_gt.shape", img_gt.shape)
+
+        if self.dropview:
+            # set all pixel values of the dropped image to 0
+            drop_indx = np.random.choice(np.arange(imgs.shape[1]))
+            imgs[:, drop_indx, :, :, :] = 0
+
+            # set the perspective view label for the dropped view to None
+            # since don't want to provide supervision on a dropped view.
+            imgs_pseudo_labels[drop_indx] = None
+
+        return imgs, map_pseudo_label, imgs_pseudo_labels
+
+
 
