@@ -310,6 +310,11 @@ class UDATrainer(BaseTrainer):
             map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
             map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
 
+            # project bev pseudo-labels to cameras
+            world_grid_x, world_grid_y = torch.where(map_pseudo_label == 1)
+            for pos in zip(world_grid_x, world_grid_y):
+                self.data
+
             # compute target loss weight
             ps_large_p = map_pseudo_label_prob.ge(self.pseudo_threshold).long() == 1
             ps_size = torch.numel(map_pseudo_label_prob)

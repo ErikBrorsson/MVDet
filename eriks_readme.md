@@ -12,15 +12,24 @@ python main.py -d wildtrack
 
 ### implement EMA teacher
 
-- [x]
-- [ ]
-- [x]
+- [ ] implement the EMA teacher
 
 
 
 
 
 ### create pseudo labels
+- [x] train with soft labels
+- [x] create pseudo-label weight
+- [x] create pseudo-labels in bev and perspective view separately
+  - [x] find probabilities and argmax
+  - [ ] non-maximum supression
+  - [ ] perspective view 
+- [ ] train with pseudo-labels
+- [ ] create pseudo-labels in bev and project into perspective view
+  - [ ] find the pos of pseudo-labels in bev
+  - [ ] project pos to cameras
+
 The model predicts both head/feet positions in each image as well as occupancy map in bev. 
 It seems natural that the student should be supervised in both perspective and bev view also on target data.
 
@@ -37,6 +46,9 @@ Option 1 has a natural "confidence weighting" as we use the MSE loss. I.e., for 
 For option 2 and 3, it could make sense to introduce confidence weighting to reduce the impact of noisy regions. This should be easy to do with a simple weighted MSE loss, where the weight is chosen as the confidence.
 
 ### data augmentation
+- [x] dropview
+- [ ] 3DROM
+- [ ] MVAug
 
 Strong data augmentation should be used for the student.
 Different options exist.
@@ -47,6 +59,9 @@ Different options exist.
 
 
 ### ramp-up adaptation
+- [x] target loss weight increases as confidence of pseudo-labels increase
+
+
 There should probably be more focus on accurate source labels in the beginning, and then successively focus is shifted to target domain as the quality of the pseudo-labels increase.
 
 
