@@ -14,6 +14,7 @@ class PerspTransDetector(nn.Module):
     def __init__(self, dataset, arch='resnet18'):
         super().__init__()
         self.num_cam = dataset.num_cam
+        print("# cameras in model: ", self.num_cam)
         self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
         imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(dataset.base.intrinsic_matrices,
                                                                            dataset.base.extrinsic_matrices,

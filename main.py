@@ -20,7 +20,7 @@ from multiview_detector.models.no_joint_conv_variant import NoJointConvVariant
 from multiview_detector.utils.logger import Logger
 from multiview_detector.utils.draw_curve import draw_curve
 from multiview_detector.utils.image_utils import img_color_denormalize
-from multiview_detector.trainer import PerspectiveTrainer
+from multiview_detector.trainer import PerspectiveTrainer, UDATrainer
 
 
 def main(args):
@@ -38,21 +38,43 @@ def main(args):
     normalize = T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     denormalize = img_color_denormalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     train_trans = T.Compose([T.Resize([720, 1280]), T.ToTensor(), normalize, ])
+
+
+
     if 'wildtrack' in args.dataset:
         data_path = os.path.expanduser('/data/Wildtrack')
-        base = Wildtrack(data_path)
-    elif 'multiviewx' in args.dataset:
-        data_path = os.path.expanduser('~/Data/MultiviewX')
-        base = MultiviewX(data_path)
-    else:
-        raise Exception('must choose from [wildtrack, multiviewx]')
-    train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
-    test_set = frameDataset(base, train=False, transform=train_trans, grid_reduce=4)
+        if args.cam_adapt:
+            source_base = Wildtrack(data_path, cameras=[2,4,5,6])
+            target_base = Wildtrack(data_path, cameras=[1,3,5,7])
+            test_base = Wildtrack(data_path, cameras=[1,3,5,7])
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
-                                               num_workers=args.num_workers, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
-                                              num_workers=args.num_workers, pin_memory=True)
+            train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
+            train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            train_loader_target = torch.utils.data.DataLoader(train_set_target, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+        else:
+            base = Wildtrack(data_path)
+            test_base = base
+
+            train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+
+    else:
+        raise Exception('must choose from [wildtrack]')
+
+
 
     # model
     if args.variant == 'default':
@@ -95,7 +117,10 @@ def main(args):
     test_prec_s = []
     test_moda_s = []
 
-    trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
+    if args.cam_adapt:
+        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
+    else:
+        trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
     # learn
     if args.resume is None:
@@ -104,7 +129,10 @@ def main(args):
 
         for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
             print('Training...')
-            train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
+            if args.cam_adapt:
+                train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler)
+            else:
+                train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
             print('Testing...')
             test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
                                                       train_set.gt_fpath, True)
@@ -150,6 +178,10 @@ if __name__ == '__main__':
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
+    parser.add_argument('--cam_adapt', action="store_true")
+
     args = parser.parse_args()
+
+    print(args)
 
     main(args)

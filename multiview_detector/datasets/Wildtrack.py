@@ -12,13 +12,18 @@ extrinsic_camera_matrix_filenames = ['extr_CVLab1.xml', 'extr_CVLab2.xml', 'extr
 
 
 class Wildtrack(VisionDataset):
-    def __init__(self, root):
+    def __init__(self, root, cameras=[1,2,3,4,5,6,7]):
         super().__init__(root)
         # WILDTRACK has ij-indexing: H*W=480*1440, so x should be \in [0,480), y \in [0,1440)
         # WILDTRACK has in-consistent unit: centi-meter (cm) for calibration & pos annotation,
         self.__name__ = 'Wildtrack'
         self.img_shape, self.worldgrid_shape = [1080, 1920], [480, 1440]  # H,W; N_row,N_col
-        self.num_cam, self.num_frame = 7, 2000
+        self.cameras = [x - 1 for x in cameras] # in the code, the camera index is sometimes used to reference the position in a list => need range 0-6 instead of 1-7
+        self.num_cam = len(self.cameras)
+        print("# cameras in dataset: ", self.num_cam)
+
+        self.num_frame = 2000
+        # self.num_cam, self.num_frame = 7, 2000
         # x,y actually means i,j in Wildtrack, which correspond to h,w
         self.indexing = 'ij'
         # i,j for world map indexing
@@ -27,10 +32,10 @@ class Wildtrack(VisionDataset):
             *[self.get_intrinsic_extrinsic_matrix(cam) for cam in range(self.num_cam)])
 
     def get_image_fpaths(self, frame_range):
-        img_fpaths = {cam: {} for cam in range(self.num_cam)}
+        img_fpaths = {cam: {} for cam in self.cameras}
         for camera_folder in sorted(os.listdir(os.path.join(self.root, 'Image_subsets'))):
             cam = int(camera_folder[-1]) - 1
-            if cam >= self.num_cam:
+            if cam not in self.cameras:
                 continue
             for fname in sorted(os.listdir(os.path.join(self.root, 'Image_subsets', camera_folder))):
                 frame = int(fname.split('.')[0])
