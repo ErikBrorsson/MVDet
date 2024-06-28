@@ -10,6 +10,7 @@ from multiview_detector.evaluation.evaluate import evaluate
 from multiview_detector.utils.nms import nms
 from multiview_detector.utils.meters import AverageMeter
 from multiview_detector.utils.image_utils import add_heatmap_to_image
+from multiview_detector.utils.projection import get_imagecoord_from_worldcoord
 
 
 class BaseTrainer(object):
@@ -278,6 +279,8 @@ class UDATrainer(BaseTrainer):
         self.pseudo_threshold = 0.7
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
+        pom = data_loader.dataset.base.read_pom() # TODO put this in __init__
+
         self.model.train()
         losses = 0
         losses_target = 0
@@ -307,17 +310,64 @@ class UDATrainer(BaseTrainer):
 
             # create pseudo-labels
             map_pred_teacher, imgs_teacher_pred = self.teacher(data_target)
-            map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
-            map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
 
-            # project bev pseudo-labels to cameras
-            world_grid_x, world_grid_y = torch.where(map_pseudo_label == 1)
-            for pos in zip(world_grid_x, world_grid_y):
-                self.data
+            temp = map_pred_teacher.detach().cpu().squeeze()
+            scores = temp[temp > self.cls_thres]
+            positions = (temp > self.cls_thres).nonzero().float()
+            if data_loader.dataset.base.indexing == 'xy':
+                positions = positions[:, [1, 0]]
+            else:
+                positions = positions
+            ids, count = nms(positions.float(), scores, 20, np.inf)
+            positions = positions[ids[:count], :]
+            scores = scores[ids[:count]]
+
+            pseudo_label = torch.zeros_like(map_pred_teacher)
+            pseudo_label[:,:,positions] = 1
+            pseudo_label_conf = map_pred_teacher
+
+
+            # map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
+            # map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
+
+            # get world_coords and img_coords for the pseudo labels
+            # world_coords = data_loader.dataset.base.get_worldcoord_from_worldgrid(np.transpose(positions))
+            # for cam in [1,2,3]:
+            #     img_coords = get_imagecoord_from_worldcoord(world_coords, data_loader.dataset.base.intrinsic_matrices[cam],
+            #                                                             data_loader.dataset.base.extrinsic_matrices[cam])
+                
+            # get bounding boxes for each cameras
+            imgs_pseudo_labels = []
+            for cam in [2]:
+                img_pseudo_label = torch.zeros_like(imgs_gt[0])
+
+                for grid_pos in positions:
+                    pos = data_loader.dataset.base.get_pos_from_worldgrid(grid_pos)
+                    bbox = pom[pos.item()][cam]
+                    if bbox is None:
+                        continue                    
+                    foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                    head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                    img_pseudo_label[:,0,head_2d[0], head_2d[1]] = 1
+                    img_pseudo_label[:,1,foot_2d[0],foot_2d[1]] = 1
+
+                imgs_pseudo_labels.append(img_pseudo_label)
+                    
+
+
+
+            # world_grid_x, world_grid_y = torch.where(map_pseudo_label == 1)
+            # for grid_pos in positions:
+            #     pos = data_loader.dataset.base.get_pos_from_worldgrid(grid_pos)
+            #     world_coord = data_loader.dataset.base.get_worldcoord_from_pos(pos)
+            #     cameras = [1,2,3]
+            #     for cam in cameras:
+            #         projected_foot_2d = get_imagecoord_from_worldcoord(world_coord, data_loader.dataset.base.intrinsic_matrices[cam],
+            #                                                         data_loader.dataset.base.extrinsic_matrices[cam])
 
             # compute target loss weight
-            ps_large_p = map_pseudo_label_prob.ge(self.pseudo_threshold).long() == 1
-            ps_size = torch.numel(map_pseudo_label_prob)
+            ps_large_p = map_pred_teacher.ge(self.pseudo_threshold).long() == 1
+            ps_size = torch.numel(map_pred_teacher)
             pseudo_weight = torch.sum(ps_large_p).item() / ps_size
             # pseudo_weight = pseudo_weight * torch.ones(
             #     pseudo_prob.shape, device=logits.device)
