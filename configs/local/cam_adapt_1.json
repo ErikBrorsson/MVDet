@@ -12,7 +12,8 @@
         5,
         7
     ],
-    "dataset": "Wildtrack_dataset",
+    "dataset": "wildtrack",
+    "data_path": "/data/Wildtrack",
     "cam_adapt": true,
     "train_viz": true
 }

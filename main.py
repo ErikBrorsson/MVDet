@@ -42,7 +42,8 @@ def main(args):
 
 
     if 'wildtrack' in args.dataset:
-        data_path = os.path.expanduser('/data/Wildtrack')
+        # data_path = os.path.expanduser('/data/Wildtrack')
+        data_path = args.data_path
         if args.cam_adapt:
             assert args.src_cams is not None and args.trg_cams is not None, "src_cams and trg_cams must be specified in cam_adapt setting"
             source_base = Wildtrack(data_path, cameras=args.src_cams)
@@ -179,6 +180,7 @@ if __name__ == '__main__':
                         choices=['default', 'img_proj', 'res_proj', 'no_joint_conv'])
     parser.add_argument('--arch', type=str, default='resnet18', choices=['vgg11', 'resnet18'])
     parser.add_argument('-d', '--dataset', type=str, default='wildtrack', choices=['wildtrack', 'multiviewx'])
+    parser.add_argument("--data_path", type=str, default=None)
     parser.add_argument('-j', '--num_workers', type=int, default=4)
     parser.add_argument('-b', '--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
