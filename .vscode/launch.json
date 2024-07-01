@@ -14,7 +14,12 @@
             "args": [
                 "--dataset",
                 "wildtrack",
-                "--cam_adapt"
+                "--cam_adapt",
+                "--train_viz",
+                "--resume",
+                "2024-06-26_11-16-08",
+                "--log_interval",
+                "10"
             ],
             "justMyCode": false
         }

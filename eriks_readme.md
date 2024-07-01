@@ -4,6 +4,8 @@ docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/dat
 
 python main.py -d wildtrack
 
+python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
+
 
 # UDA baseline
 
@@ -20,15 +22,17 @@ python main.py -d wildtrack
 
 ### create pseudo labels
 - [x] train with soft labels
-- [x] create pseudo-label weight
-- [x] create pseudo-labels in bev and perspective view separately
+- [ ] train with confidence weighted MSE loss
+  - [ ] create confidence scores from model prediction which is in range -infty to +infty
+- [ ] create pseudo-labels in bev and perspective view separately
   - [x] find probabilities and argmax
   - [ ] non-maximum supression
   - [ ] perspective view 
 - [ ] train with pseudo-labels
-- [ ] create pseudo-labels in bev and project into perspective view
-  - [ ] find the pos of pseudo-labels in bev
-  - [ ] project pos to cameras
+- [x] create pseudo-labels in bev and project into perspective view
+  - [x] find the pos of pseudo-labels in bev
+  - [x] project pos to cameras
+  - [ ] plot pseudo-labels during training
 
 The model predicts both head/feet positions in each image as well as occupancy map in bev. 
 It seems natural that the student should be supervised in both perspective and bev view also on target data.
@@ -60,10 +64,15 @@ Different options exist.
 
 ### ramp-up adaptation
 - [x] target loss weight increases as confidence of pseudo-labels increase
+  - [x] Since there is no obvious method for measuring the model's confidence (it outputs real values and tries to match the ground truths which has been gaussian smoothed), I resort to a hard-coded schedule for progressively increasing the focus on target domain. 
 
 
 There should probably be more focus on accurate source labels in the beginning, and then successively focus is shifted to target domain as the quality of the pseudo-labels increase.
 
+
+# Notes
+
+- Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
 
 
 

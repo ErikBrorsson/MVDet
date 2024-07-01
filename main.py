@@ -44,9 +44,12 @@ def main(args):
     if 'wildtrack' in args.dataset:
         data_path = os.path.expanduser('/data/Wildtrack')
         if args.cam_adapt:
-            source_base = Wildtrack(data_path, cameras=[2,4,5,6])
-            target_base = Wildtrack(data_path, cameras=[1,3,5,7])
-            test_base = Wildtrack(data_path, cameras=[1,3,5,7])
+            # source_base = Wildtrack(data_path, cameras=[2,4,5,6])
+            source_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            # target_base = Wildtrack(data_path, cameras=[1,3,5,7])
+            target_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            # test_base = Wildtrack(data_path, cameras=[1,3,5,7])
+            test_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
 
             train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
             train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
@@ -96,16 +99,15 @@ def main(args):
     criterion = GaussianMSE().cuda()
 
     # logging
-    logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') \
-        if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
-    if args.resume is None:
-        os.makedirs(logdir, exist_ok=True)
-        copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
-        for script in os.listdir('.'):
-            if script.split('.')[-1] == 'py':
-                dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
-                shutil.copyfile(script, dst_file)
-        sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
+    logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')# if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
+    # if args.resume is None:
+    os.makedirs(logdir, exist_ok=True)
+    copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
+    for script in os.listdir('.'):
+        if script.split('.')[-1] == 'py':
+            dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
+            shutil.copyfile(script, dst_file)
+    sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
     print('Settings:')
     print(vars(args))
 
@@ -118,40 +120,47 @@ def main(args):
     test_moda_s = []
 
     if args.cam_adapt:
-        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
+        pom = train_loader_target.dataset.base.read_pom()
+        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
     # learn
-    if args.resume is None:
-        # print('Testing...')
-        # trainer.test(test_loader, os.path.join(logdir, 'test.txt'), train_set.gt_fpath, True)
-
-        for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
-            print('Training...')
-            if args.cam_adapt:
-                train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler)
-            else:
-                train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
-            print('Testing...')
-            test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                      train_set.gt_fpath, True)
-
-            x_epoch.append(epoch)
-            train_loss_s.append(train_loss)
-            train_prec_s.append(train_prec)
-            test_loss_s.append(test_loss)
-            test_prec_s.append(test_prec)
-            test_moda_s.append(moda)
-            draw_curve(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, train_loss_s, train_prec_s,
-                       test_loss_s, test_prec_s, test_moda_s)
-            # save
-            torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
-    else:
+    if args.resume is not None:
         resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
         resume_fname = resume_dir + '/MultiviewDetector.pth'
+        print("Loading saved model from: ", resume_fname)
         model.load_state_dict(torch.load(resume_fname))
-        model.eval()
+
+
+    # print('Testing...')
+    # trainer.test(test_loader, os.path.join(logdir, 'test.txt'), train_set.gt_fpath, True)
+
+    for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
+        print('Training...')
+        if args.cam_adapt:
+            train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler)
+        else:
+            train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
+        print('Testing...')
+        test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+                                                    train_set.gt_fpath, True)
+
+        x_epoch.append(epoch)
+        train_loss_s.append(train_loss)
+        train_prec_s.append(train_prec)
+        test_loss_s.append(test_loss)
+        test_prec_s.append(test_prec)
+        test_moda_s.append(moda)
+        draw_curve(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, train_loss_s, train_prec_s,
+                    test_loss_s, test_prec_s, test_moda_s)
+        # save
+        torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
+    # else:
+    #     resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
+    #     resume_fname = resume_dir + '/MultiviewDetector.pth'
+    #     model.load_state_dict(torch.load(resume_fname))
+    #     model.eval()
     print('Test loaded model...')
     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), train_set.gt_fpath, True)
 
@@ -177,6 +186,7 @@ if __name__ == '__main__':
                         help='how many batches to wait before logging training status')
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--visualize', action='store_true')
+    parser.add_argument('--train_viz', action='store_true')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
     parser.add_argument('--cam_adapt', action="store_true")
 

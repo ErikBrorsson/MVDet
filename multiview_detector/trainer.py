@@ -265,7 +265,7 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0):
+    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -277,9 +277,13 @@ class UDATrainer(BaseTrainer):
 
         self.dropview = True
         self.pseudo_threshold = 0.7
+        self.pom = pom
+        self.visualize_train = visualize_train
 
-    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
-        pom = data_loader.dataset.base.read_pom() # TODO put this in __init__
+        assert target_cameras is not None, "target_cameras must be set in UDATrainer"
+        self.target_cameras = target_cameras
+
+    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None): # TODO put this in __init__
 
         self.model.train()
         losses = 0
@@ -305,12 +309,26 @@ class UDATrainer(BaseTrainer):
             optimizer.step()
             losses += loss.item()
 
+            # logging
+            map_res_max = map_res.max()
+            pred = (map_res > self.cls_thres).int().to(map_gt.device)
+            true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+            false_positive = pred.sum().item() - true_positive
+            false_negative = map_gt.sum().item() - true_positive
+            precision = true_positive / (true_positive + false_positive + 1e-4)
+            recall = true_positive / (true_positive + false_negative + 1e-4)
+            precision_s.update(precision)
+            recall_s.update(recall)
+
+            img_gt_shape = imgs_gt[0].shape
+            del imgs_res, imgs_gt, map_res, map_gt, data
+
             # train on target data
             optimizer.zero_grad()
 
             # create pseudo-labels
-            map_pred_teacher, imgs_teacher_pred = self.teacher(data_target)
-
+            with torch.no_grad():
+                map_pred_teacher, imgs_teacher_pred = self.teacher(data_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
             scores = temp[temp > self.cls_thres]
             positions = (temp > self.cls_thres).nonzero().float()
@@ -318,14 +336,14 @@ class UDATrainer(BaseTrainer):
                 positions = positions[:, [1, 0]]
             else:
                 positions = positions
-            ids, count = nms(positions.float(), scores, 20, np.inf)
-            positions = positions[ids[:count], :]
-            scores = scores[ids[:count]]
-
-            pseudo_label = torch.zeros_like(map_pred_teacher)
-            pseudo_label[:,:,positions] = 1
+            if not torch.numel(positions) == 0:
+                ids, count = nms(positions.float(), scores, 20 / 4, np.inf) # TODO hardcoded /4 since the pred_map is downscaled by a factor 4
+                positions = positions[ids[:count], :]
+                scores = scores[ids[:count]]
+            map_pseudo_label = torch.zeros_like(map_pred_teacher)
+            for pos in positions:
+                map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
             pseudo_label_conf = map_pred_teacher
-
 
             # map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
             # map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
@@ -338,24 +356,21 @@ class UDATrainer(BaseTrainer):
                 
             # get bounding boxes for each cameras
             imgs_pseudo_labels = []
-            for cam in [2]:
-                img_pseudo_label = torch.zeros_like(imgs_gt[0])
+            for cam in self.target_cameras:
+                img_pseudo_label = torch.zeros(img_gt_shape)
 
                 for grid_pos in positions:
-                    pos = data_loader.dataset.base.get_pos_from_worldgrid(grid_pos)
-                    bbox = pom[pos.item()][cam]
+                    pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos*4) # TODO hardcoded *4 since the map_pred is downscaled by a factor 4
+                    bbox = self.pom[pos.item()][cam]
                     if bbox is None:
                         continue                    
                     foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
                     head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                    img_pseudo_label[:,0,head_2d[0], head_2d[1]] = 1
-                    img_pseudo_label[:,1,foot_2d[0],foot_2d[1]] = 1
+                    img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                    img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
 
                 imgs_pseudo_labels.append(img_pseudo_label)
                     
-
-
-
             # world_grid_x, world_grid_y = torch.where(map_pseudo_label == 1)
             # for grid_pos in positions:
             #     pos = data_loader.dataset.base.get_pos_from_worldgrid(grid_pos)
@@ -366,11 +381,14 @@ class UDATrainer(BaseTrainer):
             #                                                         data_loader.dataset.base.extrinsic_matrices[cam])
 
             # compute target loss weight
-            ps_large_p = map_pred_teacher.ge(self.pseudo_threshold).long() == 1
-            ps_size = torch.numel(map_pred_teacher)
-            pseudo_weight = torch.sum(ps_large_p).item() / ps_size
+            # ps_large_p = map_pred_teacher.ge(self.pseudo_threshold).long() == 1
+            # ps_size = torch.numel(map_pred_teacher)
+            # pseudo_weight = torch.sum(ps_large_p).item() / ps_size
             # pseudo_weight = pseudo_weight * torch.ones(
             #     pseudo_prob.shape, device=logits.device)
+
+            epoch_step = 0
+            pseudo_weight = 1. if epoch >= epoch_step else 0.
 
             # apply augmentation to target images and pseudo-labels prior to student training
             data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
@@ -380,9 +398,9 @@ class UDATrainer(BaseTrainer):
             loss = 0
             for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                 if not img_pseudo_label is None:
-                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), None)
-            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) + \
-                   loss / len(imgs_gt) * self.alpha
+                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
+            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+                   loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
             loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
             loss.backward()
             optimizer.step()
@@ -397,24 +415,58 @@ class UDATrainer(BaseTrainer):
                     cyclic_scheduler.step()
 
             # logging
-            pred = (map_res > self.cls_thres).int().to(map_gt.device)
-            true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
-            false_positive = pred.sum().item() - true_positive
-            false_negative = map_gt.sum().item() - true_positive
-            precision = true_positive / (true_positive + false_positive + 1e-4)
-            recall = true_positive / (true_positive + false_negative + 1e-4)
-            precision_s.update(precision)
-            recall_s.update(recall)
             t_b = time.time()
             t_backward += t_b - t_f
             if (batch_idx + 1) % log_interval == 0:
+                if self.visualize_train:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(311, title="prediciton")
+                    subplt1 = fig.add_subplot(312, title="label")
+                    subplt2 = fig.add_subplot(313, title="pseudo_label")
+                    subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
+                    subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    plt.savefig(os.path.join(self.logdir, 'train_target_map.jpg'))
+                    plt.close(fig)
+
+                    # visualizing the heatmap for per-view estimation
+                    heatmap0_head = imgs_res_target[0][0, 0].detach().cpu().numpy().squeeze()
+                    heatmap0_foot = imgs_res_target[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data_target[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    head_cam_result.save(os.path.join(self.logdir, 'train_target_cam1_head.jpg'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, 'train_target_cam1_foot.jpg'))
+
+                    # visualize pseudo-label of perspective view
+                    for cam_indx, img_pseudo_label in enumerate(imgs_pseudo_labels):
+                        if img_pseudo_label is None:
+                            continue
+
+                        pseudo_view1 = img_pseudo_label
+                        pred_view1 = imgs_res_target[cam_indx]
+                        pseudo_view1 = self.criterion._traget_transform(pred_view1, pseudo_view1, data_loader_target.dataset.img_kernel).cpu().detach().numpy().squeeze()
+                        pseudo_view1_head = pseudo_view1[0]
+                        pseudo_view1_foot = pseudo_view1[1]
+
+                        cam_num = self.target_cameras[cam_indx]
+                        img0 = self.denormalize(data_target[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                        img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                        head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
+                        head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}.jpg'))
+                        foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
+                        foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}.jpg'))
+
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()
                 t_epoch = t1 - t0
                 print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f}, target_weight: {:.2f}'
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
                     epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), pseudo_weight, precision_s.avg * 100, recall_s.avg * 100,
-                    t_epoch, t_forward / batch_idx, t_backward / batch_idx, map_res.max()))
+                    t_epoch, t_forward / (batch_idx + 1), t_backward / (batch_idx + 1), map_res_max))
                 pass
 
         t1 = time.time()
