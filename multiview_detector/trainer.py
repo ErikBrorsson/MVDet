@@ -73,7 +73,7 @@ class PerspectiveTrainer(BaseTrainer):
                 print('Train Epoch: {}, Batch:{}, Loss: {:.6f}, '
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
                     epoch, (batch_idx + 1), losses / (batch_idx + 1), precision_s.avg * 100, recall_s.avg * 100,
-                    t_epoch, t_forward / batch_idx, t_backward / batch_idx, map_res.max()))
+                    t_epoch, t_forward / (batch_idx + 1), t_backward / (batch_idx + 1), map_res.max()))
                 pass
 
         t1 = time.time()

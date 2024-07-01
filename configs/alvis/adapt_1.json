@@ -14,5 +14,6 @@
     "dataset": "wildtrack",
     "data_path": "/mimer/NOBACKUP/groups/naiss2023-23-214/data/Wildtrack_dataset",
     "cam_adapt": true,
-    "train_viz": true
+    "train_viz": true,
+    "uda": false
 }

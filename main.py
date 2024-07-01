@@ -124,7 +124,7 @@ def main(args):
     test_prec_s = []
     test_moda_s = []
 
-    if args.cam_adapt:
+    if args.uda:
         pom = train_loader_target.dataset.base.read_pom()
         trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras)
     else:
@@ -143,7 +143,7 @@ def main(args):
 
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')
-        if args.cam_adapt:
+        if args.uda:
             train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler)
         else:
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
@@ -197,6 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_viz', action='store_true')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
     parser.add_argument('--cam_adapt', action="store_true")
+    parser.add_argument('--uda', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)
 
