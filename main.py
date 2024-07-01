@@ -44,12 +44,13 @@ def main(args):
     if 'wildtrack' in args.dataset:
         data_path = os.path.expanduser('/data/Wildtrack')
         if args.cam_adapt:
-            # source_base = Wildtrack(data_path, cameras=[2,4,5,6])
-            source_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
-            # target_base = Wildtrack(data_path, cameras=[1,3,5,7])
-            target_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
-            # test_base = Wildtrack(data_path, cameras=[1,3,5,7])
-            test_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            assert args.src_cams is not None and args.trg_cams is not None, "src_cams and trg_cams must be specified in cam_adapt setting"
+            source_base = Wildtrack(data_path, cameras=args.src_cams)
+            # source_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            target_base = Wildtrack(data_path, cameras=args.trg_cams)
+            # target_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            test_base = Wildtrack(data_path, cameras=args.trg_cams)
+            # test_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
 
             train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
             train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
@@ -100,6 +101,9 @@ def main(args):
 
     # logging
     logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')# if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
+    if args.log_dir is not None:
+        logdir = os.path.join(args.log_dir, logdir)
+
     # if args.resume is None:
     os.makedirs(logdir, exist_ok=True)
     copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
@@ -185,12 +189,25 @@ if __name__ == '__main__':
     parser.add_argument('--log_interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--log_dir', type=str, default=None)
+    parser.add_argument('--config', type=str, default=None)
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument('--train_viz', action='store_true')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
     parser.add_argument('--cam_adapt', action="store_true")
+    parser.add_argument('--src_cams', type=str, default=None)
+    parser.add_argument('--trg_cams', type=str, default=None)
 
     args = parser.parse_args()
+
+    if args.config is not None:
+        import json
+        f = open(args.config)
+        data = json.load(f)
+        args_d = vars(args)
+
+        for k,v in data.items():
+            args_d[k] = v
 
     print(args)
 
