@@ -105,6 +105,22 @@ class PerspectiveTrainer(BaseTrainer):
                     grid_xy = grid_ij
                 all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
                                                data_loader.dataset.grid_reduce, v_s], dim=1))
+                
+                # do NMS and create actual preditions (post nms)
+                temp = map_grid_res
+                scores = temp[temp > self.cls_thres]
+                positions = (temp > self.cls_thres).nonzero().float()
+                if data_loader.dataset.base.indexing == 'xy':
+                    positions = positions[:, [1, 0]]
+                else:
+                    positions = positions
+                if not torch.numel(positions) == 0:
+                    ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
+                    positions = positions[ids[:count], :]
+                    scores = scores[ids[:count]]
+                map_pseudo_label = torch.zeros_like(map_res)
+                for pos in positions:
+                    map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
 
             loss = 0
             for img_res, img_gt in zip(imgs_res, imgs_gt):
@@ -123,10 +139,13 @@ class PerspectiveTrainer(BaseTrainer):
 
             if visualize:
                 fig = plt.figure()
-                subplt0 = fig.add_subplot(211, title="output")
-                subplt1 = fig.add_subplot(212, title="target")
+                subplt0 = fig.add_subplot(311, title="output scores")
+                subplt1 = fig.add_subplot(312, title="prediction")
+                subplt2 = fig.add_subplot(313, title="label")
                 subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                            .cpu().detach().numpy().squeeze())
+                subplt2.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
                             .cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
                 plt.close(fig)
@@ -278,14 +297,14 @@ class UDATrainer(BaseTrainer):
         self.alpha = alpha
 
         self.dropview = True
-        self.pseudo_threshold = 0.7
+        # self.pseudo_threshold = 0.7
         self.pom = pom
         self.visualize_train = visualize_train
 
         assert target_cameras is not None, "target_cameras must be set in UDATrainer"
         self.target_cameras = target_cameras
 
-    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None): # TODO put this in __init__
+    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
 
         self.model.train()
         losses = 0
@@ -339,7 +358,7 @@ class UDATrainer(BaseTrainer):
             else:
                 positions = positions
             if not torch.numel(positions) == 0:
-                ids, count = nms(positions.float(), scores, 20 / 4, np.inf) # TODO hardcoded /4 since the pred_map is downscaled by a factor 4
+                ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
                 positions = positions[ids[:count], :]
                 scores = scores[ids[:count]]
             map_pseudo_label = torch.zeros_like(map_pred_teacher)
@@ -362,7 +381,7 @@ class UDATrainer(BaseTrainer):
                 img_pseudo_label = torch.zeros(img_gt_shape)
 
                 for grid_pos in positions:
-                    pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos*4) # TODO hardcoded *4 since the map_pred is downscaled by a factor 4
+                    pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
                     bbox = self.pom[pos.item()][cam]
                     if bbox is None:
                         continue                    

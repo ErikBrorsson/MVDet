@@ -116,6 +116,8 @@ def main(args):
     print('Settings:')
     print(vars(args))
 
+    print("logdir: ", logdir)
+
     # draw curve
     x_epoch = []
     train_loss_s = []

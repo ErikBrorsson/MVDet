@@ -81,7 +81,21 @@ moda: 87.4%, modp: 75.5%, precision: 93.2%, recall: 94.2%
 
 
 ### cam_adapt 2,4,5,6 -> 1,3,5,7
+slurm-2465263_4
+/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-02_09-33-24
 
+testing on 2,4,5,6 (test_1)
+moda: 83.5%, modp: 72.8%, precision: 94.7%, recall: 88.4%
+(Results from GMVD paper: 85.2, 72.2, 92.6, 92.)
+
+
+testing on 1,3,5,7 (test_0)
+moda: 18.2%, modp: 70.2%, precision: 76.6%, recall: 26.2%
+(Results from GMVD paper: 43.2, 68.2, 94.6, 45.8)
+
+
+
+It can be seen that my experimental results match those of the GMVD paper relatively well, although, the moda and recall is a bit lower than expected on 1,3,5,7.
 
 
 # Notes
