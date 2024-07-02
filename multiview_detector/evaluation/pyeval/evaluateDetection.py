@@ -51,7 +51,15 @@ def evaluateDetection_py(res_fpath, gt_fpath, dataset_name):
 
     gtRaw = np.loadtxt(gt_fpath)
     detRaw = np.loadtxt(res_fpath)
-    frames = np.unique(detRaw[:, 0]) if detRaw.size else np.zeros(0)
+    if detRaw.size:
+        if len(detRaw.shape) > 1:
+            frames = np.unique(detRaw[:, 0])
+        else:#there is only one row
+            detRaw = detRaw.reshape((1, 3))
+            frames = np.unique(detRaw[:, 0])
+    else:
+        frames = np.zeros(0)
+    # frames = np.unique(detRaw[:, 0]) if detRaw.size else np.zeros(0)
     frame_ctr = 0
     gt_flag = True
     det_flag = True

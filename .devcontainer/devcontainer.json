@@ -22,7 +22,8 @@
         3000
     ],
     "mounts": [
-        "source=/home/gpss1/remote/datasets/Wildtrack_dataset,target=/data/Wildtrack,type=bind,consistency=cached"
+        "source=/home/gpss1/remote/datasets/Wildtrack_dataset,target=/data/Wildtrack,type=bind,consistency=cached",
+        "source=/home/gpss1/remote/mnts/mnt0,target=/mnt,type=bind,consistency=cached"
     ],
     "runArgs": [
         "--gpus",

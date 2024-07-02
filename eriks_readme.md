@@ -1,6 +1,7 @@
 # commands
 docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -w /code mvdet
 
+docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/mnts/mnt0:/mnt -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -w /code mvdet
 
 python main.py -d wildtrack
 
@@ -78,6 +79,10 @@ slurm-2464253_3
 moda: 87.4%, modp: 75.5%, precision: 93.2%, recall: 94.2%
 
 ### cam_adapt 1,3,5,7 -> 2,4,5,6
+slurm-2465377_5
+/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-02_10-44-47
+
+
 
 
 ### cam_adapt 2,4,5,6 -> 1,3,5,7

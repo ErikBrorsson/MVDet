@@ -11,17 +11,27 @@
             "program": "${file}",
             "console": "integratedTerminal",
             // "args": "${command:pickArgs}"
+            // "args": [
+            //     "--dataset",
+            //     "wildtrack",
+            //     "--cam_adapt",
+            //     "--train_viz",
+            //     "--resume",
+            //     "2024-06-26_11-16-08",
+            //     "--log_interval",
+            //     "10"
+            // ],
             "args": [
-                "--dataset",
-                "wildtrack",
+                "--log_dir",
+                "/mnt/default/2024-07-02_09-33-24",
+                "--data_path",
+                "/data/Wildtrack",
                 "--cam_adapt",
-                "--train_viz",
-                "--resume",
-                "2024-06-26_11-16-08",
-                "--log_interval",
-                "10"
-            ],
-            "justMyCode": false
+                "--trg_cams",
+                "1,3,5,7",
+                "--cls_thres",
+                "0.2"
+            ]
         }
     ]
 }
