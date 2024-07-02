@@ -32,11 +32,11 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
   - [x] find probabilities and argmax
   - [ ] non-maximum supression
   - [ ] perspective view 
-- [ ] train with pseudo-labels
+- [x] train with pseudo-labels
 - [x] create pseudo-labels in bev and project into perspective view
   - [x] find the pos of pseudo-labels in bev
   - [x] project pos to cameras
-  - [ ] plot pseudo-labels during training
+  - [x] plot pseudo-labels during training
 
 The model predicts both head/feet positions in each image as well as occupancy map in bev. 
 It seems natural that the student should be supervised in both perspective and bev view also on target data.
@@ -68,7 +68,10 @@ Different options exist.
 
 ### ramp-up adaptation
 - [x] target loss weight increases as confidence of pseudo-labels increase
-  - [x] Since there is no obvious method for measuring the model's confidence (it outputs real values and tries to match the ground truths which has been gaussian smoothed), I resort to a hard-coded schedule for progressively increasing the focus on target domain. 
+  - [x] Since there is no obvious method for measuring the model's confidence (it outputs real values and tries to match the ground truths which has been gaussian smoothed), I resort to a hard-coded schedule for progressively increasing the focus on target domain.
+
+### other UDA concepts
+- [ ] ImageNet feature distance as introduced by DAFormer
 
 
 There should probably be more focus on accurate source labels in the beginning, and then successively focus is shifted to target domain as the quality of the pseudo-labels increase.
@@ -102,12 +105,19 @@ moda: 18.2%, modp: 70.2%, precision: 76.6%, recall: 26.2%
 (Results from GMVD paper: 43.2, 68.2, 94.6, 45.8)
 
 
+Making predictions on training dataset to see the "pseudo-labelling capability" of the model
+cls_thresh=0.05 2024-07-02_09-33-24/test_13
+cls_thres=0.2 test_12
+cls_thres=0.4 test_11
+As expected, the quality of pseudo-labels is relatively poor. cls_thres=0.2 seems most reasonable out of the three.
+
 
 It can be seen that my experimental results match those of the GMVD paper relatively well, although, the moda and recall is a bit lower than expected on 1,3,5,7.
 
 
 # Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
+- Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
 
 # log book
 ### 1/7
@@ -116,6 +126,13 @@ started baseline experiments
 ### 2/7
 The experiemnts yesterday didn't turn out well. The model cannot generalize. From the appearance of the predictions, it seems like the wrong calibration matrices are used.  
 Indeed, it seems like the code is incorrect.  Iä've fixed this and started new experiments on cam_adaptation.  
+
+After above fix, the model generalizes almost equally "well/poorly" as described in GMVD, so it seems like the implementation is correct.
+
+I've started experimenting with self-training, but without good results yet.
+It is evident that after training only on source, the pseudo-labels on target are of poor quality.
+This is expected, and given the results of "Toward unlabeled multi-view 3D pedestrian detection by generalizable AI: techniques and performance analysis", I don't believe that it is worth attempting a naive iterative pseudo-labeling training.
+Instead, it is time to implement the mean teacher and experiment with a "smooth" transition to the target data.
 
 
 

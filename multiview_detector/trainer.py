@@ -477,9 +477,9 @@ class UDATrainer(BaseTrainer):
                         img0 = self.denormalize(data_target[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
                         img0 = Image.fromarray((img0 * 255).astype('uint8'))
                         head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
-                        head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}.jpg'))
+                        head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
-                        foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}.jpg'))
+                        foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()

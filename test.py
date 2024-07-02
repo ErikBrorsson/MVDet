@@ -54,10 +54,20 @@ def main(args):
             test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
             test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
+            
+            train_base = Wildtrack(data_path, cameras=trg_cams)
+            train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
         else:
             test_base = Wildtrack(data_path)
             test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)            
             test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            train_base = Wildtrack(data_path)
+            train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
 
     else:
@@ -100,7 +110,10 @@ def main(args):
     model.load_state_dict(torch.load(resume_fname))
 
     print('Testing...')
-    trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True)
+    if args.train_set:
+        trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True)
+    else:
+        trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True)
 
 if __name__ == '__main__':
     # settings
@@ -120,6 +133,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--cam_adapt', action="store_true")
+    parser.add_argument('--train_set', action="store_true")
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--model', type=str, default="MultiviewDetector.pth")
 
