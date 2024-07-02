@@ -286,7 +286,7 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False):
+    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -300,6 +300,7 @@ class UDATrainer(BaseTrainer):
         # self.pseudo_threshold = 0.7
         self.pom = pom
         self.visualize_train = visualize_train
+        self.ema_model = ema_model
 
         assert target_cameras is not None, "target_cameras must be set in UDATrainer"
         self.target_cameras = target_cameras
@@ -349,7 +350,7 @@ class UDATrainer(BaseTrainer):
 
             # create pseudo-labels
             with torch.no_grad():
-                map_pred_teacher, imgs_teacher_pred = self.teacher(data_target)
+                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
             scores = temp[temp > self.cls_thres]
             positions = (temp > self.cls_thres).nonzero().float()
@@ -364,7 +365,7 @@ class UDATrainer(BaseTrainer):
             map_pseudo_label = torch.zeros_like(map_pred_teacher)
             for pos in positions:
                 map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
-            pseudo_label_conf = map_pred_teacher
+            # pseudo_label_conf = map_pred_teacher
 
             # map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
             # map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
@@ -426,6 +427,11 @@ class UDATrainer(BaseTrainer):
             loss.backward()
             optimizer.step()
             losses_target += loss.item()
+
+            # update ema model
+            alpha_teacher = 0.99
+            iteration = (epoch - 1) * len(data_loader.dataset) + batch_idx
+            self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
 
 
             # update learning rate
@@ -606,5 +612,18 @@ class UDATrainer(BaseTrainer):
 
         return imgs, map_pseudo_label, imgs_pseudo_labels
 
+    @staticmethod
+    def update_ema_variables(ema_model, model, alpha_teacher, iteration):
+        # Use the "true" average until the exponential average is more correct
+        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
+        # if len(gpus)>1:
+        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
+        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        # else:
+        for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+            ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        return ema_model
 
 

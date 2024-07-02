@@ -84,6 +84,18 @@ def main(args):
     # model
     if args.variant == 'default':
         model = PerspTransDetector(train_set, args.arch)
+
+        if args.uda:
+            # init ema model
+            ema_model = PerspTransDetector(train_set, args.arch)
+            for param in ema_model.parameters():
+                param.detach_()
+            mp = list(model.parameters())
+            mcp = list(ema_model.parameters())
+            n = len(mp)
+            for i in range(0, n):
+                mcp[i].data[:] = mp[i].data[:].clone()
+
     elif args.variant == 'img_proj':
         model = ImageProjVariant(train_set, args.arch)
     elif args.variant == 'res_proj':
@@ -128,7 +140,7 @@ def main(args):
 
     if args.uda:
         pom = train_loader_target.dataset.base.read_pom()
-        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview)
+        trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
