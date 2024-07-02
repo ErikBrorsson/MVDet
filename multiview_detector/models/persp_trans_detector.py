@@ -28,8 +28,8 @@ class PerspTransDetector(nn.Module):
         # map
         map_zoom_mat = np.diag(np.append(np.ones([2]) / dataset.grid_reduce, [1]))
         # projection matrices: img feat -> map feat
-        self.proj_mats = [torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
-                          for cam in self.cameras]
+        self.proj_mats = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
+                          for cam in self.cameras}
 
         if arch == 'vgg11':
             base = vgg11().features
