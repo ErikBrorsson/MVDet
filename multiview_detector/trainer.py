@@ -286,7 +286,7 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None):
+    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -296,7 +296,7 @@ class UDATrainer(BaseTrainer):
         self.denormalize = denormalize
         self.alpha = alpha
 
-        self.dropview = True
+        self.dropview = dropview
         # self.pseudo_threshold = 0.7
         self.pom = pom
         self.visualize_train = visualize_train

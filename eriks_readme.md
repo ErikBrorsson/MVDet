@@ -8,6 +8,9 @@ python main.py -d wildtrack
 python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
 
 
+rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
+
+
 # UDA baseline
 
 ## TODO

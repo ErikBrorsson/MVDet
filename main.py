@@ -128,7 +128,7 @@ def main(args):
 
     if args.uda:
         pom = train_loader_target.dataset.base.read_pom()
-        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras)
+        trainer = UDATrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom, args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
@@ -201,6 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
     parser.add_argument('--cam_adapt', action="store_true")
     parser.add_argument('--uda', action="store_true")
+    parser.add_argument('--dropview', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)
 
