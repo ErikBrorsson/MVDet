@@ -134,8 +134,9 @@ def main(args):
 
     # learn
     if args.resume is not None:
-        resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
-        resume_fname = resume_dir + '/MultiviewDetector.pth'
+        # resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
+        # resume_fname = resume_dir + '/MultiviewDetector.pth'
+        resume_fname = args.resume_model
         print("Loading saved model from: ", resume_fname)
         model.load_state_dict(torch.load(resume_fname))
 
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     parser.add_argument('--momentum', type=float, default=0.5, metavar='M', help='SGD momentum (default: 0.5)')
     parser.add_argument('--log_interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    parser.add_argument('--resume', type=str, default=None)
+    parser.add_argument('--resume_model', type=str, default=None)
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--config', type=str, default=None)
     parser.add_argument('--visualize', action='store_true')
