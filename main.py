@@ -133,7 +133,7 @@ def main(args):
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
     # learn
-    if args.resume is not None:
+    if args.resume_model is not None:
         # resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
         # resume_fname = resume_dir + '/MultiviewDetector.pth'
         resume_fname = args.resume_model
