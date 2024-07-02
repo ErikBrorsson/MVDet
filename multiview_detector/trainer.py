@@ -449,7 +449,7 @@ class UDATrainer(BaseTrainer):
                                 .cpu().detach().numpy().squeeze())
                     subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())
-                    plt.savefig(os.path.join(self.logdir, 'train_target_map.jpg'))
+                    plt.savefig(os.path.join(self.logdir, f'train_target_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
                     # visualizing the heatmap for per-view estimation
@@ -458,9 +458,9 @@ class UDATrainer(BaseTrainer):
                     img0 = self.denormalize(data_target[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
                     img0 = Image.fromarray((img0 * 255).astype('uint8'))
                     head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                    head_cam_result.save(os.path.join(self.logdir, 'train_target_cam1_head.jpg'))
+                    head_cam_result.save(os.path.join(self.logdir, f'train_target_cam1_head_{batch_idx}.jpg'))
                     foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                    foot_cam_result.save(os.path.join(self.logdir, 'train_target_cam1_foot.jpg'))
+                    foot_cam_result.save(os.path.join(self.logdir, f'train_target_cam1_foot_{batch_idx}.jpg'))
 
                     # visualize pseudo-label of perspective view
                     for cam_indx, img_pseudo_label in enumerate(imgs_pseudo_labels):
