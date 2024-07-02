@@ -29,7 +29,7 @@ class Wildtrack(VisionDataset):
         # i,j for world map indexing
         self.worldgrid2worldcoord_mat = np.array([[2.5, 0, -300], [0, 2.5, -900], [0, 0, 1]])
         self.intrinsic_matrices, self.extrinsic_matrices = zip(
-            *[self.get_intrinsic_extrinsic_matrix(cam) for cam in range(self.num_cam)])
+            *[self.get_intrinsic_extrinsic_matrix(cam) for cam in self.cameras])
 
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}

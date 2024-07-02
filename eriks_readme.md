@@ -70,9 +70,30 @@ Different options exist.
 There should probably be more focus on accurate source labels in the beginning, and then successively focus is shifted to target domain as the quality of the pseudo-labels increase.
 
 
-# Notes
+# Experiments
 
+### all cameras MVDet baseline
+/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-01_18-07-44
+slurm-2464253_3
+moda: 87.4%, modp: 75.5%, precision: 93.2%, recall: 94.2%
+
+### cam_adapt 1,3,5,7 -> 2,4,5,6
+
+
+### cam_adapt 2,4,5,6 -> 1,3,5,7
+
+
+
+# Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
+
+# log book
+### 1/7
+started baseline experiments
+
+### 2/7
+The experiemnts yesterday didn't turn out well. The model cannot generalize. From the appearance of the predictions, it seems like the wrong calibration matrices are used.  
+Indeed, it seems like the code is incorrect.  Iä've fixed this and started new experiments on cam_adaptation.  
 
 
 

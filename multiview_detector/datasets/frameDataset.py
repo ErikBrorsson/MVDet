@@ -20,6 +20,7 @@ class frameDataset(VisionDataset):
 
         self.base = base
         self.root, self.num_cam, self.num_frame = base.root, base.num_cam, base.num_frame
+        self.cameras = base.cameras
         self.img_shape, self.worldgrid_shape = base.img_shape, base.worldgrid_shape  # H,W; N_row,N_col
         self.reducedgrid_shape = list(map(lambda x: int(x / self.grid_reduce), self.worldgrid_shape))
 
@@ -70,7 +71,7 @@ class frameDataset(VisionDataset):
                                 single_pedestrian['views'][cam]['ymin'] == -1 and
                                 single_pedestrian['views'][cam]['ymax'] == -1)
 
-                in_cam_range = sum(is_in_cam(cam) for cam in self.base.cameras)
+                in_cam_range = sum(is_in_cam(cam) for cam in self.cameras)
                 if not in_cam_range:
                     continue
                 grid_x, grid_y = self.base.get_worldgrid_from_pos(single_pedestrian['positionID'])
@@ -86,11 +87,11 @@ class frameDataset(VisionDataset):
                 with open(os.path.join(self.root, 'annotations_positions', fname)) as json_file:
                     all_pedestrians = json.load(json_file)
                 i_s, j_s, v_s = [], [], []
-                head_row_cam_s, head_col_cam_s = {cam:[] for cam in self.base.cameras}, \
-                                                 {cam:[] for cam in self.base.cameras}
-                foot_row_cam_s, foot_col_cam_s, v_cam_s = {cam:[] for cam in self.base.cameras}, \
-                                                          {cam:[] for cam in self.base.cameras}, \
-                                                          {cam:[] for cam in self.base.cameras}
+                head_row_cam_s, head_col_cam_s = {cam:[] for cam in self.cameras}, \
+                                                 {cam:[] for cam in self.cameras}
+                foot_row_cam_s, foot_col_cam_s, v_cam_s = {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}
                 for single_pedestrian in all_pedestrians:
                     x, y = self.base.get_worldgrid_from_pos(single_pedestrian['positionID'])
                     if self.base.indexing == 'xy':
@@ -100,7 +101,7 @@ class frameDataset(VisionDataset):
                         i_s.append(int(x / self.grid_reduce))
                         j_s.append(int(y / self.grid_reduce))
                     v_s.append(single_pedestrian['personID'] + 1 if self.reID else 1)
-                    for cam in self.base.cameras:
+                    for cam in self.cameras:
                         x = max(min(int((single_pedestrian['views'][cam]['xmin'] +
                                          single_pedestrian['views'][cam]['xmax']) / 2), self.img_shape[1] - 1), 0)
                         y_head = max(single_pedestrian['views'][cam]['ymin'], 0)
@@ -114,7 +115,7 @@ class frameDataset(VisionDataset):
                 occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
                 self.map_gt[frame] = occupancy_map
                 self.imgs_head_foot_gt[frame] = {}
-                for cam in self.base.cameras:
+                for cam in self.cameras:
                     img_gt_head = coo_matrix((v_cam_s[cam], (head_row_cam_s[cam], head_col_cam_s[cam])),
                                              shape=self.img_shape)
                     img_gt_foot = coo_matrix((v_cam_s[cam], (foot_row_cam_s[cam], foot_col_cam_s[cam])),
@@ -124,7 +125,7 @@ class frameDataset(VisionDataset):
     def __getitem__(self, index):
         frame = list(self.map_gt.keys())[index]
         imgs = []
-        for cam in self.base.cameras:
+        for cam in self.cameras:
             fpath = self.img_fpaths[cam][frame]
             img = Image.open(fpath).convert('RGB')
             if self.transform is not None:
@@ -137,7 +138,7 @@ class frameDataset(VisionDataset):
         if self.target_transform is not None:
             map_gt = self.target_transform(map_gt)
         imgs_gt = []
-        for cam in self.base.cameras:
+        for cam in self.cameras:
             img_gt_head = self.imgs_head_foot_gt[frame][cam][0].toarray()
             img_gt_foot = self.imgs_head_foot_gt[frame][cam][1].toarray()
             img_gt = np.stack([img_gt_head, img_gt_foot], axis=2)

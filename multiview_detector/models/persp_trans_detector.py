@@ -14,6 +14,7 @@ class PerspTransDetector(nn.Module):
     def __init__(self, dataset, arch='resnet18'):
         super().__init__()
         self.num_cam = dataset.num_cam
+        self.cameras = dataset.cameras
         print("# cameras in model: ", self.num_cam)
         self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
         imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(dataset.base.intrinsic_matrices,
@@ -28,7 +29,7 @@ class PerspTransDetector(nn.Module):
         map_zoom_mat = np.diag(np.append(np.ones([2]) / dataset.grid_reduce, [1]))
         # projection matrices: img feat -> map feat
         self.proj_mats = [torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
-                          for cam in range(self.num_cam)]
+                          for cam in self.cameras]
 
         if arch == 'vgg11':
             base = vgg11().features
@@ -60,8 +61,9 @@ class PerspTransDetector(nn.Module):
         assert N == self.num_cam
         world_features = []
         imgs_result = []
-        for cam in range(self.num_cam):
-            img_feature = self.base_pt1(imgs[:, cam].to('cuda:0'))
+        # for cam in range(self.num_cam):
+        for i, cam in enumerate(self.cameras):
+            img_feature = self.base_pt1(imgs[:, i].to('cuda:0'))
             img_feature = self.base_pt2(img_feature.to('cuda:0'))
             img_feature = F.interpolate(img_feature, self.upsample_shape, mode='bilinear')
             img_res = self.img_classifier(img_feature.to('cuda:0'))
@@ -89,7 +91,7 @@ class PerspTransDetector(nn.Module):
 
     def get_imgcoord2worldgrid_matrices(self, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
         projection_matrices = {}
-        for cam in range(self.num_cam):
+        for cam in self.cameras:
             worldcoord2imgcoord_mat = intrinsic_matrices[cam] @ np.delete(extrinsic_matrices[cam], 2, 1)
 
             worldgrid2imgcoord_mat = worldcoord2imgcoord_mat @ worldgrid2worldcoord_mat

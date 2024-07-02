@@ -121,28 +121,30 @@ class PerspectiveTrainer(BaseTrainer):
             precision_s.update(precision)
             recall_s.update(recall)
 
+            if visualize:
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="output")
+                subplt1 = fig.add_subplot(212, title="target")
+                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                            .cpu().detach().numpy().squeeze())
+                plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                plt.close(fig)
+
+                # visualizing the heatmap for per-view estimation
+                heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                head_cam_result.save(os.path.join(self.logdir, f'cam1_head_{batch_idx}.jpg'))
+                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
+
+
         t1 = time.time()
         t_epoch = t1 - t0
-
-        if visualize:
-            fig = plt.figure()
-            subplt0 = fig.add_subplot(211, title="output")
-            subplt1 = fig.add_subplot(212, title="target")
-            subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-            subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
-                           .cpu().detach().numpy().squeeze())
-            plt.savefig(os.path.join(self.logdir, 'map.jpg'))
-            plt.close(fig)
-
-            # visualizing the heatmap for per-view estimation
-            heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-            heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-            img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-            img0 = Image.fromarray((img0 * 255).astype('uint8'))
-            head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-            head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
-            foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-            foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
         moda = 0
         if res_fpath is not None:
