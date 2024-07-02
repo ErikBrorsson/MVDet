@@ -164,7 +164,7 @@ def test():
     H, W = xx.shape
     image_coords = np.stack([xx, yy], axis=2).reshape([-1, 2])
     import matplotlib.pyplot as plt
-    for cam in range(dataset.num_cam):
+    for cam in dataset.cameras:
         world_coords = get_worldcoord_from_imagecoord(image_coords.transpose(), dataset.base.intrinsic_matrices[cam],
                                                       dataset.base.extrinsic_matrices[cam])
         world_grids = dataset.base.get_worldgrid_from_worldcoord(world_coords).transpose().reshape([H, W, 2])

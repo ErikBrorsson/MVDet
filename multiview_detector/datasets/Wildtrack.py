@@ -28,9 +28,10 @@ class Wildtrack(VisionDataset):
         self.indexing = 'ij'
         # i,j for world map indexing
         self.worldgrid2worldcoord_mat = np.array([[2.5, 0, -300], [0, 2.5, -900], [0, 0, 1]])
-        self.intrinsic_matrices, self.extrinsic_matrices = zip(
-            *[self.get_intrinsic_extrinsic_matrix(cam) for cam in self.cameras])
-
+        self.intrinsic_matrices, self.extrinsic_matrices = {}, {}
+        for cam in self.cameras:
+            self.intrinsic_matrices[cam], self.extrinsic_matrices[cam] = self.get_intrinsic_extrinsic_matrix(cam)
+        
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}
         for camera_folder in sorted(os.listdir(os.path.join(self.root, 'Image_subsets'))):
@@ -123,7 +124,7 @@ def test():
 
     foot_3ds = dataset.get_worldcoord_from_pos(np.arange(np.product(dataset.worldgrid_shape)))
     errors = []
-    for cam in range(dataset.num_cam):
+    for cam in dataset.cameras:
         projected_foot_2d = get_imagecoord_from_worldcoord(foot_3ds, dataset.intrinsic_matrices[cam],
                                                            dataset.extrinsic_matrices[cam])
         for pos in range(np.product(dataset.worldgrid_shape)):
