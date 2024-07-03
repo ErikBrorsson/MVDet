@@ -15,10 +15,18 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 
 ## TODO
 
+## General
+- [ ] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
+- [ ] Investigate what component leads to poor generalization (perspective view feature extraction or BEV detection head)
+  - [ ] Do NMS on perspective view predictions
+  - [ ] Transform perspective view predictins to 3D
+  - [ ] on target domain: compare bev detections with transformed perspective view detections 
 
 ### implement EMA teacher
 
-- [ ] implement the EMA teacher
+- [ ] EMA teacher
+  - [x] implement
+  - [ ] test ema teacher (train only on supervised and simply keep an EMA teacher on the side. Then test the EMA teacher after training's finished.)
 
 
 
@@ -119,6 +127,30 @@ It can be seen that my experimental results match those of the GMVD paper relati
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
 - Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
 
+### Tracking
+GMVD introduces new benchmarks for evaluating the generalizability of multi-view detectors. They evaluate MVDet, MVDetr, SHOT and GMVD on these benchmarks.
+However, they haven't adopted any UDA/SSL techniques.
+
+If I am to use the GMVD benchmarks, it makes sense that I compare with their paper.
+One proposal is to:
+1. Apply student-teacher self-training to MVDet, MVDetr, SHOT and GMVD, to see if the results from GMVD paper can be improved. Perhaps even the ordering of the results will change? I.e., while some methods are better at directly generalizing, they may not compare as favorably after adaptation.
+2. Further investigate how tracking can be incorporated in student-teacher self-training. The idea is that tracking can reduce the noise in the pseudo-labels.
+3. Alternatively, investigate design of architecture or training specifics to make the bev-features more generalizable. Perhaps adversarial training can be used to achieve "domain-invariant" BEV features? Or maybe unsupervised training with some MAE variation can be used?
+
+Student teacher self-training will be applied in an UDA setting, where labels are available for some cameras (training) and unavailable for the testing cameras. It also makes sense to evaluate it for sim2real adaptation. Maybe that is enough of a scope? I can skip introducing semi-supervised benchmarks, and I can perhaps also skip introducing more unlabeled data.
+However, if I use the same data for training cams and testing cams, the labels could easily be propogated from train to test cams. If I want to avoid this, I should perhaps use other unlabeled data for the test cameras.
+
+Can I apply some standard tracking methodology to MVDet, MVDetr, SHOT and GMVD? The CV-LAB at EPFL implements the min-cost max flow algorithm MuSSP for MOT that e.g., MVFlow used in their paper. Seems like tracking is performed only based on detections in 3D, using the location and probability of detection. Seems easy enough to implement and adopt for other methods.
+In MVFlow, they already evaluated MVDet + MuSSP and MVDetr + MuSSP, which performs quite well. 
+
+MVFlow, MVDet, MVDeTr, GMVD are implemented in pytorch.
+
+
+I wonder how missed detections are handled in the min cost max flow formulation? Can a track skip a timestep and continue later?
+
+
+
+
 # log book
 ### 1/7
 started baseline experiments
@@ -134,6 +166,19 @@ It is evident that after training only on source, the pseudo-labels on target ar
 This is expected, and given the results of "Toward unlabeled multi-view 3D pedestrian detection by generalizable AI: techniques and performance analysis", I don't believe that it is worth attempting a naive iterative pseudo-labeling training.
 Instead, it is time to implement the mean teacher and experiment with a "smooth" transition to the target data.
 
+
+### 3/7
+The experiement with the ema teacher didn't lead to good performance, but the implementation seems to work.
+Before starting loads of experiments on the EMA self-training to find good hyperparameters (i.e., EMA and target weight schedule), I should probably verify tthat the ema teacher works.
+
+I should also figure out whether it is the perspective view backbone or the BEV detection head that has poor generalization capabilities. I would expect that the (ImageNet pretrained) backbone can generalize to new images fairly well, while the BEV detection head overfits to the specific camera setup. An adaptation strategy would in this case involve ensuring that the BEV feature map and detection head becomes more general.
+
+One idea is to use **Domain Invariant Feature Learning** to learn BEV features that are invariant to the camera rig.
+- Assumption: Projection to ground plane results in bev features that have appearance heavily dependant on the camera setup (since e.g. pedestrians are smeared out on the floor differently based on the camera angle).
+- Applying a few conv layers onto the BEV projection and then enforcing domain invariance on the features could perhaps lead to more "true" BEV features, where the pedestrians are well localized and look like they are actually viewed from above. This is reasonable since a "true" BEV view is independant of the camera rig.
+- It is critical that the above (presumably domain invariant) features are also used for subsequent detection. Training on source labels for detection jointly with the above adversarial training can assure that the features do not collapse to nonsense, since the detection supervision will enforce rich features.
+
+Another idea to attain BEV features that are more or less independent of the camera rig is to use the method presented in MVTT. Here, they first use bounding boxes to aggregate perspective view features and then project this feature vector (a single vector per pedestrian) onto a sparse BEV feature map. The drawback with this is that the feature aggregation is very much determined by single view detection performance.
 
 
 
