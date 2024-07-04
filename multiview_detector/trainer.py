@@ -10,7 +10,9 @@ from multiview_detector.evaluation.evaluate import evaluate
 from multiview_detector.utils.nms import nms
 from multiview_detector.utils.meters import AverageMeter
 from multiview_detector.utils.image_utils import add_heatmap_to_image
-from multiview_detector.utils.projection import get_imagecoord_from_worldcoord
+from multiview_detector.utils.projection import get_imagecoord_from_worldcoord, get_worldcoord_from_imagecoord,\
+    get_worldcoord_from_imagecoord_w_projmat, get_worldgrid_from_worldcoord
+
 
 
 class BaseTrainer(object):
@@ -84,7 +86,7 @@ class PerspectiveTrainer(BaseTrainer):
 
         return losses / len(data_loader), precision_s.avg * 100
 
-    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False):
+    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False):
         self.model.eval()
         losses = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()
@@ -138,27 +140,107 @@ class PerspectiveTrainer(BaseTrainer):
             recall_s.update(recall)
 
             if visualize:
-                fig = plt.figure()
-                subplt0 = fig.add_subplot(311, title="output scores")
-                subplt1 = fig.add_subplot(312, title="prediction")
-                subplt2 = fig.add_subplot(313, title="label")
-                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
-                            .cpu().detach().numpy().squeeze())
-                subplt2.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
-                            .cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
-                plt.close(fig)
+                for cam_indx, _ in enumerate(imgs_res):
+                    cam_number = self.model.cameras[cam_indx]
 
-                # visualizing the heatmap for per-view estimation
-                heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                head_cam_result.save(os.path.join(self.logdir, f'cam1_head_{batch_idx}.jpg'))
-                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+                    pred_view1 = imgs_res[cam_indx]
+                    heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
+                    heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
+
+                    if persp_map:
+                        map_res_from_perspective = torch.zeros_like(map_res).detach().cpu()
+                        map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
+                        foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
+                        foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
+                        if foot_coords[0].size == 0:
+                            print("No preds from perspective view: ", cam_number+1)
+                            continue
+                        temp = np.zeros((2, len(foot_coords[0])))
+                        temp = np.ones((3, len(foot_coords[0])))
+                        temp[0,:] = foot_coords[1]
+                        temp[1,:] = foot_coords[0]
+
+                        world_grid = self.model.proj_mats[cam_number] @ temp  
+                        world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
+                        # temp = temp * data_loader.dataset.img_reduce
+
+                        # print("using projmat ", cam_number)
+                        # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number]) # TODO Beware, the proj_mats is a list, not a dict
+                        # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
+                        for coord_indx, p in enumerate(world_grid.transpose()):
+                            if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
+                                map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1
+
+                                prev_val = map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])]
+                                map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])] = max(float(foot_scores[coord_indx]), prev_val.item())
+                                # print(p)
+
+
+                    img0 = self.denormalize(data[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_head_{batch_idx}.jpg'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_foot_{batch_idx}.jpg'))
+
+
+
+                if persp_map:
+                    # do NMS and create actual preditions (post nms)
+                    perspective_all_res_list = []
+                    temp = map_res_from_perspective_scores.squeeze()
+                    scores = temp[temp > self.cls_thres].unsqueeze(1)
+                    positions = (temp > self.cls_thres).nonzero().float()
+                    if data_loader.dataset.base.indexing == 'xy':
+                        positions = positions[:, [1, 0]]
+                    else:
+                        positions = positions
+
+                    perspective_all_res_list.append(torch.cat([torch.ones_like(scores) * frame, positions.float() *
+                                                data_loader.dataset.grid_reduce, scores], dim=1))
+
+                    scores = scores.squeeze()
+                    if not torch.numel(positions) == 0:
+                        ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
+                        positions = positions[ids[:count], :]
+                        scores = scores[ids[:count]]
+                    map_perspective_pseudo_label = torch.zeros_like(map_res)
+                    for pos in positions:
+                        map_perspective_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+
+
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(321, title="scores")
+                    subplt1 = fig.add_subplot(322, title="prediction")
+                    subplt2 = fig.add_subplot(323, title="persp. scores")
+                    subplt3 = fig.add_subplot(324, title="persp. prediction")
+                    subplt4 = fig.add_subplot(325, title="label")
+                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                    subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    subplt2.imshow(self.criterion._traget_transform(map_res, map_res_from_perspective, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    subplt3.imshow(self.criterion._traget_transform(map_res, map_perspective_pseudo_label, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                else:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(321, title="scores")
+                    subplt1 = fig.add_subplot(322, title="prediction")
+                    subplt4 = fig.add_subplot(323, title="label")
+
+                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                    subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
 
 
 
@@ -187,6 +269,33 @@ class PerspectiveTrainer(BaseTrainer):
 
             print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                   format(moda, modp, precision, recall))
+            
+
+        # evaluate perspective view preds
+        if persp_map:
+            moda = 0
+            if res_fpath is not None:
+                res_fpath = os.path.abspath(os.path.dirname(res_fpath)) + '/test_perspective.txt'
+                all_res_list = torch.cat(perspective_all_res_list, dim=0)
+                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res_perspective.txt', all_res_list.numpy(), '%.8f')
+                res_list = []
+                for frame in np.unique(all_res_list[:, 0]):
+                    res = all_res_list[all_res_list[:, 0] == frame, :]
+                    positions, scores = res[:, 1:3], res[:, 3]
+                    ids, count = nms(positions, scores, 20, np.inf)
+                    res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                np.savetxt(res_fpath, res_list, '%d')
+
+                recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                        data_loader.dataset.base.__name__)
+
+                # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                #                                             data_loader.dataset.base.__name__)
+                print("########### perspective results ####################")
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    format(moda, modp, precision, recall))
 
         print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
             losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
@@ -458,16 +567,6 @@ class UDATrainer(BaseTrainer):
                     plt.savefig(os.path.join(self.logdir, f'train_target_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
-                    # visualizing the heatmap for per-view estimation
-                    heatmap0_head = imgs_res_target[0][0, 0].detach().cpu().numpy().squeeze()
-                    heatmap0_foot = imgs_res_target[0][0, 1].detach().cpu().numpy().squeeze()
-                    img0 = self.denormalize(data_target[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                    head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                    head_cam_result.save(os.path.join(self.logdir, f'train_target_cam1_head_{batch_idx}.jpg'))
-                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                    foot_cam_result.save(os.path.join(self.logdir, f'train_target_cam1_foot_{batch_idx}.jpg'))
-
                     # visualize pseudo-label of perspective view
                     for cam_indx, img_pseudo_label in enumerate(imgs_pseudo_labels):
                         if img_pseudo_label is None:
@@ -486,6 +585,15 @@ class UDATrainer(BaseTrainer):
                         head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
                         foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
+
+                        # visualizing the heatmap for per-view estimation
+                        heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
+                        heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
+                        head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                        head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_head_{batch_idx}.jpg'))
+                        foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                        foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_foot_{batch_idx}.jpg'))
+
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()

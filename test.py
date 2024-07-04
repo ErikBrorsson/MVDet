@@ -111,9 +111,9 @@ def main(args):
 
     print('Testing...')
     if args.train_set:
-        trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True)
+        trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map)
     else:
-        trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True)
+        trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map)
 
 if __name__ == '__main__':
     # settings
@@ -125,7 +125,6 @@ if __name__ == '__main__':
                         choices=['default', 'img_proj', 'res_proj', 'no_joint_conv'])
     parser.add_argument('--arch', type=str, default='resnet18', choices=['vgg11', 'resnet18'])
     parser.add_argument('-d', '--dataset', type=str, default='wildtrack', choices=['wildtrack', 'multiviewx'])
-    parser.add_argument("--data_path", type=str, default=None)
     parser.add_argument('-j', '--num_workers', type=int, default=4)
     parser.add_argument('-b', '--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
@@ -136,6 +135,8 @@ if __name__ == '__main__':
     parser.add_argument('--train_set', action="store_true")
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--model', type=str, default="MultiviewDetector.pth")
+    parser.add_argument("--data_path", type=str, default=None)
+    parser.add_argument("--persp_map", action="store_true")
 
     args = parser.parse_args()
 
