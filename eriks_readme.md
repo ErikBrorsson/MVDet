@@ -180,6 +180,25 @@ One idea is to use **Domain Invariant Feature Learning** to learn BEV features t
 
 Another idea to attain BEV features that are more or less independent of the camera rig is to use the method presented in MVTT. Here, they first use bounding boxes to aggregate perspective view features and then project this feature vector (a single vector per pedestrian) onto a sparse BEV feature map. The drawback with this is that the feature aggregation is very much determined by single view detection performance.
 
+### 4/7 
+Created BEV predictions by only using perspective view detections. I.e., make detections in perspective view -> project them all to bev -> NMS to get final bev predictions.
 
+These predictions are competitive with the standard BEV predictions in the camp adaptation setting. However, they are not better, so it is not clear whether the domain gap lies mainly in the perspective view backbone or in the bev decode head.  
+There are a few problems with the evaluation above.  
+First, since the perspective view is trained to detect feet (rather than pedestrians), it cannot detect any pedestrian that is too close to the camera.  
+Second, the above scheme tests also the perspective view to bev projection and sensor fusion algorithm. It is not a precise evaluation of the perspective view prediction quality.  
+It would perhaps be better to evaluate the adaptation capabilities of the perspective view backbone in the perspective view.
+Alt 1. evaluate perspective view detections per camera.  
+Alt 2. evaluate the join perspective view detections (for example, are there any pedestrian that is missed in all cameras?)  
 
+When evaluating different camera setups, it would be helpful to plot the field of views of each camera in the bev map to understand which parts of the bev we can expect detections in.  
+
+After training on "2,4,5,6" the output on cam2 looks like below.  
+It can be seen that the network doesn't provide very confident predictions in perspective view even on the cameras that are included in the train set.
+![alt text](resources/images/output_cam2_foot_38.jpg)
+
+When evaluating on "1,3,5,7", the predictions in camera 3 looks like below.  
+The quality seems to be similar to the predictions in the training set.  
+To confirm this quantitatively, maybe I should just print the loss? Rather than printing MODA/MODP, as this would require me to set thresholds and do NMS.
+![alt text](resources/images/output_cam3_foot_28.jpg)
 

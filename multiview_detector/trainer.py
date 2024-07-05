@@ -455,9 +455,9 @@ class UDATrainer(BaseTrainer):
             del imgs_res, imgs_gt, map_res, map_gt, data
 
             # train on target data
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
 
-            # create pseudo-labels
+            # create bev pseudo-labels
             with torch.no_grad():
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
@@ -474,18 +474,8 @@ class UDATrainer(BaseTrainer):
             map_pseudo_label = torch.zeros_like(map_pred_teacher)
             for pos in positions:
                 map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
-            # pseudo_label_conf = map_pred_teacher
 
-            # map_sm_teacher = F.softmax(map_pred_teacher, dim=1)
-            # map_pseudo_label_prob, map_pseudo_label = torch.max(map_sm_teacher, dim=1)
-
-            # get world_coords and img_coords for the pseudo labels
-            # world_coords = data_loader.dataset.base.get_worldcoord_from_worldgrid(np.transpose(positions))
-            # for cam in [1,2,3]:
-            #     img_coords = get_imagecoord_from_worldcoord(world_coords, data_loader.dataset.base.intrinsic_matrices[cam],
-            #                                                             data_loader.dataset.base.extrinsic_matrices[cam])
-                
-            # get bounding boxes for each cameras
+            # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
             imgs_pseudo_labels = []
             for cam in self.target_cameras:
                 img_pseudo_label = torch.zeros(img_gt_shape)
@@ -501,41 +491,25 @@ class UDATrainer(BaseTrainer):
                     img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
 
                 imgs_pseudo_labels.append(img_pseudo_label)
-                    
-            # world_grid_x, world_grid_y = torch.where(map_pseudo_label == 1)
-            # for grid_pos in positions:
-            #     pos = data_loader.dataset.base.get_pos_from_worldgrid(grid_pos)
-            #     world_coord = data_loader.dataset.base.get_worldcoord_from_pos(pos)
-            #     cameras = [1,2,3]
-            #     for cam in cameras:
-            #         projected_foot_2d = get_imagecoord_from_worldcoord(world_coord, data_loader.dataset.base.intrinsic_matrices[cam],
-            #                                                         data_loader.dataset.base.extrinsic_matrices[cam])
-
-            # compute target loss weight
-            # ps_large_p = map_pred_teacher.ge(self.pseudo_threshold).long() == 1
-            # ps_size = torch.numel(map_pred_teacher)
-            # pseudo_weight = torch.sum(ps_large_p).item() / ps_size
-            # pseudo_weight = pseudo_weight * torch.ones(
-            #     pseudo_prob.shape, device=logits.device)
-
-            epoch_step = 0
-            pseudo_weight = 1. if epoch >= epoch_step else 0.
 
             # apply augmentation to target images and pseudo-labels prior to student training
             data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
-
-            # predict and update student
+            # student predict and compute loss
             map_res_target, imgs_res_target = self.model(data_target)
-            loss = 0
-            for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-                if not img_pseudo_label is None:
-                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
-            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
-                   loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
-            loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
-            loss.backward()
-            optimizer.step()
-            losses_target += loss.item()
+            # loss = 0
+            # for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
+            #     if not img_pseudo_label is None:
+            #         loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
+            # loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+            #        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+            
+            # # update student
+            # epoch_step = 0
+            # pseudo_weight = 1. if epoch >= epoch_step else 0.
+            # loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
+            # loss.backward()
+            # optimizer.step()
+            # losses_target += loss.item()
 
             # update ema model
             alpha_teacher = 0.99

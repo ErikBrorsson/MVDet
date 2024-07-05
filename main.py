@@ -176,6 +176,9 @@ def main(args):
                     test_loss_s, test_prec_s, test_moda_s)
         # save
         torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
+
+        if args.uda:
+            torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
     # else:
     #     resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
     #     resume_fname = resume_dir + '/MultiviewDetector.pth'
