@@ -461,7 +461,7 @@ class UDATrainer(BaseTrainer):
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
                     epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
-                    if not os.path.exists(epoch):
+                    if not os.path.exists(epoch_dir):
                         os.mkdir(epoch_dir)
 
                     fig = plt.figure()
@@ -575,7 +575,9 @@ class UDATrainer(BaseTrainer):
                         subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
                                     .cpu().detach().numpy().squeeze())
                     subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
-
+                    epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
+                    if not os.path.exists(epoch_dir):
+                        os.mkdir(epoch_dir)
                     plt.savefig(os.path.join(epoch_dir, f'train_target_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
