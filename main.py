@@ -168,7 +168,7 @@ def main(args):
             target_weight_start = args.target_weight_start
             target_weight_end = args.target_weight_end
 
-        if args.pseudo_label_th:
+        if args.pseudo_label_th is None:
             pseudo_label_th = 0.1 + np.random.rand()*0.3 # random value between 0.1 and 0.4
         else:
             pseudo_label_th = args.pseudo_label_th
