@@ -504,8 +504,8 @@ class UDATrainer(BaseTrainer):
             #        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
             
             # # update student
-            # epoch_step = 0
-            # pseudo_weight = 1. if epoch >= epoch_step else 0.
+            epoch_step = 0
+            pseudo_weight = 1. if epoch >= epoch_step else 0.
             # loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
             # loss.backward()
             # optimizer.step()
