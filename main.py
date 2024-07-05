@@ -174,7 +174,10 @@ def main(args):
         
         target_weights = [0. for x in range(10)]
         increment_steps = args.epochs - target_epoch_start
-        step_size = (target_weight_end - target_weight_start) / increment_steps
+        if increment_steps == 0:
+            step_size = 0
+        else:
+            step_size = (target_weight_end - target_weight_start) / increment_steps
         for i in range(increment_steps + 1):
             target_weights[i + target_epoch_start - 1] = target_weight_start + step_size * i
 
