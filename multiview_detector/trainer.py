@@ -551,8 +551,12 @@ class UDATrainer(BaseTrainer):
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
                     subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())
-                    subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                    if self.soft_labels:
+                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
                                 .cpu().detach().numpy().squeeze())
+                    else:
+                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
                     plt.savefig(os.path.join(self.logdir, f'train_target_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
