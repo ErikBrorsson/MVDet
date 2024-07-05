@@ -241,7 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.1, metavar='LR', help='learning rate (default: 0.1)')
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--momentum', type=float, default=0.5, metavar='M', help='SGD momentum (default: 0.5)')
-    parser.add_argument('--log_interval', type=int, default=10, metavar='N',
+    parser.add_argument('--log_interval', type=int, default=40, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--resume_model', type=str, default=None)
     parser.add_argument('--log_dir', type=str, default=None)
