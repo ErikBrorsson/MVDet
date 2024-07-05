@@ -167,6 +167,11 @@ def main(args):
             target_epoch_start = args.target_epoch_start
             target_weight_start = args.target_weight_start
             target_weight_end = args.target_weight_end
+
+        if args.pseudo_label_th:
+            pseudo_label_th = 0.1 + np.random.rand()*0.3 # random value between 0.1 and 0.4
+        else:
+            pseudo_label_th = args.pseudo_label_th
         
         target_weights = [0. for x in range(10)]
         increment_steps = args.epochs - target_epoch_start
@@ -184,7 +189,7 @@ def main(args):
         print('Training...')
         if args.uda:
             target_weight = target_weights[epoch - 1]
-            train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler,target_weight)
+            train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler,target_weight,pseudo_label_th)
         else:
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
@@ -249,6 +254,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_epoch_start', type=int, default=None, help='the epoch at which training on target domain starts')
     parser.add_argument('--target_weight_start', type=float, default=None, help='the initial weight when training on target domain starts')
     parser.add_argument('--target_weight_end', type=float, default=None, help='the final weight when training on target domain ends')
+    parser.add_argument('--pseudo_label_th', type=float, default=None, help='confidenbce threshold for creating pseudo-labels')
 
 
     args = parser.parse_args()

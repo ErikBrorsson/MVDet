@@ -416,7 +416,7 @@ class UDATrainer(BaseTrainer):
 
         self.alpha_teacher = alpha_teacher
 
-    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0.):
+    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
         self.model.train()
         losses = 0
@@ -464,8 +464,8 @@ class UDATrainer(BaseTrainer):
             with torch.no_grad():
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
-            scores = temp[temp > self.cls_thres]
-            positions = (temp > self.cls_thres).nonzero().float()
+            scores = temp[temp > pseudo_label_th]
+            positions = (temp > pseudo_label_th).nonzero().float()
             if data_loader.dataset.base.indexing == 'xy':
                 positions = positions[:, [1, 0]]
             else:
@@ -499,20 +499,18 @@ class UDATrainer(BaseTrainer):
             data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
             # student predict and compute loss
             map_res_target, imgs_res_target = self.model(data_target)
-            # loss = 0
-            # for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-            #     if not img_pseudo_label is None:
-            #         loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
-            # loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
-            #        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+            loss = 0
+            for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
+                if not img_pseudo_label is None:
+                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
+            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+                   loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
             
             # # update student
-            epoch_step = 0
-            pseudo_weight = 1. if epoch >= epoch_step else 0.
-            # loss = loss * pseudo_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
-            # loss.backward()
-            # optimizer.step()
-            # losses_target += loss.item()
+            loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
+            loss.backward()
+            optimizer.step()
+            losses_target += loss.item()
 
             # update ema model
             alpha_teacher = self.alpha_teacher
@@ -577,7 +575,7 @@ class UDATrainer(BaseTrainer):
                 t_epoch = t1 - t0
                 print('Train Epoch: {}, Batch:{}, Loss_source: {:.6f}, Loss_target: {:.6f}, target_weight: {:.2f}'
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
-                    epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), pseudo_weight, precision_s.avg * 100, recall_s.avg * 100,
+                    epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), target_weight, precision_s.avg * 100, recall_s.avg * 100,
                     t_epoch, t_forward / (batch_idx + 1), t_backward / (batch_idx + 1), map_res_max))
                 pass
 
