@@ -461,13 +461,17 @@ class UDATrainer(BaseTrainer):
 
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
+                    epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
+                    if not os.path.exists(epoch):
+                        os.mkdir(epoch_dir)
+
                     fig = plt.figure()
                     subplt0 = fig.add_subplot(311, title="student output")
                     subplt1 = fig.add_subplot(312, title="label")
                     subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
                     subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())
-                    plt.savefig(os.path.join(self.logdir, f'train_source_map_{batch_idx}.jpg'))
+                    plt.savefig(os.path.join(epoch_dir, f'train_source_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
 
@@ -558,9 +562,10 @@ class UDATrainer(BaseTrainer):
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
                     fig = plt.figure()
-                    subplt0 = fig.add_subplot(311, title="student output")
-                    subplt1 = fig.add_subplot(312, title="label")
-                    subplt2 = fig.add_subplot(313, title="teacher pseudo (or soft) label")
+                    subplt0 = fig.add_subplot(411, title="student output")
+                    subplt1 = fig.add_subplot(412, title="label")
+                    subplt2 = fig.add_subplot(413, title="teacher pseudo (or soft) label")
+                    subplt3 = fig.add_subplot(414, title="teacher output")
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
                     subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())
@@ -570,7 +575,9 @@ class UDATrainer(BaseTrainer):
                     else:
                         subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                    plt.savefig(os.path.join(self.logdir, f'train_target_map_{batch_idx}.jpg'))
+                    subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
+
+                    plt.savefig(os.path.join(epoch_dir, f'train_target_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
                     # visualize pseudo-label of perspective view
@@ -588,17 +595,17 @@ class UDATrainer(BaseTrainer):
                         img0 = self.denormalize(data_target[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
                         img0 = Image.fromarray((img0 * 255).astype('uint8'))
                         # head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
-                        # head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
+                        # head_cam_result.save(os.path.join(epoch_dir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
-                        foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
+                        foot_cam_result.save(os.path.join(epoch_dir, f'foot_pseudo_label_cam{cam_num+1}_{batch_idx}.jpg'))
 
                         # visualizing the heatmap for per-view estimation
                         heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
                         heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
                         # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                        # head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_head_{batch_idx}.jpg'))
+                        # head_cam_result.save(os.path.join(epoch_dir, f'output_cam{cam_num+1}_head_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                        foot_cam_result.save(os.path.join(self.logdir, f'student_output_cam{cam_indx}_foot_{batch_idx}.jpg'))
+                        foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
 
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
