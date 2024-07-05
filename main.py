@@ -119,11 +119,13 @@ def main(args):
 
     # if args.resume is None:
     os.makedirs(logdir, exist_ok=True)
-    copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
-    for script in os.listdir('.'):
-        if script.split('.')[-1] == 'py':
-            dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
-            shutil.copyfile(script, dst_file)
+
+    # copying files like this gave rise to issues on the cluster when running many experiments simultaneously
+    # copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
+    # for script in os.listdir('.'):
+    #     if script.split('.')[-1] == 'py':
+    #         dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
+    #         shutil.copyfile(script, dst_file)
     sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
     print('Settings:')
     for k, v in vars(args).items():
