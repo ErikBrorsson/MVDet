@@ -395,7 +395,9 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False, alpha_teacher=0.99):
+    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
+                 visualize_train=False, target_cameras=None, dropview=False, alpha_teacher=0.99,
+                 soft_labels=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -415,6 +417,7 @@ class UDATrainer(BaseTrainer):
         self.target_cameras = target_cameras
 
         self.alpha_teacher = alpha_teacher
+        self.soft_labels = soft_labels
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
@@ -464,49 +467,60 @@ class UDATrainer(BaseTrainer):
             with torch.no_grad():
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
-            scores = temp[temp > pseudo_label_th]
-            positions = (temp > pseudo_label_th).nonzero().float()
-            if data_loader.dataset.base.indexing == 'xy':
-                positions = positions[:, [1, 0]]
+
+            if not self.soft_labels:
+                scores = temp[temp > pseudo_label_th]
+                positions = (temp > pseudo_label_th).nonzero().float()
+                if data_loader.dataset.base.indexing == 'xy':
+                    positions = positions[:, [1, 0]]
+                else:
+                    positions = positions
+                if not torch.numel(positions) == 0:
+                    ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
+                    positions = positions[ids[:count], :]
+                    scores = scores[ids[:count]]
+                map_pseudo_label = torch.zeros_like(map_pred_teacher)
+                for pos in positions:
+                    map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+
+                # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
+                imgs_pseudo_labels = []
+                for cam in self.target_cameras:
+                    img_pseudo_label = torch.zeros(img_gt_shape)
+
+                    for grid_pos in positions:
+                        pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
+                        bbox = self.pom[pos.item()][cam]
+                        if bbox is None:
+                            continue                    
+                        foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                        head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                        img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                        img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
+
+                    imgs_pseudo_labels.append(img_pseudo_label)
+
+                # apply augmentation to target images and pseudo-labels prior to student training
+                data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
+                # student predict and compute loss
+                map_res_target, imgs_res_target = self.model(data_target)
+                loss = 0
+                for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
+                    if not img_pseudo_label is None:
+                        loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
+                loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+                    loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
             else:
-                positions = positions
-            if not torch.numel(positions) == 0:
-                ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
-                positions = positions[ids[:count], :]
-                scores = scores[ids[:count]]
-            map_pseudo_label = torch.zeros_like(map_pred_teacher)
-            for pos in positions:
-                map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                # apply augmentation to target images and pseudo-labels prior to student training
+                map_pseudo_label = map_pred_teacher
+                imgs_pseudo_labels = [None]*len(self.target_cameras)
+                data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)                
+                # student predict and compute loss
+                map_res_target, imgs_res_target = self.model(data_target)
+                loss = 0
+                loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
 
-            # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-            imgs_pseudo_labels = []
-            for cam in self.target_cameras:
-                img_pseudo_label = torch.zeros(img_gt_shape)
-
-                for grid_pos in positions:
-                    pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
-                    bbox = self.pom[pos.item()][cam]
-                    if bbox is None:
-                        continue                    
-                    foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
-                    head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                    img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
-                    img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
-
-                imgs_pseudo_labels.append(img_pseudo_label)
-
-            # apply augmentation to target images and pseudo-labels prior to student training
-            data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
-            # student predict and compute loss
-            map_res_target, imgs_res_target = self.model(data_target)
-            loss = 0
-            for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-                if not img_pseudo_label is None:
-                    loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
-            loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
-                   loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
-            
-            # # update student
+            # update student
             loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
             loss.backward()
             optimizer.step()

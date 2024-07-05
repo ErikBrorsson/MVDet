@@ -141,7 +141,8 @@ def main(args):
     if args.uda:
         pom = train_loader_target.dataset.base.read_pom()
         trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom,
-                             args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview, alpha_teacher=args.alpha_teacher)
+                             args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview,
+                             alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
 
@@ -167,11 +168,6 @@ def main(args):
             target_epoch_start = args.target_epoch_start
             target_weight_start = args.target_weight_start
             target_weight_end = args.target_weight_end
-
-        if args.pseudo_label_th is None:
-            pseudo_label_th = 0.1 + np.random.rand()*0.3 # random value between 0.1 and 0.4
-        else:
-            pseudo_label_th = args.pseudo_label_th
         
         target_weights = [0. for x in range(10)]
         increment_steps = args.epochs - target_epoch_start
@@ -183,6 +179,12 @@ def main(args):
         print("target_weight_start: ", target_weight_start)
         print("target_weight_end: ", target_weight_end)
         print("target_weights: ", target_weights)
+
+        if args.pseudo_label_th is None:
+            pseudo_label_th = 0.1 + np.random.rand()*0.3 # random value between 0.1 and 0.4
+        else:
+            pseudo_label_th = args.pseudo_label_th
+        print("pseudo_label_th: ", pseudo_label_th)
 
 
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
@@ -247,10 +249,12 @@ if __name__ == '__main__':
     parser.add_argument('--cam_adapt', action="store_true")
     parser.add_argument('--uda', action="store_true")
     parser.add_argument('--dropview', action="store_true")
+    parser.add_argument('--soft_labels', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--alpha_teacher', type=float, default=0.99)
 
+    # below parameters are randomized if not set
     parser.add_argument('--target_epoch_start', type=int, default=None, help='the epoch at which training on target domain starts')
     parser.add_argument('--target_weight_start', type=float, default=None, help='the initial weight when training on target domain starts')
     parser.add_argument('--target_weight_end', type=float, default=None, help='the final weight when training on target domain ends')
