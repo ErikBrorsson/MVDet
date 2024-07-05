@@ -395,7 +395,7 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False):
+    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None, visualize_train=False, target_cameras=None, dropview=False, alpha_teacher=0.99):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -414,7 +414,9 @@ class UDATrainer(BaseTrainer):
         assert target_cameras is not None, "target_cameras must be set in UDATrainer"
         self.target_cameras = target_cameras
 
-    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None):
+        self.alpha_teacher = alpha_teacher
+
+    def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0.):
 
         self.model.train()
         losses = 0
@@ -428,6 +430,7 @@ class UDATrainer(BaseTrainer):
 
             # train on source data
             optimizer.zero_grad()
+
             map_res, imgs_res = self.model(data)
             t_f = time.time()
             t_forward += t_f - t_b
@@ -437,7 +440,7 @@ class UDATrainer(BaseTrainer):
             loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
                    loss / len(imgs_gt) * self.alpha
             loss.backward()
-            optimizer.step()
+            # optimizer.step()
             losses += loss.item()
 
             # logging
@@ -512,7 +515,7 @@ class UDATrainer(BaseTrainer):
             # losses_target += loss.item()
 
             # update ema model
-            alpha_teacher = 0.99
+            alpha_teacher = self.alpha_teacher
             iteration = (epoch - 1) * len(data_loader.dataset) + batch_idx
             self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
 

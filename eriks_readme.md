@@ -7,6 +7,7 @@ python main.py -d wildtrack
 
 python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
 
+python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --trg_cams "2,4,5,6" --cls_thres 0.05 --persp_map
 
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
@@ -18,15 +19,16 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 ## General
 - [ ] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
 - [ ] Investigate what component leads to poor generalization (perspective view feature extraction or BEV detection head)
-  - [ ] Do NMS on perspective view predictions
-  - [ ] Transform perspective view predictins to 3D
-  - [ ] on target domain: compare bev detections with transformed perspective view detections 
+  - [x] Transform perspective view predictins to 3D
+  - [x] Do NMS on in bev
+  - [x] on target domain: compare bev detections with transformed perspective view detections 
+  - [ ] draw some conclusion (is the perspective view preds in bev better than those of the bev head? Why/why not?)
 
 ### implement EMA teacher
 
-- [ ] EMA teacher
+- [x] EMA teacher
   - [x] implement
-  - [ ] test ema teacher (train only on supervised and simply keep an EMA teacher on the side. Then test the EMA teacher after training's finished.)
+  - [x] test ema teacher (train only on supervised and simply keep an EMA teacher on the side. Then test the EMA teacher after training's finished.)
 
 
 
@@ -121,6 +123,17 @@ As expected, the quality of pseudo-labels is relatively poor. cls_thres=0.2 seem
 
 
 It can be seen that my experimental results match those of the GMVD paper relatively well, although, the moda and recall is a bit lower than expected on 1,3,5,7.
+
+### verifying EMA teacher on 2,4,5,6->1,3,5,7
+Only training on source, but updating the ema throughout training.
+
+Performance of "student" on 2,4,5,6  
+moda: 82.9%, modp: 73.4%, precision: 91.3%, recall: 91.6%
+
+Performance of ema on 2,4,5,6  
+moda: 81.1%, modp: 73.1%, precision: 89.1%, recall: 92.3%
+
+The ema performance similarly to the student, but not exactly the same, which is expected. => EMA implemetnation seems OK.
 
 
 # Notes
