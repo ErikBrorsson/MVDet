@@ -152,34 +152,33 @@ class PerspectiveTrainer(BaseTrainer):
                         map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
                         foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
                         foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
-                        if foot_coords[0].size == 0:
+                        if not foot_coords[0].size == 0:
+                            temp = np.zeros((2, len(foot_coords[0])))
+                            temp = np.ones((3, len(foot_coords[0])))
+                            temp[0,:] = foot_coords[1]
+                            temp[1,:] = foot_coords[0]
+
+                            world_grid = self.model.proj_mats[cam_number] @ temp  
+                            world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
+                            # temp = temp * data_loader.dataset.img_reduce
+
+                            # print("using projmat ", cam_number)
+                            # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number]) # TODO Beware, the proj_mats is a list, not a dict
+                            # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
+                            for coord_indx, p in enumerate(world_grid.transpose()):
+                                if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
+                                    map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1
+
+                                    prev_val = map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])]
+                                    map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])] = max(float(foot_scores[coord_indx]), prev_val.item())
+                                    # print(p)
+                        else:
                             print("No preds from perspective view: ", cam_number+1)
-                            continue
-                        temp = np.zeros((2, len(foot_coords[0])))
-                        temp = np.ones((3, len(foot_coords[0])))
-                        temp[0,:] = foot_coords[1]
-                        temp[1,:] = foot_coords[0]
-
-                        world_grid = self.model.proj_mats[cam_number] @ temp  
-                        world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
-                        # temp = temp * data_loader.dataset.img_reduce
-
-                        # print("using projmat ", cam_number)
-                        # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number]) # TODO Beware, the proj_mats is a list, not a dict
-                        # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
-                        for coord_indx, p in enumerate(world_grid.transpose()):
-                            if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
-                                map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1
-
-                                prev_val = map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])]
-                                map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])] = max(float(foot_scores[coord_indx]), prev_val.item())
-                                # print(p)
-
 
                     img0 = self.denormalize(data[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
                     img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                    head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                    head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_head_{batch_idx}.jpg'))
+                    # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    # head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_head_{batch_idx}.jpg'))
                     foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
                     foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_foot_{batch_idx}.jpg'))
 

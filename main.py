@@ -113,7 +113,7 @@ def main(args):
     criterion = GaussianMSE().cuda()
 
     # logging
-    logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')# if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
+    logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S-%f')# if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
     if args.log_dir is not None:
         logdir = os.path.join(args.log_dir, logdir)
 
