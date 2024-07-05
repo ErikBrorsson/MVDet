@@ -17,12 +17,14 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 ## TODO
 
 ## General
-- [ ] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
+- [x] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
 - [ ] Investigate what component leads to poor generalization (perspective view feature extraction or BEV detection head)
   - [x] Transform perspective view predictins to 3D
   - [x] Do NMS on in bev
   - [x] on target domain: compare bev detections with transformed perspective view detections 
   - [ ] draw some conclusion (is the perspective view preds in bev better than those of the bev head? Why/why not?)
+- [ ] Check why pseudo-labels are very different from teacher predictions after training's finished (see logs 5/7)
+- [ ] Check why test scores are different during training and testing (see logs 5/7)
 
 ### implement EMA teacher
 
@@ -64,7 +66,9 @@ Option 1 has a natural "confidence weighting" as we use the MSE loss. I.e., for 
 For option 2 and 3, it could make sense to introduce confidence weighting to reduce the impact of noisy regions. This should be easy to do with a simple weighted MSE loss, where the weight is chosen as the confidence.
 
 ### data augmentation
-- [x] dropview
+- [ ] dropview
+  - [x] drop view target data
+  - [ ] drop view source data
 - [ ] 3DROM
 - [ ] MVAug
 
@@ -125,15 +129,27 @@ As expected, the quality of pseudo-labels is relatively poor. cls_thres=0.2 seem
 It can be seen that my experimental results match those of the GMVD paper relatively well, although, the moda and recall is a bit lower than expected on 1,3,5,7.
 
 ### verifying EMA teacher on 2,4,5,6->1,3,5,7
-Only training on source, but updating the ema throughout training.
+Only training on source, but updating the ema throughout training.  
+experiment folder: /mnt/default/2024-07-05_09-48-35  
+using cls_thres=0.4 in all the below experiments
 
-Performance of "student" on 2,4,5,6  
+Performance of "student" on 2,4,5,6 (test 0)
 moda: 82.9%, modp: 73.4%, precision: 91.3%, recall: 91.6%
 
-Performance of ema on 2,4,5,6  
+Performance of ema on 2,4,5,6   (test 1)
 moda: 81.1%, modp: 73.1%, precision: 89.1%, recall: 92.3%
 
 The ema performance similarly to the student, but not exactly the same, which is expected. => EMA implemetnation seems OK.
+
+
+is it beneficial to use ema in this setting?
+From below experiments, it doesn't seem like ema by default has better generalization capabilities.
+
+Performance of "student" on 1,3,5,7 (test4)  
+moda: 18.1%, modp: 70.5%, precision: 70.8%, recall: 30.8%  
+
+Performance of ema on 1,3,5,7 (test 3)  
+moda: 18.7%, modp: 68.9%, precision: 68.9%, recall: 34.1%
 
 
 # Notes
@@ -214,4 +230,30 @@ When evaluating on "1,3,5,7", the predictions in camera 3 looks like below.
 The quality seems to be similar to the predictions in the training set.  
 To confirm this quantitatively, maybe I should just print the loss? Rather than printing MODA/MODP, as this would require me to set thresholds and do NMS.
 ![alt text](resources/images/output_cam3_foot_28.jpg)
+
+### 5/7
+When running student teacher self-training with  
+dropview :  False  
+soft_labels :  False  
+target_epoch_start:  6  
+target_weight_start:  0.8442657485810173  
+target_weight_end:  0.9778772670996941  
+pseudo_label_th:  0.3541755216352376  
+
+folder: 2024-07-05_15-21-12-552959  
+slurm-2478176_0  
+
+
+The predictions during training looks very strange (see below)  
+![](resources/images/train_target_map_39.jpg)
+![](resources/images/foot_pseudo_label_cam1_159.jpg)
+
+But when evaluating the final model, the predictions looks quite alright  
+![](resources/images/map_9.jpg)
+
+preds of ema teacher on test set are available in test_3  
+preds of ema teacher on train set are available in test_4  
+The ema teacher preds on train set in test_4 doesn't match the pseudo-labels produced during training at all... Strange! Seems to be something wrong with the implementation.  
+
+Also, I don't yet understand why test scores (MODA/MODP etc) evaluated during training are very differetn from the same scores produced by test.py.  
 
