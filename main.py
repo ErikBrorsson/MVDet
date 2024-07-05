@@ -126,7 +126,8 @@ def main(args):
             shutil.copyfile(script, dst_file)
     sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
     print('Settings:')
-    print(vars(args))
+    for k, v in vars(args).items():
+        print(k, ": ", v)
 
     print("logdir: ", logdir)
 
@@ -271,7 +272,5 @@ if __name__ == '__main__':
 
         for k,v in data.items():
             args_d[k] = v
-
-    print(args)
 
     main(args)
