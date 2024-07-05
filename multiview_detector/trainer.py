@@ -458,6 +458,19 @@ class UDATrainer(BaseTrainer):
             recall_s.update(recall)
 
             img_gt_shape = imgs_gt[0].shape
+
+            if (batch_idx + 1) % log_interval == 0:
+                if self.visualize_train:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(311, title="student output")
+                    subplt1 = fig.add_subplot(312, title="label")
+                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                    subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                                .cpu().detach().numpy().squeeze())
+                    plt.savefig(os.path.join(self.logdir, f'train_source_map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+
             del imgs_res, imgs_gt, map_res, map_gt, data
 
             # train on target data
@@ -545,9 +558,9 @@ class UDATrainer(BaseTrainer):
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
                     fig = plt.figure()
-                    subplt0 = fig.add_subplot(311, title="prediciton")
+                    subplt0 = fig.add_subplot(311, title="student output")
                     subplt1 = fig.add_subplot(312, title="label")
-                    subplt2 = fig.add_subplot(313, title="pseudo_label")
+                    subplt2 = fig.add_subplot(313, title="teacher pseudo (or soft) label")
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
                     subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())
@@ -574,18 +587,18 @@ class UDATrainer(BaseTrainer):
                         cam_num = self.target_cameras[cam_indx]
                         img0 = self.denormalize(data_target[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
                         img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                        head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
-                        head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
+                        # head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
+                        # head_cam_result.save(os.path.join(self.logdir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
                         foot_cam_result.save(os.path.join(self.logdir, f'foot_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
 
                         # visualizing the heatmap for per-view estimation
                         heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
                         heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
-                        head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                        head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_head_{batch_idx}.jpg'))
+                        # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                        # head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_head_{batch_idx}.jpg'))
                         foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                        foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_indx}_foot_{batch_idx}.jpg'))
+                        foot_cam_result.save(os.path.join(self.logdir, f'student_output_cam{cam_indx}_foot_{batch_idx}.jpg'))
 
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
@@ -656,12 +669,12 @@ class UDATrainer(BaseTrainer):
             plt.close(fig)
 
             # visualizing the heatmap for per-view estimation
-            heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+            # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
             heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
             img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
             img0 = Image.fromarray((img0 * 255).astype('uint8'))
-            head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-            head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+            # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+            # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
             foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
             foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
