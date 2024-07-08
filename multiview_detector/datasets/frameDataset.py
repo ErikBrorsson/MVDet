@@ -170,7 +170,7 @@ class frameDataset(VisionDataset):
         for cam in self.cameras:
             proj_mats.append(self.proj_mats[cam])
 
-        print("getting images and proj_mats from cameras: ", self.cameras)
+        # print("getting images and proj_mats from cameras: ", self.cameras)
 
         return imgs, map_gt.float(), imgs_gt, frame, proj_mats
 

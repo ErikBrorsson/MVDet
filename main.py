@@ -195,9 +195,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    print('Testing...')
-    test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                test_set.gt_fpath, True)
+    # print('Testing...')
+    # test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+    #                                             test_set.gt_fpath, True)
 
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')

@@ -520,7 +520,7 @@ class UDATrainer(BaseTrainer):
                 # apply augmentation to target images and pseudo-labels prior to student training
                 data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
                 # student predict and compute loss
-                map_res_target, imgs_res_target = self.model(data_target)
+                map_res_target, imgs_res_target = self.model(data_target, proj_mats_target)
                 loss = 0
                 for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                     if not img_pseudo_label is None:
