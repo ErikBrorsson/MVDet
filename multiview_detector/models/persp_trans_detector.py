@@ -56,6 +56,27 @@ class PerspTransDetector(nn.Module):
                                             nn.Conv2d(512, 1, 3, padding=4, dilation=4, bias=False)).to('cuda:0')
         pass
 
+
+    def configure_model_for_dataset(self, dataset):
+        self.cameras = dataset.cameras
+        print("Configuring model for cameras: ", self.cameras)
+        assert self.num_cam == len(self.cameras), "The number of cameras cannot change when configuring model for a new dataset"
+        assert self.img_shape[0] == dataset.img_shape[0] and self.img_shape[1] == dataset.img_shape[1], "The img_shape cannot be changed when configuring model for a new dataset"
+        assert self.reducedgrid_shape[0] == dataset.reducedgrid_shape[0] and self.reducedgrid_shape[1] == dataset.reducedgrid_shape[1], "The reducedgrid_shape cannot be changed when configuring model for a new dataset"
+        imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(dataset.base.intrinsic_matrices,
+                                                                           dataset.base.extrinsic_matrices,
+                                                                           dataset.base.worldgrid2worldcoord_mat)
+        self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
+        # img
+        self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
+        img_reduce = np.array(self.img_shape) / np.array(self.upsample_shape)
+        img_zoom_mat = np.diag(np.append(img_reduce, [1]))
+        # map
+        map_zoom_mat = np.diag(np.append(np.ones([2]) / dataset.grid_reduce, [1]))
+        # projection matrices: img feat -> map feat
+        self.proj_mats = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
+                          for cam in self.cameras}
+
     def forward(self, imgs, visualize=False):
         B, N, C, H, W = imgs.shape
         assert N == self.num_cam

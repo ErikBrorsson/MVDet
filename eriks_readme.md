@@ -152,6 +152,45 @@ Performance of ema on 1,3,5,7 (test 3)
 moda: 18.7%, modp: 68.9%, precision: 68.9%, recall: 34.1%
 
 
+### student-teacher soft labels (no augmentation) on 2,4,5,6->1,3,5,7
+/mnt0/default/2024-07-05_17-02-52-550235  
+slurm-2478540_15  
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8135804472781414, 0.9238205812014586]
+
+
+2,4,5,6 scores (available in test_0):  
+moda: 80.8%, modp: 73.2%, precision: 88.1%, recall: 93.4%
+
+1,3,5,7 scores  (available in test_1):  
+moda: 21.6%, modp: 69.3%, precision: 72.0%, recall: 35.4%
+
+Seems like student-teacher training with soft-labels may give very slight performance boost, or at least doesn't hurt performance.  
+Maybe the performance boost will come when I introduce augmentation.   
+
+### student-teacher pseudo-labels (no augmentation) on 2,4,5,6->1,3,5,7
+/mnt/default/2024-07-05_16-57-33-979160  
+slurm-2478540_2  
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.18508207817320688, 0.9442114246448788]  
+pseudo_label_th:  0.38431918345836336  
+
+
+1,3,5,7 scores  
+cls_thres=0.4 (available in test_0)  
+moda: 12.6%, modp: 70.1%, precision: 88.2%, recall: 14.5%  
+
+cls_thres=0.3 (available in test_1)  
+moda: 18.2%, modp: 69.8%, precision: 80.4%, recall: 24.1%  
+
+cls_thres=0.2 (available in test_2)  
+moda: 22.0%, modp: 68.9%, precision: 69.6%, recall: 39.0%
+
+
+Also seems like an okay result.  But still no clear improvements.
+
+Note that all the 9 other similar experiments lead to very poor performance with ~90 % recall and ~0 % precision. The reason seems to be that the pseudo-label threshold was set too low, resulting in many false positive pseudo-labels. The conclusion is that the pseudo-label threshold should probably be at least ~0.35. Perhaps 0.35-0.45 is a reasonable range (although the maximum value I tried in the previous 10 experiments was 0.38).
+
+
+
 # Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
 - Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
@@ -256,4 +295,19 @@ preds of ema teacher on train set are available in test_4
 The ema teacher preds on train set in test_4 doesn't match the pseudo-labels produced during training at all... Strange! Seems to be something wrong with the implementation.  
 
 Also, I don't yet understand why test scores (MODA/MODP etc) evaluated during training are very differetn from the same scores produced by test.py.  
+
+### 6/7
+
+Training with pseudo-labels or soft labels yields decent performance in some experiments.  
+Pseudo-label threhsold should be ~0.35-0.45 (at least no less than 0.35, as this yhields many false positives).  
+
+Time to run similar experiments with data augmentation.
+
+**Why do we compute precision and recall in two different ways in test?**  
+The test script report results in the below format:  
+moda: 20.8%, modp: 69.5%, precision: 67.0%, recall: 41.0%  
+Test, Loss: 0.007522, Precision: 2.6%, Recall: 39.1,    Time: 33.777  
+where the first line gets the result from evaluatedetection.py, which uses NMS and hungarian algorithm for matching, while the second line simply sets as cls_thres  
+and computes precision and recall without nms or hungarian algorithm. Typically, many pixels/squares exceed  the cls_thres, resulting in many false positives.
+
 

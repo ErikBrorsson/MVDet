@@ -87,6 +87,7 @@ class PerspectiveTrainer(BaseTrainer):
         return losses / len(data_loader), precision_s.avg * 100
 
     def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False):
+        # self.model.configure_model_for_dataset(data_loader.dataset)
         self.model.eval()
         losses = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()
@@ -627,6 +628,7 @@ class UDATrainer(BaseTrainer):
         return losses / len(data_loader), precision_s.avg * 100
 
     def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False):
+        self.model.configure_model_for_dataset(data_loader.dataset)
         self.model.eval()
         losses = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()

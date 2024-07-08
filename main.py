@@ -46,12 +46,15 @@ def main(args):
         data_path = args.data_path
         if args.cam_adapt:
             assert args.src_cams is not None and args.trg_cams is not None, "src_cams and trg_cams must be specified in cam_adapt setting"
-            source_base = Wildtrack(data_path, cameras=args.src_cams)
-            # source_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
-            target_base = Wildtrack(data_path, cameras=args.trg_cams)
-            # target_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
-            test_base = Wildtrack(data_path, cameras=args.trg_cams)
-            # test_base = Wildtrack(data_path, cameras=[1,2,3,4,5,6,7])
+            trg_cams = args.trg_cams.split(",")
+            trg_cams = [int(x) for x in trg_cams]
+
+            src_cams = args.src_cams.split(",")
+            src_cams = [int(x) for x in src_cams]
+
+            source_base = Wildtrack(data_path, cameras=src_cams)
+            target_base = Wildtrack(data_path, cameras=trg_cams)
+            test_base = Wildtrack(data_path, cameras=trg_cams)
 
             train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
             train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
@@ -192,6 +195,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
+    print('Testing...')
+    test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+                                                test_set.gt_fpath, True)
 
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')
@@ -212,7 +218,8 @@ def main(args):
         test_moda_s.append(moda)
         draw_curve(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, train_loss_s, train_prec_s,
                     test_loss_s, test_prec_s, test_moda_s)
-        # save
+        
+        # save model after every epoch
         torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
 
         if args.uda:
