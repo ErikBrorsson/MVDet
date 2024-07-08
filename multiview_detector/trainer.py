@@ -38,9 +38,9 @@ class PerspectiveTrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, (data, map_gt, imgs_gt, _) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, _, proj_mats) in enumerate(data_loader):
             optimizer.zero_grad()
-            map_res, imgs_res = self.model(data)
+            map_res, imgs_res = self.model(data, proj_mats)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
@@ -95,9 +95,9 @@ class PerspectiveTrainer(BaseTrainer):
         t0 = time.time()
         if res_fpath is not None:
             assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats) in enumerate(data_loader):
             with torch.no_grad():
-                map_res, imgs_res = self.model(data)
+                map_res, imgs_res = self.model(data, proj_mats)
             if res_fpath is not None:
                 map_grid_res = map_res.detach().cpu().squeeze()
                 v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
@@ -142,7 +142,7 @@ class PerspectiveTrainer(BaseTrainer):
 
             if visualize:
                 for cam_indx, _ in enumerate(imgs_res):
-                    cam_number = self.model.cameras[cam_indx]
+                    cam_number = data_loader.dataset.cameras[cam_indx]
 
                     pred_view1 = imgs_res[cam_indx]
                     heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
@@ -429,12 +429,12 @@ class UDATrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, ((data, map_gt, imgs_gt, _), (data_target, map_gt_target, imgs_gt_target, _)) in enumerate(zip(data_loader, data_loader_target)):
+        for batch_idx, ((data, map_gt, imgs_gt, _, proj_mats_source), (data_target, map_gt_target, imgs_gt_target, _, proj_mats_target)) in enumerate(zip(data_loader, data_loader_target)):
 
             # train on source data
             optimizer.zero_grad()
 
-            map_res, imgs_res = self.model(data)
+            map_res, imgs_res = self.model(data, proj_mats_source)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
@@ -482,7 +482,7 @@ class UDATrainer(BaseTrainer):
 
             # create bev pseudo-labels
             with torch.no_grad():
-                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target)
+                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target, proj_mats_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
 
             if not self.soft_labels:
@@ -628,7 +628,6 @@ class UDATrainer(BaseTrainer):
         return losses / len(data_loader), precision_s.avg * 100
 
     def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False):
-        self.model.configure_model_for_dataset(data_loader.dataset)
         self.model.eval()
         losses = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()
@@ -636,9 +635,9 @@ class UDATrainer(BaseTrainer):
         t0 = time.time()
         if res_fpath is not None:
             assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats) in enumerate(data_loader):
             with torch.no_grad():
-                map_res, imgs_res = self.model(data)
+                map_res, imgs_res = self.model(data, proj_mats)
             if res_fpath is not None:
                 map_grid_res = map_res.detach().cpu().squeeze()
                 v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)

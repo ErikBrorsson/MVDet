@@ -56,6 +56,24 @@ class frameDataset(VisionDataset):
         self.img_kernel = torch.zeros([2, 2, kernel_size, kernel_size], requires_grad=False)
         self.img_kernel[0, 0] = torch.from_numpy(img_kernel)
         self.img_kernel[1, 1] = torch.from_numpy(img_kernel)
+
+
+        # self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
+        imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(self.base.intrinsic_matrices,
+                                                                           self.base.extrinsic_matrices,
+                                                                           self.base.worldgrid2worldcoord_mat)
+        # self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
+        # img
+        self.upsample_shape = list(map(lambda x: int(x / self.img_reduce), self.img_shape))
+        img_reduce = np.array(self.img_shape) / np.array(self.upsample_shape)
+        img_zoom_mat = np.diag(np.append(img_reduce, [1]))
+        # map
+        map_zoom_mat = np.diag(np.append(np.ones([2]) / self.grid_reduce, [1]))
+        # projection matrices: img feat -> map feat
+        self.proj_mats = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
+                          for cam in self.cameras}
+
+
         pass
 
     def prepare_gt(self):
@@ -147,10 +165,33 @@ class frameDataset(VisionDataset):
             if self.target_transform is not None:
                 img_gt = self.target_transform(img_gt)
             imgs_gt.append(img_gt.float())
-        return imgs, map_gt.float(), imgs_gt, frame
+
+        proj_mats = []
+        for cam in self.cameras:
+            proj_mats.append(self.proj_mats[cam])
+
+        print("getting images and proj_mats from cameras: ", self.cameras)
+
+        return imgs, map_gt.float(), imgs_gt, frame, proj_mats
 
     def __len__(self):
         return len(self.map_gt.keys())
+
+
+    def get_imgcoord2worldgrid_matrices(self, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
+        projection_matrices = {}
+        for cam in self.cameras:
+            worldcoord2imgcoord_mat = intrinsic_matrices[cam] @ np.delete(extrinsic_matrices[cam], 2, 1)
+
+            worldgrid2imgcoord_mat = worldcoord2imgcoord_mat @ worldgrid2worldcoord_mat
+            imgcoord2worldgrid_mat = np.linalg.inv(worldgrid2imgcoord_mat)
+            # image of shape C,H,W (C,N_row,N_col); indexed as x,y,w,h (x,y,n_col,n_row)
+            # matrix of shape N_row, N_col; indexed as x,y,n_row,n_col
+            permutation_mat = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
+            projection_matrices[cam] = permutation_mat @ imgcoord2worldgrid_mat
+            pass
+        return projection_matrices
+
 
 
 def test():
