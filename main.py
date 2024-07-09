@@ -150,7 +150,7 @@ def main(args):
                              args.train_viz, target_cameras=target_base.cameras, dropview=args.dropview,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels)
     else:
-        trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
+        trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, args.dropview)
 
     # learn
     if args.resume_model is not None:
@@ -224,13 +224,6 @@ def main(args):
 
         if args.uda:
             torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
-    # else:
-    #     resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
-    #     resume_fname = resume_dir + '/MultiviewDetector.pth'
-    #     model.load_state_dict(torch.load(resume_fname))
-    #     model.eval()
-    print('Test loaded model...')
-    trainer.test(test_loader, os.path.join(logdir, 'test.txt'), train_set.gt_fpath, True)
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@ class BaseTrainer(object):
 
 
 class PerspectiveTrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0):
+    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, dropview=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.criterion = criterion
@@ -29,6 +29,8 @@ class PerspectiveTrainer(BaseTrainer):
         self.logdir = logdir
         self.denormalize = denormalize
         self.alpha = alpha
+
+        self.augmentation = Augmentation(dropview)
 
     def train(self, epoch, data_loader, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
@@ -40,12 +42,15 @@ class PerspectiveTrainer(BaseTrainer):
         t_backward = 0
         for batch_idx, (data, map_gt, imgs_gt, _, proj_mats) in enumerate(data_loader):
             optimizer.zero_grad()
+            data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+
             map_res, imgs_res = self.model(data, proj_mats)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
             for img_res, img_gt in zip(imgs_res, imgs_gt):
-                loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                if not img_gt is None: # may be none after data augmentation
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
             loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
                    loss / len(imgs_gt) * self.alpha
             loss.backward()
@@ -407,7 +412,6 @@ class UDATrainer(BaseTrainer):
         self.denormalize = denormalize
         self.alpha = alpha
 
-        self.dropview = dropview
         # self.pseudo_threshold = 0.7
         self.pom = pom
         self.visualize_train = visualize_train
@@ -418,6 +422,8 @@ class UDATrainer(BaseTrainer):
 
         self.alpha_teacher = alpha_teacher
         self.soft_labels = soft_labels
+
+        self.augmentation = Augmentation(dropview)
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
@@ -433,6 +439,10 @@ class UDATrainer(BaseTrainer):
 
             # train on source data
             optimizer.zero_grad()
+
+            data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_source)
+
+
 
             map_res, imgs_res = self.model(data, proj_mats_source)
             t_f = time.time()
@@ -518,7 +528,8 @@ class UDATrainer(BaseTrainer):
                     imgs_pseudo_labels.append(img_pseudo_label)
 
                 # apply augmentation to target images and pseudo-labels prior to student training
-                data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)
+                data_target, map_pseudo_label, imgs_pseudo_labels, proj_mats_target = self.augmentation.strong_augmentation(data_target,
+                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_target)
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_target, proj_mats_target)
                 loss = 0
@@ -531,9 +542,10 @@ class UDATrainer(BaseTrainer):
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher
                 imgs_pseudo_labels = [None]*len(self.target_cameras)
-                data_target, map_pseudo_label, imgs_pseudo_labels = self.strong_augmentation(data_target, map_pseudo_label, imgs_pseudo_labels)                
+                data_target, map_pseudo_label, imgs_pseudo_labels, proj_mats_target = self.augmentation.strong_augmentation(data_target,
+                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_target)                
                 # student predict and compute loss
-                map_res_target, imgs_res_target = self.model(data_target)
+                map_res_target, imgs_res_target = self.model(data_target, proj_mats_target)
                 loss = 0
                 loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
 
@@ -716,7 +728,27 @@ class UDATrainer(BaseTrainer):
         return losses / len(data_loader), precision_s.avg * 100, moda
     
 
-    def strong_augmentation(self, imgs, map_pseudo_label, imgs_pseudo_labels):
+    @staticmethod
+    def update_ema_variables(ema_model, model, alpha_teacher, iteration):
+        # Use the "true" average until the exponential average is more correct
+        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
+        # if len(gpus)>1:
+        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
+        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        # else:
+        for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+            ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        return ema_model
+
+
+class Augmentation:
+    def __init__(self, dropview) -> None:
+        self.dropview = dropview
+
+
+    def strong_augmentation(self, imgs, map_pseudo_label, imgs_pseudo_labels, proj_mats):
         # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
 
         # print("imgs.shape", imgs.shape)
@@ -733,20 +765,4 @@ class UDATrainer(BaseTrainer):
             # since don't want to provide supervision on a dropped view.
             imgs_pseudo_labels[drop_indx] = None
 
-        return imgs, map_pseudo_label, imgs_pseudo_labels
-
-    @staticmethod
-    def update_ema_variables(ema_model, model, alpha_teacher, iteration):
-        # Use the "true" average until the exponential average is more correct
-        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
-        # if len(gpus)>1:
-        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
-        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
-        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
-        # else:
-        for ema_param, param in zip(ema_model.parameters(), model.parameters()):
-            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
-            ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
-        return ema_model
-
-
+        return imgs, map_pseudo_label, imgs_pseudo_labels, proj_mats

@@ -23,8 +23,10 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
   - [x] Do NMS on in bev
   - [x] on target domain: compare bev detections with transformed perspective view detections 
   - [ ] draw some conclusion (is the perspective view preds in bev better than those of the bev head? Why/why not?)
-- [ ] Check why pseudo-labels are very different from teacher predictions after training's finished (see logs 5/7)
-- [ ] Check why test scores are different during training and testing (see logs 5/7)
+- [x] Check why pseudo-labels are very different from teacher predictions after training's finished (see logs 5/7)
+  - [x] fixed bug in code
+- [x] Check why test scores are different during training and testing (see logs 5/7)
+  - [x] fixed bug in code
 
 ### implement EMA teacher
 
@@ -67,8 +69,8 @@ For option 2 and 3, it could make sense to introduce confidence weighting to red
 
 ### data augmentation
 - [ ] dropview
-  - [x] drop view target data
-  - [ ] drop view source data
+  - [ ] Train baseline cam_adapt with dropview on source (no uda)
+  - [ ] Train UDA self-training with dropview on source and target
 - [ ] 3DROM
 - [ ] MVAug
 
@@ -296,7 +298,7 @@ The ema teacher preds on train set in test_4 doesn't match the pseudo-labels pro
 
 Also, I don't yet understand why test scores (MODA/MODP etc) evaluated during training are very differetn from the same scores produced by test.py.  
 
-### 6/7
+### 8/7
 
 Training with pseudo-labels or soft labels yields decent performance in some experiments.  
 Pseudo-label threhsold should be ~0.35-0.45 (at least no less than 0.35, as this yhields many false positives).  
@@ -309,5 +311,17 @@ moda: 20.8%, modp: 69.5%, precision: 67.0%, recall: 41.0%
 Test, Loss: 0.007522, Precision: 2.6%, Recall: 39.1,    Time: 33.777  
 where the first line gets the result from evaluatedetection.py, which uses NMS and hungarian algorithm for matching, while the second line simply sets as cls_thres  
 and computes precision and recall without nms or hungarian algorithm. Typically, many pixels/squares exceed  the cls_thres, resulting in many false positives.
+
+### 9/7
+There was a bug in the code, resulting in the source camera matrices where used also when training on target data in the UDA setting.  
+This resulted in bad pseudo-labels, as seen in 2024-07-05_15-21-12-552959 .  
+After fixing this, the pseudo-labels makes more sense: 2024-07-08_18-12-16-463172 .  
+Also, the test scores during training/test are the same now. So a lot of progress today!
+
+How are predictions outside the platform treated? Are they simply ignored or do they lead to lower precision since they are not in the labels?  
+Any good UDA technique is probably expected to detect the pedestrians outside the region of interest as humans, so I think that they should be ignored in the evaluation.  
+Or perhaps it is okay to supervise the target domain not to predict pedestrians in this region, for fair evaluation?
+
+
 
 
