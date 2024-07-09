@@ -13,6 +13,54 @@ from multiview_detector.utils.image_utils import add_heatmap_to_image
 from multiview_detector.utils.projection import get_imagecoord_from_worldcoord, get_worldcoord_from_imagecoord,\
     get_worldcoord_from_imagecoord_w_projmat, get_worldgrid_from_worldcoord
 
+class Augmentation:
+    def __init__(self, dropview=False, permutation=False) -> None:
+        self.dropview = dropview
+        self.permutation = permutation
+
+
+    def dropview_augment(self, imgs, map_label, imgs_labels, proj_mats):
+        # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
+
+        # print("imgs.shape", imgs.shape)
+        # print("map_gt.shape", map_gt.shape)
+        # for img_gt in imgs_gt:
+        #     print("img_gt.shape", img_gt.shape)
+
+        if self.dropview:
+            # set all pixel values of the dropped image to 0
+            drop_indx = np.random.choice(np.arange(imgs.shape[1]))
+            imgs[:, drop_indx, :, :, :] = 0
+
+            # set the perspective view label for the dropped view to None
+            # since don't want to provide supervision on a dropped view.
+            imgs_labels[drop_indx] = None
+
+        return imgs, map_label, imgs_labels, proj_mats
+    
+
+    def camera_permutation_augment(self, imgs, map_label, imgs_labels, proj_mats):
+        imgs_shuffled = torch.zeros_like(imgs)
+        imgs_labels_shuffled = [None]*len(imgs_labels)
+        proj_mats_shuffled = [None]*len(proj_mats)
+
+        # permutation = np.random.permutation(imgs.shape[1])
+        permutation = [3,0,2,1]
+        for i, p in enumerate(permutation):
+            imgs_shuffled[:, p, :, :] = imgs[:, i, :, :]
+            imgs_labels_shuffled[p] = imgs_labels[i]
+            proj_mats_shuffled[p] = proj_mats[i]
+
+        return imgs_shuffled, map_label, imgs_labels_shuffled, proj_mats_shuffled
+    
+
+    def strong_augmentation(self, imgs, map_label, imgs_labels, proj_mats):
+        if self.permutation:
+            imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
+        if self.dropview:
+            imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
+        return imgs, map_label, imgs_labels, proj_mats
+
 
 
 class BaseTrainer(object):
@@ -21,7 +69,7 @@ class BaseTrainer(object):
 
 
 class PerspectiveTrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, dropview=False):
+    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, augmentation_module: Augmentation=Augmentation()):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.criterion = criterion
@@ -30,7 +78,7 @@ class PerspectiveTrainer(BaseTrainer):
         self.denormalize = denormalize
         self.alpha = alpha
 
-        self.augmentation = Augmentation(dropview)
+        self.augmentation = augmentation_module
 
     def train(self, epoch, data_loader, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
@@ -91,7 +139,7 @@ class PerspectiveTrainer(BaseTrainer):
 
         return losses / len(data_loader), precision_s.avg * 100
 
-    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False):
+    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False, test_time_aug=False):
         # self.model.configure_model_for_dataset(data_loader.dataset)
         self.model.eval()
         losses = 0
@@ -101,6 +149,9 @@ class PerspectiveTrainer(BaseTrainer):
         if res_fpath is not None:
             assert gt_fpath is not None
         for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats) in enumerate(data_loader):
+            if test_time_aug:
+                data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+
             with torch.no_grad():
                 map_res, imgs_res = self.model(data, proj_mats)
             if res_fpath is not None:
@@ -132,7 +183,8 @@ class PerspectiveTrainer(BaseTrainer):
 
             loss = 0
             for img_res, img_gt in zip(imgs_res, imgs_gt):
-                loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                if img_gt is not None:
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
             loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
                    loss / len(imgs_gt) * self.alpha
             losses += loss.item()
@@ -401,8 +453,8 @@ class BBOXTrainer(BaseTrainer):
 
 class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
-                 visualize_train=False, target_cameras=None, dropview=False, alpha_teacher=0.99,
-                 soft_labels=False):
+                 visualize_train=False, target_cameras=None, alpha_teacher=0.99,
+                 soft_labels=False, augmentation_module: Augmentation=Augmentation()):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -423,7 +475,7 @@ class UDATrainer(BaseTrainer):
         self.alpha_teacher = alpha_teacher
         self.soft_labels = soft_labels
 
-        self.augmentation = Augmentation(dropview)
+        self.augmentation = augmentation_module
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
@@ -743,26 +795,4 @@ class UDATrainer(BaseTrainer):
         return ema_model
 
 
-class Augmentation:
-    def __init__(self, dropview) -> None:
-        self.dropview = dropview
 
-
-    def strong_augmentation(self, imgs, map_pseudo_label, imgs_pseudo_labels, proj_mats):
-        # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
-
-        # print("imgs.shape", imgs.shape)
-        # print("map_gt.shape", map_gt.shape)
-        # for img_gt in imgs_gt:
-        #     print("img_gt.shape", img_gt.shape)
-
-        if self.dropview:
-            # set all pixel values of the dropped image to 0
-            drop_indx = np.random.choice(np.arange(imgs.shape[1]))
-            imgs[:, drop_indx, :, :, :] = 0
-
-            # set the perspective view label for the dropped view to None
-            # since don't want to provide supervision on a dropped view.
-            imgs_pseudo_labels[drop_indx] = None
-
-        return imgs, map_pseudo_label, imgs_pseudo_labels, proj_mats

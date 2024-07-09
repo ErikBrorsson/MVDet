@@ -20,7 +20,7 @@ from multiview_detector.models.no_joint_conv_variant import NoJointConvVariant
 from multiview_detector.utils.logger import Logger
 from multiview_detector.utils.draw_curve import draw_curve
 from multiview_detector.utils.image_utils import img_color_denormalize
-from multiview_detector.trainer import PerspectiveTrainer
+from multiview_detector.trainer import PerspectiveTrainer, Augmentation
 
 
 def main(args):
@@ -102,7 +102,9 @@ def main(args):
     print('Settings:')
     print(vars(args))
 
-    trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha)
+    augmentation = Augmentation(args.dropview, args.permutation)
+
+    trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
 
     # learn
     resume_fname = os.path.join(args.log_dir, args.model)
@@ -111,9 +113,9 @@ def main(args):
 
     print('Testing...')
     if args.train_set:
-        trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map)
+        trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     else:
-        trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map)
+        trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
 
 if __name__ == '__main__':
     # settings
@@ -137,6 +139,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default="MultiviewDetector.pth")
     parser.add_argument("--data_path", type=str, default=None)
     parser.add_argument("--persp_map", action="store_true")
+    parser.add_argument("--test_aug", action="store_true")
+    parser.add_argument("--dropview", action="store_true")
+    parser.add_argument("--permutation", action="store_true")
 
     args = parser.parse_args()
 

@@ -68,9 +68,10 @@ Option 1 has a natural "confidence weighting" as we use the MSE loss. I.e., for 
 For option 2 and 3, it could make sense to introduce confidence weighting to reduce the impact of noisy regions. This should be easy to do with a simple weighted MSE loss, where the weight is chosen as the confidence.
 
 ### data augmentation
-- [ ] dropview
-  - [ ] Train baseline cam_adapt with dropview on source (no uda)
+- [ ] dropview (GMVD propose to always drop one camera. I believe that it could be better to sometimes include all cameras, e.g., set a proability of dropping one camera)
+  - [x] Train baseline cam_adapt with dropview on source (no uda)
   - [ ] Train UDA self-training with dropview on source and target
+- [ ] permutation augmentation (change the ordering of cameras). This could make the BEV decoder less overfit to a specific camera rig. 
 - [ ] 3DROM
 - [ ] MVAug
 
@@ -192,10 +193,37 @@ Also seems like an okay result.  But still no clear improvements.
 Note that all the 9 other similar experiments lead to very poor performance with ~90 % recall and ~0 % precision. The reason seems to be that the pseudo-label threshold was set too low, resulting in many false positive pseudo-labels. The conclusion is that the pseudo-label threshold should probably be at least ~0.35. Perhaps 0.35-0.45 is a reasonable range (although the maximum value I tried in the previous 10 experiments was 0.38).
 
 
+### verifying dropview  2,4,5,6 -> 1,3,5,7
+previous experiment 2024-07-02_09-33-24 (without dropview) gets test-scores on 1,3,5,7 without and with dropview during test-time:
+
+moda: 83.5%, modp: 72.8%, precision: 94.7%, recall: 88.4%  
+moda: 46.9%, modp: 71.3%, precision: 94.4%, recall: 49.9%
+
+New experiment 2024-07-09_09-32-28-836149 gets the scores
+
+moda: 74.4%, modp: 70.7%, precision: 86.9%, recall: 87.6%  
+moda: 56.2%, modp: 69.7%, precision: 88.2%, recall: 64.9%
+
+It can be seen that the regular test-score is a bit worse after training with dropview. This is reasonable since using dropview during training may make it harder for the model to exploit information from all 4 views simultaneously.  
+However, after training with dropview, we see that the performance doesn't drop as much when using test-time dropview.  
+Conclusion: dropview seems to work. However, it is probably not beneficial to use dropview in every iteration, as this may make it more difficult for the model to exploit all views during test time.
+
+
+### verifying permutation augmentation 2,4,5,6 -> 1,3,5,7
+Two exps training only on soruce data:
+one where the permutation is merely change, e.g., 6,2,5,4 (should yield similar performance as long as cam 5 is in the same position)
+and one where the permutation augmentation is used (new permutation every iteration). Now, performance on 1,3,5,7 will probably drop significantly as camera 5 is not always in the same place.
+
+
+
+
+
 
 # Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
 - Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
+- GMVD uses resnet18 pretrained with ImageNet. In this repo, no pretrained weights are loaded originally. However, we can easily set pretrained=true when building resnet18. Then weights will be loaded from 'https://download.pytorch.org/models/resnet18-5c106cde.pth' , but it doesn't say what type of weights this is (imagenet?).
+-  
 
 ### Tracking
 GMVD introduces new benchmarks for evaluating the generalizability of multi-view detectors. They evaluate MVDet, MVDetr, SHOT and GMVD on these benchmarks.
