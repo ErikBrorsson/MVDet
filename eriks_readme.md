@@ -27,6 +27,8 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
   - [x] fixed bug in code
 - [x] Check why test scores are different during training and testing (see logs 5/7)
   - [x] fixed bug in code
+- [ ] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
+- [ ] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
 
 ### implement EMA teacher
 
@@ -211,8 +213,11 @@ Conclusion: dropview seems to work. However, it is probably not beneficial to us
 
 ### verifying permutation augmentation 2,4,5,6 -> 1,3,5,7
 Two exps training only on soruce data:
-one where the permutation is merely change, e.g., 6,2,5,4 (should yield similar performance as long as cam 5 is in the same position)
-and one where the permutation augmentation is used (new permutation every iteration). Now, performance on 1,3,5,7 will probably drop significantly as camera 5 is not always in the same place.
+one where the permutation is merely change (permutation = [3,0,2,1]), should yield similar performance as long as cam 5 is in the same position.  
+Another where the permutation augmentation is used (new permutation every iteration). Now, performance on 1,3,5,7 will probably drop significantly as camera 5 is not always in the same place.
+
+With permutation=[3,0,2,1]:  
+moda: 32.6%, modp: 67.5%, precision: 89.1%, recall: 37.1%  
 
 
 
@@ -223,7 +228,8 @@ and one where the permutation augmentation is used (new permutation every iterat
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
 - Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
 - GMVD uses resnet18 pretrained with ImageNet. In this repo, no pretrained weights are loaded originally. However, we can easily set pretrained=true when building resnet18. Then weights will be loaded from 'https://download.pytorch.org/models/resnet18-5c106cde.pth' , but it doesn't say what type of weights this is (imagenet?).
--  
+-  How are predictions outside the platform treated? Are they simply ignored or do they lead to lower precision since they are not in the labels?  
+
 
 ### Tracking
 GMVD introduces new benchmarks for evaluating the generalizability of multi-view detectors. They evaluate MVDet, MVDetr, SHOT and GMVD on these benchmarks.
