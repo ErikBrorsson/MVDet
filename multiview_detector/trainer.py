@@ -13,8 +13,11 @@ from multiview_detector.utils.image_utils import add_heatmap_to_image
 from multiview_detector.utils.projection import get_imagecoord_from_worldcoord, get_worldcoord_from_imagecoord,\
     get_worldcoord_from_imagecoord_w_projmat, get_worldgrid_from_worldcoord
 
+import torchvision
+from multiview_detector.augmentation.homographyaugmentation import HomographyDataAugmentation
+
 class Augmentation:
-    def __init__(self, dropview=False, permutation=False) -> None:
+    def __init__(self, dropview=False, permutation=False, mvaug=False) -> None:
         self.dropview = dropview
         self.permutation = permutation
 
@@ -55,6 +58,49 @@ class Augmentation:
         return imgs_shuffled, map_label, imgs_labels_shuffled, proj_mats_shuffled
     
 
+    def mvaug(self, imgs, map_label, imgs_labels, proj_mats):
+        
+        # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomPerspective())
+        persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+        scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+
+        # augment the map_label
+        map_label = scene_aug(map_label)
+
+        for i, img_gt in enumerate(imgs_labels):
+            img = imgs[0, i, :, :]
+            proj_mat = proj_mats[i]
+
+            # augment the image
+            imgs[i] = persp_aug(img)
+
+            # augment the image label
+            # TODO assuming batch_size 1
+            foot_gt = img_gt[0, 1]
+            foot_points = (foot_gt == 1).nonzero().float() # shape (n_feet x 2)
+            foot_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None)
+            # TODO transform foot_points_aug to foot_gt
+
+            # augment the projection matrix to account for persp aug
+            temp = torch.tensor([img_gt.shape[2], img_gt.shape[3]])
+            proj_mat = persp_aug.augment_homography_view_based(proj_mat.float(), (temp // 4).float())
+
+            # augment the projection matrix to account for scene aug
+            proj_mats[i] = scene_aug.augment_homography_scene_based(proj_mat, (120, 360)) # TODO should be reducedgrid_shape
+
+
+            for p in foot_points_aug:
+                arr = cv2.circle(arr, (int(p[1]), int(p[0])), 20, (255,0,0), -1)
+
+
+        #apply the same augmentation to image, ground truth points, and ground plane projection matrix
+        # img_indx = 0
+        # img_view1_aug = persp_aug(imgs[:,img_indx, :, :])
+        # gt_view1_aug = persp_aug.augment_gt_point_view_based(gt_view1)
+        # proj_view1_aug = persp_aug.augment_homography_view_based(proj1)
+
+        return imgs, map_label, imgs_labels, proj_mats
+
     def strong_augmentation(self, imgs, map_label, imgs_labels, proj_mats):
         if self.permutation:
             imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
@@ -89,9 +135,90 @@ class PerspectiveTrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, (data, map_gt, imgs_gt, _, proj_mats) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, _, proj_mats, proj_mats_mvaug, projm_img2bevred) in enumerate(data_loader):
             optimizer.zero_grad()
+
+            scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+
+            # augment the map_label
+            map_label_aug = scene_aug(map_gt) # TODO perhaps I need to do this with augment_gt_point_view_based?
+            # Maybe there could be some sampling that "misses" a gt point otherwise.
+            # assert torch.sum(map_label_aug) == torch.sum(map_gt), "some pedestrian label vanished in scene augmentation"
+            fig = plt.figure()
+            subplt0 = fig.add_subplot(211, title="map_label")
+            subplt1 = fig.add_subplot(212, title="map_label_aug")
+            subplt0.imshow(self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.map_kernel).cpu().detach().numpy().squeeze())
+            subplt1.imshow(self.criterion._traget_transform(map_label_aug, map_label_aug, data_loader.dataset.map_kernel).cpu().detach().numpy().squeeze())
+            plt.savefig(os.path.join(f'map_label_aug{batch_idx}.jpg'))
+            plt.close(fig)
+
+            data_aug = torch.zeros_like(data)
+
+            proj_mats_aug = []
+
+            for i, img_gt in enumerate(imgs_gt):
+                persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+
+                img = data[0, i, :, :]
+                proj_mat = proj_mats_mvaug[i]
+
+                # augment the image
+                data_aug[0, i] = persp_aug(img)
+
+                # augment the image label
+                # TODO assuming batch_size 1
+                foot_gt = img_gt[0, 1]
+                foot_points = (foot_gt == 1).nonzero().float() * 2/3 # TODO hard-coded *2/3 accounting for images of shape (720x1280) while imgs_gt has shape (1080x1920imgs)
+                temp = torch.zeros_like(foot_points)
+                temp[:, 0] = foot_points[:, 1]
+                temp[:, 1] = foot_points[:, 0]
+                foot_points = temp
+                foot_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=(720, 1280))
+                # TODO transform foot_points_aug to foot_gt
+
+                # augment the projection matrix to account for persp aug
+                temp = torch.tensor([img_gt.shape[2], img_gt.shape[3]])
+                proj_mat = persp_aug.augment_homography_view_based(proj_mat.float(), (temp // 4).float())
+
+                # augment the projection matrix to account for scene aug
+                proj_mats_aug.append(scene_aug.augment_homography_scene_based(proj_mat, (120, 360))) # TODO should be reducedgrid_shape
+
+
+                # visualize persp view images and gts
+                img0 = self.denormalize(data[0,i ]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                arr = np.array(img0)
+                for p in foot_points:
+                    arr = cv2.circle(arr, (int(p[0]), int(p[1])), 4, (255,0,0), -1)
+                img1 = Image.fromarray(arr)
+                img1.save(f"img_withgt_{i}.jpg")
+
+                img0 = self.denormalize(data_aug[0,i ]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                arr = np.array(img0)
+                for p in foot_points_aug:
+                    arr = cv2.circle(arr, (int(p[0]), int(p[1])), 4, (255,0,0), -1)
+                img1 = Image.fromarray(arr)
+                img1.save(f"img_aug_withgt_{i}.jpg")
+
+
+                proj_mat = projm_img2bevred[i].repeat([1, 1, 1]).float().to('cuda:0')
+                import kornia
+                # here, the proj_mat has been constructed for a specific grid (output) and image (input) size.
+                # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
+                img = self.denormalize(data[0,i])
+                world_feature = kornia.geometry.transform.warp_perspective(img.to('cuda:0'), proj_mat, (120, 360)) # reducedgrid_shape=[480/4, 1440/4]
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="img")
+                subplt1 = fig.add_subplot(212, title="bev_img")                
+                subplt0.imshow(img.cpu().numpy().squeeze().transpose([1, 2, 0]))
+                subplt1.imshow(world_feature.cpu().numpy().squeeze().transpose([1, 2, 0]))
+                plt.savefig(os.path.join(f'img_and_bev{i}.jpg'))
+                plt.close(fig)
+
+
             data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+
 
             map_res, imgs_res = self.model(data, proj_mats)
             t_f = time.time()

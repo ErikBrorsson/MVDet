@@ -57,7 +57,10 @@ class PerspTransDetector(nn.Module):
             img_res = self.img_classifier(img_feature.to('cuda:0'))
             imgs_result.append(img_res)
             proj_mat = proj_mats[i].repeat([B, 1, 1]).float().to('cuda:0')
-            world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, self.reducedgrid_shape)
+
+            # here, the proj_mat has been constructed for a specific grid (output) and image (input) size.
+            # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
+            world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, self.reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             if visualize:
                 plt.imshow(torch.norm(img_feature[0].detach(), dim=0).cpu().numpy())
                 plt.show()

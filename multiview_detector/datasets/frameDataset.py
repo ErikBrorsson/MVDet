@@ -70,7 +70,17 @@ class frameDataset(VisionDataset):
         # map
         map_zoom_mat = np.diag(np.append(np.ones([2]) / self.grid_reduce, [1]))
         # projection matrices: img feat -> map feat
+
+        # image features -> bev grid reduced
         self.proj_mats = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
+                          for cam in self.cameras}
+        
+        # image -> bev grid reduced
+        self.projm_img2bevred = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam])
+                          for cam in self.cameras}
+
+        # bev grid reduced -> image features
+        self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
                           for cam in self.cameras}
 
 
@@ -170,15 +180,30 @@ class frameDataset(VisionDataset):
         for cam in self.cameras:
             proj_mats.append(self.proj_mats[cam])
 
+
+        proj_mats_mvaug = []
+        for cam in self.cameras:
+            proj_mats_mvaug.append(self.proj_mats_mvaug[cam])
+
         # print("getting images and proj_mats from cameras: ", self.cameras)
 
-        return imgs, map_gt.float(), imgs_gt, frame, proj_mats
+        projm_img2bevred = []
+        for cam in self.cameras:
+            projm_img2bevred.append(self.projm_img2bevred[cam])
+
+        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, proj_mats_mvaug, projm_img2bevred
 
     def __len__(self):
         return len(self.map_gt.keys())
 
 
     def get_imgcoord2worldgrid_matrices(self, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
+        """
+        returns:
+            projection matrices between image pixels position and bev grid position.
+            Here, the image size is determined by the intrinsic_matrices. 
+            While the bev grid size is determined by  worldgrid2worldcoord_mat
+        """
         projection_matrices = {}
         for cam in self.cameras:
             worldcoord2imgcoord_mat = intrinsic_matrices[cam] @ np.delete(extrinsic_matrices[cam], 2, 1)

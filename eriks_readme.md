@@ -219,6 +219,10 @@ Another where the permutation augmentation is used (new permutation every iterat
 With permutation=[3,0,2,1]:  
 moda: 32.6%, modp: 67.5%, precision: 89.1%, recall: 37.1%  
 
+with random permutation:  
+moda: 44.0%, modp: 67.8%, precision: 92.8%, recall: 47.7%
+
+Conclusion: permuattion seems to be implemented correctly. And it seems beneficial with random permutation even though camera 5 is on the same place in train and test.
 
 
 
@@ -357,5 +361,23 @@ Any good UDA technique is probably expected to detect the pedestrians outside th
 Or perhaps it is okay to supervise the target domain not to predict pedestrians in this region, for fair evaluation?
 
 
+### 10/7 working on implementing MVAug
+
+in frameDataset, the self.transform includes a resize(720, 1280), which makes the loaded images smaller. However, I don't find anywhere in the code that the projection matrices
+are adjusted because of this.
+I believe that my current visualization of bev-image is slightly wrong due to this scaling 1920/1280 = 1.5.
+Maybe this doesn't matter for the MVDet code since they anyway normalize the image coordinates to [-1, 1] in kornia.warp_perspective, but it may cause issues for me.
+
+I have succeded in warping the input images as well as the foot gt coordinates so that they align with the warped image.
+
+I've also warped the bev label, but I'm not sure if this is done correctly since they seem to use an entirely different technique in MVAug.
+
+I've also figured out that while MVDet uses a projection matrix for image -> bev, MVAug uses a projection matrix for bev -> image.
+It is essential that I use the MVAug matrix for the MVaug augmentations, otherwise things won't work.
+
+TODO
+- [ ] successfully create bev images for unaugmented and MVaugmneted images (started)
+- [ ] apply the same bev-projection to image features instead of RGB image and check results
+- [ ] repeat the above two steps now also using scene augmentation
 
 
