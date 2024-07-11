@@ -154,13 +154,13 @@ class PerspectiveTrainer(BaseTrainer):
 
             data_aug = torch.zeros_like(data)
 
-            proj_mats_aug = []
+            proj_mat_aug_list = []
 
             for i, img_gt in enumerate(imgs_gt):
                 persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
 
                 img = data[0, i, :, :]
-                proj_mat = proj_mats_mvaug[i]
+                proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
 
                 # augment the image
                 data_aug[0, i] = persp_aug(img)
@@ -177,12 +177,14 @@ class PerspectiveTrainer(BaseTrainer):
                 # TODO transform foot_points_aug to foot_gt
 
                 # augment the projection matrix to account for persp aug
-                temp = torch.tensor([img_gt.shape[2], img_gt.shape[3]])
-                proj_mat = persp_aug.augment_homography_view_based(proj_mat.float(), (temp // 4).float())
+                temp = torch.tensor([data.shape[-2], data.shape[-1]])
+                proj_mat_aug = persp_aug.augment_homography_view_based(proj_mat_aug.float(), (temp).float()) # bev-grid reduced -> warped image (720x1280)
 
                 # augment the projection matrix to account for scene aug
-                proj_mats_aug.append(scene_aug.augment_homography_scene_based(proj_mat, (120, 360))) # TODO should be reducedgrid_shape
+                # proj_mats_aug.append(scene_aug.augment_homography_scene_based(proj_mat, (120, 360))) # TODO should be reducedgrid_shape
 
+
+                
 
                 # visualize persp view images and gts
                 img0 = self.denormalize(data[0,i ]).cpu().numpy().squeeze().transpose([1, 2, 0])
@@ -190,6 +192,26 @@ class PerspectiveTrainer(BaseTrainer):
                 arr = np.array(img0)
                 for p in foot_points:
                     arr = cv2.circle(arr, (int(p[0]), int(p[1])), 4, (255,0,0), -1)
+
+
+                # create and project bev grid
+                bev_h = 360
+                bev_w = 120
+                x = torch.linspace(0, bev_h-1, bev_h)
+                y = torch.linspace(0, bev_w-1, bev_w)
+                mesh = torch.meshgrid([x,y], indexing="xy")
+                grid = torch.concat([mesh[0].unsqueeze(0), mesh[1].unsqueeze(0)])
+                grid = grid.reshape((2, -1))
+                grid_homo = torch.ones((3, grid.shape[1]))
+                grid_homo[0:2, :] = grid
+                grid_homo = grid_homo.unsqueeze(0)
+                bevreduced2img = torch.linalg.inv(projm_img2bevred[i])
+                grid_persp = torch.bmm(bevreduced2img.float().to('cuda:0'), grid_homo.to('cuda:0')).cpu().numpy().squeeze()
+                grid_persp = grid_persp / grid_persp[2, :]
+
+                for p in grid_persp.transpose():
+                    arr = cv2.circle(arr, (int(p[0]), int(p[1])), 1, (0,0,255), -1)
+
                 img1 = Image.fromarray(arr)
                 img1.save(f"img_withgt_{i}.jpg")
 
@@ -215,6 +237,48 @@ class PerspectiveTrainer(BaseTrainer):
                 subplt1.imshow(world_feature.cpu().numpy().squeeze().transpose([1, 2, 0]))
                 plt.savefig(os.path.join(f'img_and_bev{i}.jpg'))
                 plt.close(fig)
+
+
+
+                # visualize augmented images warped to bev
+                # proj_mat_aug = proj_mat_aug.detach().cpu().numpy().squeeze()
+                # proj_mat_aug = np.linalg.inv(proj_mat_aug) # warped image (720x1280) -> bev-grid reduced
+                # proj_mat_aug = proj_mat_aug @ np.diag(np.array([1/1.5,1/1.5,1.])) 
+                # proj_mat_aug = torch.from_numpy(proj_mat_aug).to('cuda:0').unsqueeze(0).repeat([1, 1, 1]).float()
+                img = self.denormalize(data_aug[0, i])
+                world_feature = kornia.geometry.transform.warp_perspective(img.to('cuda:0'), torch.linalg.inv(proj_mat_aug).to('cuda:0'), (120, 360))
+
+
+                # create and project bev grid
+                bev_h = 360
+                bev_w = 120
+                x = torch.linspace(0, bev_h-1, bev_h)
+                y = torch.linspace(0, bev_w-1, bev_w)
+                mesh = torch.meshgrid([x,y], indexing="xy")
+                grid = torch.concat([mesh[0].unsqueeze(0), mesh[1].unsqueeze(0)])
+                grid = grid.reshape((2, -1))
+                grid_homo = torch.ones((3, grid.shape[1]))
+                grid_homo[0:2, :] = grid
+                grid_homo = grid_homo.unsqueeze(0)
+                grid_persp = torch.bmm(proj_mat_aug.float().to('cuda:0'), grid_homo.to('cuda:0')).cpu().numpy().squeeze()
+                grid_persp = grid_persp / grid_persp[2, :]
+
+                # plot bev grid in image
+                img = img.cpu().numpy().squeeze().transpose([1, 2, 0])
+                img = Image.fromarray((img * 255).astype('uint8'))
+                img = np.array(img)
+                for p in grid_persp.transpose():
+                    img = cv2.circle(img, (int(p[0]), int(p[1])), 1, (0,0,255), -1)
+
+
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="img")
+                subplt1 = fig.add_subplot(212, title="bev_img")                
+                subplt0.imshow(img)
+                subplt1.imshow(world_feature.cpu().numpy().squeeze().transpose([1, 2, 0]))
+                plt.savefig(os.path.join(f'img_and_bev_aug{i}.jpg'))
+                plt.close(fig)
+
 
 
             data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)

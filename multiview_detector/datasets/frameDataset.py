@@ -76,14 +76,20 @@ class frameDataset(VisionDataset):
                           for cam in self.cameras}
         
         # image -> bev grid reduced
-        self.projm_img2bevred = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam])
+        self.projm_img2bevred = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ np.diag(np.array([1.5, 1.5, 1.0])))
                           for cam in self.cameras}
 
-        # bev grid reduced -> image features
-        self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
+        # bev grid reduced -> image
+        # self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
+        #                   for cam in self.cameras}
+        # map_zoom_mat = np.diag(np.array([1/8, 1/8, 1]))
+        self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @  np.diag(np.array([1.5, 1.5, 1.0]))))
                           for cam in self.cameras}
+        
+        for k,v in self.proj_mats_mvaug.items():
+            print(k, ": ", v)
 
-
+        print("hehe")
         pass
 
     def prepare_gt(self):
