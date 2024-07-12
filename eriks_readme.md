@@ -376,7 +376,7 @@ I've also figured out that while MVDet uses a projection matrix for image -> bev
 It is essential that I use the MVAug matrix for the MVaug augmentations, otherwise things won't work.
 
 TODO
-- [ ] successfully create bev images for unaugmented and MVaugmneted images (started)
+- [x] successfully create bev images for unaugmented and MVaugmneted images (started)
 - [ ] apply the same bev-projection to image features instead of RGB image and check results
 - [ ] repeat the above two steps now also using scene augmentation
 

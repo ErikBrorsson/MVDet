@@ -78,6 +78,11 @@ class frameDataset(VisionDataset):
         # image -> bev grid reduced
         self.projm_img2bevred = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ np.diag(np.array([1.5, 1.5, 1.0])))
                           for cam in self.cameras}
+        
+        # image feature -> bev grid reduced
+        img_zoom_mat = np.diag(np.array([self.img_reduce, self.img_reduce, 1]))
+        self.projm_imgred2bevred = {cam: torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat @ np.diag(np.array([1.5, 1.5, 1.0])))
+                          for cam in self.cameras}
 
         # bev grid reduced -> image
         # self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
@@ -85,11 +90,11 @@ class frameDataset(VisionDataset):
         # map_zoom_mat = np.diag(np.array([1/8, 1/8, 1]))
         self.proj_mats_mvaug = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @  np.diag(np.array([1.5, 1.5, 1.0]))))
                           for cam in self.cameras}
+        img_zoom_mat = np.diag(np.array([self.img_reduce, self.img_reduce, 1]))        
+        self.proj_mats_mvaug_features = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
+                          for cam in self.cameras}
         
-        for k,v in self.proj_mats_mvaug.items():
-            print(k, ": ", v)
 
-        print("hehe")
         pass
 
     def prepare_gt(self):
@@ -196,8 +201,17 @@ class frameDataset(VisionDataset):
         projm_img2bevred = []
         for cam in self.cameras:
             projm_img2bevred.append(self.projm_img2bevred[cam])
+        projm_imgred2bevred = []
+        for cam in self.cameras:
+            projm_imgred2bevred.append(self.projm_imgred2bevred[cam])
 
-        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, proj_mats_mvaug, projm_img2bevred
+        proj_mats_mvaug_features = []
+        for cam in self.cameras:
+            proj_mats_mvaug_features.append(self.proj_mats_mvaug_features[cam])
+            
+            
+
+        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features
 
     def __len__(self):
         return len(self.map_gt.keys())

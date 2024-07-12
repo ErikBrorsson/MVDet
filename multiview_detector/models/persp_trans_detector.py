@@ -62,22 +62,36 @@ class PerspTransDetector(nn.Module):
             # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
             world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, self.reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             if visualize:
-                plt.imshow(torch.norm(img_feature[0].detach(), dim=0).cpu().numpy())
-                plt.show()
-                plt.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
-                plt.show()
+                fig = plt.figure(figsize=(16,9))
+                subplt0 = fig.add_subplot(211, title="img_features")
+                subplt1 = fig.add_subplot(212, title="bev_features")                
+                subplt0.imshow(torch.norm(img_feature[0].detach(), dim=0).cpu().numpy())
+                subplt1.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
+                plt.savefig(f"img_and_bev_features_{i}.jpg")
+                plt.close(fig)
+                # plt.imshow(torch.norm(img_feature[0].detach(), dim=0).cpu().numpy())
+                # plt.show()
+                # plt.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
+                # plt.show()
             world_features.append(world_feature.to('cuda:0'))
 
         world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
         if visualize:
-            plt.imshow(torch.norm(world_features[0].detach(), dim=0).cpu().numpy())
-            plt.show()
+            fig = plt.figure(figsize=(16,9))
+            subplt0 = fig.add_subplot(111, title="concat_world_features")
+            subplt0.imshow(torch.norm(world_features[0].detach(), dim=0).cpu().numpy())
+            plt.savefig(f"all_bev_features_{i}.jpg")
+            plt.close(fig)
+            
         map_result = self.map_classifier(world_features.to('cuda:0'))
         map_result = F.interpolate(map_result, self.reducedgrid_shape, mode='bilinear')
 
         if visualize:
-            plt.imshow(torch.norm(map_result[0].detach(), dim=0).cpu().numpy())
-            plt.show()
+            fig = plt.figure(figsize=(16,9))
+            subplt0 = fig.add_subplot(111, title="map_result")
+            subplt0.imshow(torch.norm(map_result[0].detach(), dim=0).cpu().numpy())
+            plt.savefig(f"map_res{i}.jpg")
+            plt.close(fig)
         return map_result, imgs_result
 
     def create_coord_map(self, img_size, with_r=False):
