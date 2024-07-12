@@ -377,7 +377,7 @@ It is essential that I use the MVAug matrix for the MVaug augmentations, otherwi
 
 TODO
 - [x] successfully create bev images for unaugmented and MVaugmneted images (started)
-- [ ] apply the same bev-projection to image features instead of RGB image and check results
+- [x] apply the same bev-projection to image features instead of RGB image and check results
 - [ ] repeat the above two steps now also using scene augmentation
 
 
