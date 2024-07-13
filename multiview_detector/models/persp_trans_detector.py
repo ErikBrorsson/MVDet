@@ -80,7 +80,7 @@ class PerspTransDetector(nn.Module):
             fig = plt.figure(figsize=(16,9))
             subplt0 = fig.add_subplot(111, title="concat_world_features")
             subplt0.imshow(torch.norm(world_features[0].detach(), dim=0).cpu().numpy())
-            plt.savefig(f"all_bev_features_{i}.jpg")
+            plt.savefig(f"iall_bev_features_{i}.jpg")
             plt.close(fig)
             
         map_result = self.map_classifier(world_features.to('cuda:0'))
@@ -90,7 +90,7 @@ class PerspTransDetector(nn.Module):
             fig = plt.figure(figsize=(16,9))
             subplt0 = fig.add_subplot(111, title="map_result")
             subplt0.imshow(torch.norm(map_result[0].detach(), dim=0).cpu().numpy())
-            plt.savefig(f"map_res{i}.jpg")
+            plt.savefig(f"imap_res{i}.jpg")
             plt.close(fig)
         return map_result, imgs_result
 
