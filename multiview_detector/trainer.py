@@ -458,7 +458,7 @@ class PerspectiveTrainer(BaseTrainer):
         t0 = time.time()
         if res_fpath is not None:
             assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
             if test_time_aug:
                 data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
 
