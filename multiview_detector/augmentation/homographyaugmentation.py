@@ -83,7 +83,7 @@ class HomographyDataAugmentation(torch.nn.Module):
 
         self.aligned_transform.initialize_params(homography_output_size)
         
-        homography = homography @ self.aligned_transform.get_aug_transform_matrix()
+        homography = homography @ torch.linalg.inv(self.aligned_transform.get_aug_transform_matrix())
         
         return homography
         
