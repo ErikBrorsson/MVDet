@@ -382,6 +382,9 @@ TODO
 
 
 ### 15/7
+TODO:  
+if mvaug is not used, the proj_mats in proj_mats_mvaug_features will not be inverted, i.e., subsequent calls to mthe model will not work.  
+
 MVAug implementation seems correct now.  
 It is time to start doing some experiments:
 

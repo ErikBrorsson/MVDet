@@ -399,7 +399,8 @@ class PerspectiveTrainer(BaseTrainer):
                     # visualization ###############################################################################################################################
 
 
-            data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features)
+            data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features) 
+            # TODO if mvaug is not used, the proj_mats in proj_mats_mvaug_features will not be inverted, i.e., subsequent calls to mthe model will not work.  
             # map_res, imgs_res = self.model(data, proj_mats, visualize=True)
             map_res, imgs_res = self.model(data, proj_mats)
             
