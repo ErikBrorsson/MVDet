@@ -376,8 +376,19 @@ I've also figured out that while MVDet uses a projection matrix for image -> bev
 It is essential that I use the MVAug matrix for the MVaug augmentations, otherwise things won't work.
 
 TODO
-- [x] successfully create bev images for unaugmented and MVaugmneted images (started)
+- [x] successfully create bev images for unaugmented and MVaugmneted images
 - [x] apply the same bev-projection to image features instead of RGB image and check results
-- [ ] repeat the above two steps now also using scene augmentation
+- [x] repeat the above two steps now also using scene augmentation
+
+
+### 15/7
+MVAug implementation seems correct now.  
+It is time to start doing some experiments:
+
+- [ ] generalization experiment (only mvaug, compare with only random perm)
+- [ ] generalization experiment (mvaug + random perm)
+
+- [ ] UDA experiment: weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student 
+
 
 

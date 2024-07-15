@@ -144,7 +144,7 @@ def main(args):
     test_prec_s = []
     test_moda_s = []
 
-    augmentation = Augmentation(args.dropview, args.permutation)
+    augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
 
     if args.uda:
         pom = train_loader_target.dataset.base.read_pom()
@@ -259,6 +259,7 @@ if __name__ == '__main__':
     parser.add_argument('--uda', action="store_true")
     parser.add_argument('--dropview', action="store_true")
     parser.add_argument("--permutation", action="store_true")
+    parser.add_argument("--mvaug", action="store_true")
     parser.add_argument('--soft_labels', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)

@@ -26,6 +26,7 @@ class Augmentation:
 ) -> None:
         self.dropview = dropview
         self.permutation = permutation
+        self.mvaug = mvaug
         self.img_reduce = img_reduce
         self.img_shape = img_shape
         self.reducedgrid_shape = list(map(lambda x: int(x / grid_reduce), worldgrid_shape))
@@ -68,7 +69,7 @@ class Augmentation:
         return imgs_shuffled, map_label, imgs_labels_shuffled, proj_mats_shuffled
     
 
-    def mvaug(self, data, map_gt, imgs_gt, proj_mats_mvaug_features):
+    def mvaug_augmentation(self, data, map_gt, imgs_gt, proj_mats_mvaug_features):
         
         # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomPerspective())
         persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
@@ -144,7 +145,7 @@ class Augmentation:
         if self.permutation:
             imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
         if self.mvaug:
-            imgs, map_label, imgs_labels, proj_mats = self.mvaug(imgs, map_label, imgs_labels, proj_mats)
+            imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats)
         if self.dropview:
             imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
         return imgs, map_label, imgs_labels, proj_mats
