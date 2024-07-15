@@ -83,6 +83,7 @@ class HomographyDataAugmentation(torch.nn.Module):
 
         self.aligned_transform.initialize_params(homography_output_size)
         
+        # Erik Brorsson added torch.linalg.inv below. In original MVAug implementation, there was no inverse here.
         homography = homography @ torch.linalg.inv(self.aligned_transform.get_aug_transform_matrix())
         
         return homography
