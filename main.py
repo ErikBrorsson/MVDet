@@ -193,7 +193,7 @@ def main(args):
         print("target_weights: ", target_weights)
 
         if args.pseudo_label_th is None:
-            pseudo_label_th = 0.1 + np.random.rand()*0.3 # random value between 0.1 and 0.4
+            pseudo_label_th = 0.3 + np.random.rand()*0.15 # random value between 0.3 and 0.45
         else:
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
