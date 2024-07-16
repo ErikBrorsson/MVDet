@@ -69,11 +69,15 @@ class Augmentation:
         return imgs_shuffled, map_label, imgs_labels_shuffled, proj_mats_shuffled
     
 
-    def mvaug_augmentation(self, data, map_gt, imgs_gt, proj_mats_mvaug_features):
+    def mvaug_augmentation(self, data, map_gt, imgs_gt, proj_mats_mvaug_features, weak=False):
         
-        # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomPerspective())
-        # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
-        scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+        if weak:
+            # half all parameters to raff
+            scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                    degrees = 22, translate = (0.1, 0.1), scale = (0.9,1.1), shear = 5))
+        else:
+            scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                    degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
 
         # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
         # augment the map_label
@@ -99,9 +103,14 @@ class Augmentation:
 
         # loop over the images and apply augmentation
         for i, img_gt in enumerate(imgs_gt):
-            persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
-                degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
-
+            if weak:
+                # half all parameters to raff
+                persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                        degrees = 22, translate = (0.1, 0.1), scale = (0.9,1.1), shear = 5))
+            else:
+                persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                        degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
+                
             img = data[0, i, :, :]
             # proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
 
@@ -143,14 +152,63 @@ class Augmentation:
         return data_aug, map_gt_aug, img_gt_aug_list, proj_mat_aug_list
 
     def strong_augmentation(self, imgs, map_label, imgs_labels, proj_mats):
+        """
+        Args:
+            imgs
+            map_label
+            imgs_labels
+            proj_mats: input is mvaug standard (bev->image)
+        
+        returns:
+            imgs
+            maps_label
+            imgs_labels
+            proj_mats: output is MVDet standard (image->bev)
+        """
+        if self.mvaug:
+            r = np.random.rand() # augment 50% of data with mvaug
+            if r >= 0.5:
+                imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats)
+            else:
+                proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        else:
+            proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+
         if self.permutation:
             imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
-        if self.mvaug:
-            imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats)
         if self.dropview:
             imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
         return imgs, map_label, imgs_labels, proj_mats
 
+
+    def weak_augmentation(self, imgs, map_label, imgs_labels, proj_mats):
+        """
+        Args:
+            imgs
+            map_label
+            imgs_labels
+            proj_mats: input is mvaug standard (bev->image)
+        
+        returns:
+            imgs
+            maps_label
+            imgs_labels
+            proj_mats: output is MVDet standard (image->bev)
+        """
+        if self.mvaug:
+            r = np.random.rand() # augment 50% of data with mvaug
+            if r >= 0.5:
+                imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
+            else:
+                proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        else:
+            proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+
+        if self.permutation:
+            imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
+        # if self.dropview:
+        #     imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
+        return imgs, map_label, imgs_labels, proj_mats
 
 
 class BaseTrainer(object):
@@ -220,21 +278,14 @@ class PerspectiveTrainer(BaseTrainer):
         for batch_idx, (data, map_gt, imgs_gt, _, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features) in enumerate(data_loader):
             optimizer.zero_grad()
 
-
             mv_aug_viz = False
             if mv_aug_viz:
-                scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
-
-                # # TODO remove this (just used for initialization)
-                # temp = torch.tensor(data_loader.dataset.reducedgrid_shape)
-                # proj_mat_aug_f = scene_aug.augment_homography_scene_based(proj_mats_mvaug_features[0].float(), [int(x) for x in temp])
-
-
-                # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
+                scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                        degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10))
+                
                 # augment the map_label
                 map_gt_aug_temp = scene_aug(map_gt)
 
-                # TODO assuming batch_size 1
                 map_gt_aug = torch.zeros_like(map_gt)
                 foot_gt = map_gt[0, 0]
                 foot_points = (foot_gt == 1).nonzero().float()
@@ -275,7 +326,8 @@ class PerspectiveTrainer(BaseTrainer):
                 proj_mat_aug_list_without_scene = []
                 # loop over the images and apply augmentation
                 for i, img_gt in enumerate(imgs_gt):
-                    persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+                    persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                        degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10))
 
                     img = data[0, i, :, :]
                     # proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
@@ -284,7 +336,6 @@ class PerspectiveTrainer(BaseTrainer):
                     data_aug[0, i] = persp_aug(img)
 
                     # augment the image label
-                    # TODO assuming batch_size 1
                     img_gt_aug = torch.zeros_like(img_gt)
                     foot_gt = img_gt[0, 1]
                     foot_points = (foot_gt == 1).nonzero().float()
@@ -339,8 +390,6 @@ class PerspectiveTrainer(BaseTrainer):
                     #                             foot_points  * data.shape[-2] / img_gt.shape[-2] / data_loader.dataset.img_reduce) # adjust foot_points for size difference between img and img_gt
 
 
-
-
                     # visualize augmented image and projection to bev
                     img_aug = self.denormalize(data_aug[0, i])
                     # world_feature = kornia.geometry.transform.warp_perspective(img_aug.to('cuda:0'), torch.linalg.inv(proj_mat_aug).to('cuda:0'), data_loader.dataset.reducedgrid_shape)
@@ -369,8 +418,6 @@ class PerspectiveTrainer(BaseTrainer):
                                                 foot_points_aug / data_loader.dataset.img_reduce,
                                                 self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.map_kernel))
                     
-
-
 
                     # img_label_hm = self.criterion._traget_transform(img_gt, img_gt, data_loader.dataset.img_kernel).cpu().detach().numpy().squeeze()
                     # img_label_hm_head = img_label_hm[0]
@@ -401,8 +448,7 @@ class PerspectiveTrainer(BaseTrainer):
 
 
             data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features) 
-            # TODO if mvaug is not used, the proj_mats in proj_mats_mvaug_features will not be inverted, i.e., subsequent calls to mthe model will not work.  
-            # map_res, imgs_res = self.model(data, proj_mats, visualize=True)
+
             map_res, imgs_res = self.model(data, proj_mats)
             
             t_f = time.time()
@@ -533,7 +579,7 @@ class PerspectiveTrainer(BaseTrainer):
                             # temp = temp * data_loader.dataset.img_reduce
 
                             # print("using projmat ", cam_number)
-                            # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number]) # TODO Beware, the proj_mats is a list, not a dict
+                            # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number])
                             # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
                             for coord_indx, p in enumerate(world_grid.transpose()):
                                 if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
@@ -616,30 +662,6 @@ class PerspectiveTrainer(BaseTrainer):
         t1 = time.time()
         t_epoch = t1 - t0
 
-        moda = 0
-        if res_fpath is not None:
-            all_res_list = torch.cat(all_res_list, dim=0)
-            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
-            res_list = []
-            for frame in np.unique(all_res_list[:, 0]):
-                res = all_res_list[all_res_list[:, 0] == frame, :]
-                positions, scores = res[:, 1:3], res[:, 3]
-                ids, count = nms(positions, scores, 20, np.inf)
-                res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
-            res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
-            np.savetxt(res_fpath, res_list, '%d')
-
-            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                     data_loader.dataset.base.__name__)
-
-            # If you want to use the unofiicial python evaluation tool for convenient purposes.
-            # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-            #                                             data_loader.dataset.base.__name__)
-
-            print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                  format(moda, modp, precision, recall))
-            
-
         # evaluate perspective view preds
         if persp_map:
             moda = 0
@@ -665,11 +687,35 @@ class PerspectiveTrainer(BaseTrainer):
                 print("########### perspective results ####################")
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
+                
+
+        moda = 0
+        if res_fpath is not None:
+            all_res_list = torch.cat(all_res_list, dim=0)
+            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
+            res_list = []
+            for frame in np.unique(all_res_list[:, 0]):
+                res = all_res_list[all_res_list[:, 0] == frame, :]
+                positions, scores = res[:, 1:3], res[:, 3]
+                ids, count = nms(positions, scores, 20, np.inf)
+                res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+            res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+            np.savetxt(res_fpath, res_list, '%d')
+
+            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                     data_loader.dataset.base.__name__)
+
+            # If you want to use the unofiicial python evaluation tool for convenient purposes.
+            # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+            #                                             data_loader.dataset.base.__name__)
+
+            print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                  format(moda, modp, precision, recall))
 
         print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
             losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-        return losses / len(data_loader), precision_s.avg * 100, moda
+        return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
 
 
 class BBOXTrainer(BaseTrainer):
@@ -856,6 +902,7 @@ class UDATrainer(BaseTrainer):
 
             # create bev pseudo-labels
             with torch.no_grad():
+                data_target, map_gt_target, imgs_gt_target, proj_mats_target = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_target)
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target, proj_mats_target)
             temp = map_pred_teacher.detach().cpu().squeeze()
 
@@ -875,6 +922,7 @@ class UDATrainer(BaseTrainer):
                     map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
+                # TODO self.pom doesn't work after mvaug, does it?
                 imgs_pseudo_labels = []
                 for cam in self.target_cameras:
                     img_pseudo_label = torch.zeros(img_gt_shape)
@@ -1089,7 +1137,7 @@ class UDATrainer(BaseTrainer):
         print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
             losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-        return losses / len(data_loader), precision_s.avg * 100, moda
+        return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
     
 
     @staticmethod

@@ -29,6 +29,7 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
   - [x] fixed bug in code
 - [ ] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
 - [ ] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
+- [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
 
 ### implement EMA teacher
 
@@ -73,9 +74,9 @@ For option 2 and 3, it could make sense to introduce confidence weighting to red
 - [ ] dropview (GMVD propose to always drop one camera. I believe that it could be better to sometimes include all cameras, e.g., set a proability of dropping one camera)
   - [x] Train baseline cam_adapt with dropview on source (no uda)
   - [ ] Train UDA self-training with dropview on source and target
-- [ ] permutation augmentation (change the ordering of cameras). This could make the BEV decoder less overfit to a specific camera rig. 
+- [x] permutation augmentation (change the ordering of cameras). This could make the BEV decoder less overfit to a specific camera rig. 
 - [ ] 3DROM
-- [ ] MVAug
+- [x] MVAug
 
 Strong data augmentation should be used for the student.
 Different options exist.
@@ -229,7 +230,10 @@ Conclusion: permuattion seems to be implemented correctly. And it seems benefici
 Training with mvaug augmentation (only 30 degrees though, and no scale/sheer)
 
 On 1,3,5,7:  
-moda: 30.5%, modp: 66.2%, precision: 90.5%, recall: 34.0%
+moda: 30.5%, modp: 66.2%, precision: 90.5%, recall: 34.0% (with incorrect parameters of raff, i.e. only 30 % rot)
+
+moda: 40.0%, modp: 65.3%, precision: 94.8%, recall: 42.3% (with GMVD parameters of raff, i.e. rot 45% etc, although 100% augmentation probability)
+
 
 On 2,4,5,6:  
 moda: 76.8%, modp: 65.2%, precision: 92.5%, recall: 83.5%
@@ -241,7 +245,12 @@ Notes: since precision was really high while recall was low, I also tried loweri
 ![](resources/images/output_cam7_foot_33.jpg)
 
 
+### MVAug + random permutation 2,4,5,6 -> 1,3,5,7
 
+On 1,3,5,7:  
+moda: 53.7%, modp: 63.1%, precision: 92.2%, recall: 58.6%
+
+Conclusion: both random permutation and mvaug improve generalization capabilities individually, but the combination of the two yields the highest performance.
 
 # Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
@@ -404,9 +413,18 @@ MVAug implementation seems correct now.
 It is time to start doing some experiments:
 
 - [x] generalization experiment (only mvaug, compare with only random perm)
-- [ ] generalization experiment (mvaug + random perm)
+- [ ] generalization experiment (mvaug + random perm) 
 
-- [ ] UDA experiment: weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student 
+### 16/7
+- [x] only 50% of data should be augmented with MVAug according to GMVD
+- [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
+- [x] implement weak aug for teacher and strong aug for student (weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student)
+- [ ] do uda trainings with above augmentations with pseudo-labels/soft-labels
+
+
+
+
+
 
 
 

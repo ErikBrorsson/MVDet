@@ -86,11 +86,11 @@ def main(args):
 
     # model
     if args.variant == 'default':
-        model = PerspTransDetector(train_set, args.arch)
+        model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained)
 
         if args.uda:
             # init ema model
-            ema_model = PerspTransDetector(train_set, args.arch)
+            ema_model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained)
             for param in ema_model.parameters():
                 param.detach_()
             mp = list(model.parameters())
@@ -201,7 +201,8 @@ def main(args):
     # print('Testing...')
     # test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
     #                                             test_set.gt_fpath, True)
-
+    max_moda = -1e10
+    best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')
         if args.uda:
@@ -210,8 +211,18 @@ def main(args):
         else:
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
-        test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+        test_loss, test_prec, moda, modp, precision, recall = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
                                                     train_set.gt_fpath, True)
+
+        if moda >= max_moda:
+            max_modp, max_precision, max_recall = modp, precision, recall
+            max_moda = moda
+            best_epoch = epoch
+            # save model after every epoch
+            torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
+            if args.uda:
+                torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
+
 
         x_epoch.append(epoch)
         train_loss_s.append(train_loss)
@@ -222,12 +233,9 @@ def main(args):
         draw_curve(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, train_loss_s, train_prec_s,
                     test_loss_s, test_prec_s, test_moda_s)
         
-        # save model after every epoch
-        torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
-
-        if args.uda:
-            torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
-
+        print('max_moda: {:.1f}%, max_modp: {:.1f}%, max_precision: {:.1f}%, max_recall: {:.1f}%, epoch: {:.1f}%'.
+                format(max_moda, max_modp, max_precision, max_recall, best_epoch))
+        
 
 if __name__ == '__main__':
     # settings
@@ -261,6 +269,7 @@ if __name__ == '__main__':
     parser.add_argument("--permutation", action="store_true")
     parser.add_argument("--mvaug", action="store_true")
     parser.add_argument('--soft_labels', action="store_true")
+    parser.add_argument('--pretrained', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--alpha_teacher', type=float, default=0.99)

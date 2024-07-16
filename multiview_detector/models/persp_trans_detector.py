@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, dataset, arch='resnet18'):
+    def __init__(self, dataset, arch='resnet18', pretrained=False):
         super().__init__()
         self.num_cam = dataset.num_cam
         print("# cameras in model: ", self.num_cam)
@@ -28,7 +28,7 @@ class PerspTransDetector(nn.Module):
             self.base_pt2 = base[split:].to('cuda:0')
             out_channel = 512
         elif arch == 'resnet18':
-            base = nn.Sequential(*list(resnet18(replace_stride_with_dilation=[False, True, True]).children())[:-2])
+            base = nn.Sequential(*list(resnet18(pretrained=pretrained, replace_stride_with_dilation=[False, True, True]).children())[:-2])
             split = 7
             self.base_pt1 = base[:split].to('cuda:0')
             self.base_pt2 = base[split:].to('cuda:0')
