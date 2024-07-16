@@ -59,7 +59,6 @@ class Augmentation:
         proj_mats_shuffled = [None]*len(proj_mats)
 
         permutation = np.random.permutation(imgs.shape[1])
-        print("permutation: ", permutation)
         # permutation = [3,0,2,1]
         for i, p in enumerate(permutation):
             imgs_shuffled[:, p, :, :] = imgs[:, i, :, :]
