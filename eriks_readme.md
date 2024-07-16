@@ -225,6 +225,21 @@ moda: 44.0%, modp: 67.8%, precision: 92.8%, recall: 47.7%
 Conclusion: permuattion seems to be implemented correctly. And it seems beneficial with random permutation even though camera 5 is on the same place in train and test.
 
 
+### verifying MVaug augmentation 2,4,5,6 -> 1,3,5,7
+Training with mvaug augmentation (only 30 degrees though, and no scale/sheer)
+
+On 1,3,5,7:  
+moda: 30.5%, modp: 66.2%, precision: 90.5%, recall: 34.0%
+
+On 2,4,5,6:  
+moda: 76.8%, modp: 65.2%, precision: 92.5%, recall: 83.5%
+
+Conclusion: Performance on 1,3,5,7 is slightly better than the baseline, while performance on 2,4,5,6 is slightly worse. So, while the augmentation makes the model generalize better, it makes it a bit more difficult to fit to the training data. Seems reasonable.
+
+Notes: since precision was really high while recall was low, I also tried lowering the cls_thres to 0.2, which resulted in predictions seen in the image. The main issue is that there are a lot of false positives right at the edge of the bev map, which probably comes from the fact that there are a bunch of people sitting and standing there, as seen in the perspective image of camera 7. It could be that if the bev view was larger, then the nms would remove these predictions as the maximum actually lies outside the region of interest. It seems reasonable that any model based on NMS a prone to having issues at the boundaries. However, I suppose one could also argue that these points shouldn't receive so high scores in the first place.  
+![](resources/images/map_13.jpg)  
+![](resources/images/output_cam7_foot_33.jpg)
+
 
 
 
@@ -388,7 +403,7 @@ if mvaug is not used, the proj_mats in proj_mats_mvaug_features will not be inve
 MVAug implementation seems correct now.  
 It is time to start doing some experiments:
 
-- [ ] generalization experiment (only mvaug, compare with only random perm)
+- [x] generalization experiment (only mvaug, compare with only random perm)
 - [ ] generalization experiment (mvaug + random perm)
 
 - [ ] UDA experiment: weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student 

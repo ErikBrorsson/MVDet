@@ -72,7 +72,7 @@ class Augmentation:
     def mvaug_augmentation(self, data, map_gt, imgs_gt, proj_mats_mvaug_features):
         
         # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomPerspective())
-        persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+        # persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
         scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
 
         # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
@@ -99,7 +99,8 @@ class Augmentation:
 
         # loop over the images and apply augmentation
         for i, img_gt in enumerate(imgs_gt):
-            persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(30)) # TODO set degrees
+            persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
+                degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
 
             img = data[0, i, :, :]
             # proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
