@@ -28,7 +28,7 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 - [x] Check why test scores are different during training and testing (see logs 5/7)
   - [x] fixed bug in code
 - [ ] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
-- [ ] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
+- [x] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
 - [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
 
 ### implement EMA teacher
@@ -101,11 +101,11 @@ There should probably be more focus on accurate source labels in the beginning, 
 
 ### all cameras MVDet baseline
 /mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-01_18-07-44
-slurm-2464253_3
+slurm-2464253_3  
 moda: 87.4%, modp: 75.5%, precision: 93.2%, recall: 94.2%
 
 ### cam_adapt 1,3,5,7 -> 2,4,5,6
-slurm-2465377_5
+slurm-2465377_5  
 /mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-02_10-44-47
 
 
@@ -115,20 +115,20 @@ slurm-2465377_5
 slurm-2465263_4
 /mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-02_09-33-24
 
-testing on 2,4,5,6 (test_1)
-moda: 83.5%, modp: 72.8%, precision: 94.7%, recall: 88.4%
+testing on 2,4,5,6 (test_1)  
+moda: 83.5%, modp: 72.8%, precision: 94.7%, recall: 88.4%  
 (Results from GMVD paper: 85.2, 72.2, 92.6, 92.)
 
 
-testing on 1,3,5,7 (test_0)
-moda: 18.2%, modp: 70.2%, precision: 76.6%, recall: 26.2%
+testing on 1,3,5,7 (test_0)  
+moda: 18.2%, modp: 70.2%, precision: 76.6%, recall: 26.2%  
 (Results from GMVD paper: 43.2, 68.2, 94.6, 45.8)
 
 
 Making predictions on training dataset to see the "pseudo-labelling capability" of the model
-cls_thresh=0.05 2024-07-02_09-33-24/test_13
-cls_thres=0.2 test_12
-cls_thres=0.4 test_11
+cls_thresh=0.05 2024-07-02_09-33-24/test_13  
+cls_thres=0.2 test_12  
+cls_thres=0.4 test_11  
 As expected, the quality of pseudo-labels is relatively poor. cls_thres=0.2 seems most reasonable out of the three.
 
 
@@ -244,13 +244,117 @@ Notes: since precision was really high while recall was low, I also tried loweri
 ![](resources/images/map_13.jpg)  
 ![](resources/images/output_cam7_foot_33.jpg)
 
-
 ### MVAug + random permutation 2,4,5,6 -> 1,3,5,7
 
 On 1,3,5,7:  
 moda: 53.7%, modp: 63.1%, precision: 92.2%, recall: 58.6%
 
 Conclusion: both random permutation and mvaug improve generalization capabilities individually, but the combination of the two yields the highest performance.
+
+
+
+### generalizable exp (pretrained, mvaug, permutation) 2,4,5,6 -> 1,3,5,7
+2024-07-16_10-20-24-986906
+
+On 2,4,5,6  
+moda: 81.6%, modp: 70.8%, precision: 95.9%, recall: 85.3%
+
+On 1,3,5,7  
+moda: 67.3%, modp: 68.8%, precision: 96.1%, recall: 70.2%
+
+One of the failure cases on the test ( 1,3,5,7) set is shown below. While the five-people-group is quite clearly detected in cam7, the score in bev for this group of people is low, so none of them are detected. It so happens that these people are partly occluded in cam5 in this frame, which may be the reason they are not detected.  
+
+
+Concluding remarks: in this case, it may be difficult to construct reliable pseudo-labels in bev because the detections are very uncertain. On the other hand, the detections in cam7 seems reliable, so it may be a good idea to use these detections in self-training. Furthmore, we can conclude that since the detections in cam7 are of high quality, surely the image features of cam7 is also of high/decent quality. As such, the bev features derived from these image features are also of good quality (since we merely perform bilinear sampling). The poor bev predictions is thus a result from inadequate decoding of the bev features. It could be that the bev decoder is fooled by poor features from the other cameras, or that it simply doesn't deem the high quality features from cam7 to provide enough evidence for the detections.
+
+Hypotheses:  
+1. The bev predictions are typically of lower quality than the perspective view predictions. 
+2. Sometimes the bev predictions are better, and sometimes the perspective view predictions are better.
+3. The bev predictions are typically of higher quality than the perspective view predictions.
+
+
+Possible methods to perform UDA under hypotheses:
+1. it is best to use perspective view predictions for self-training. We could project the soft-labels of each camera to bev and create a single bev soft label by either averaging or max pooling. Soft bev label can then be projected to each camera view. Or we could create hard labels at some point
+2. It is best to use a combination of perspective and bev view predictions for self-training. We could use a heuristic method to fuse the perspective view predictions with the bev predictions. E.g., project perspective view soft/hard preds to bev and do averaging or max pooling together with the bev predictions. The combination of both perspective view and bev predictions may be more reliable than either one separately.
+3. it is best to only use the bev predictions for self-training. Create soft or hard labels using bev predictions. 
+
+An option to smoothly cover all three cases with a single hyper parameter could be to create two separate loss terms, i.e. $(1-\alpha)*L_{persp} + \alpha*L_{bev}$ and let $L_{persp}$ be the loss derived from soft/hard labels in bev produced by perspective view predictions, and $L_{bev}$ be the loss derived from soft/hard labels in bev produced by bev view predictions. Then I could adjust $\alpha$ from 0 to 1 to address hypothesis 1,2 and 3.
+
+
+![](resources/images/map_24.jpg)
+![](resources/images/output_cam7_foot_24.jpg)
+![](resources/images/output_cam5_foot_24.jpg)
+
+
+### wildtrack 2,4,6 -> wildtrack 1,3,5
+2024-07-16_15-16-37-676024
+
+| pretrained | permutation | mvaug | dropview | scores                                                                                 |
+| ---------- | ----------- | ----- | -------- | -------------------------------------------------------------------------------------- |
+| -          | -           | -     | -        | max_moda: 10.8%, max_modp: 41.4%, max_precision: 85.0%, max_recall: 13.1%, epoch: 2.0% |
+| x          | x           | x     | x        | max_moda: 54.2%, max_modp: 65.5%, max_precision: 89.6%, max_recall: 61.3%, epoch: 6.0% |
+
+Like the experiment on 2,4,5,6 -> 1,3,5,7, the group of five people is not detected in frame 24 by the bev decoder.  
+Additioanlly, none of the perspective view predictions provide confident prediction of this group of people (probably due to the heavy occlusion at this point in time). This was not the case when using 1,3,5,7 as then camera 7 provided quite confident detections. 
+So on 2,4,6 -> 1,3,5, there are definitely cases where neither perspective views nor bev decoder can detect certain people.  
+We can probably conclude that it is due to inadequate feature extraction in the image plane that the group of people cannot be detected under occlusion. As they are in fact partly visible in two of the cameras, it seems sensible that they could be detected given more training on such difficult partly occluded samples. 
+There exist many frames where the bev predictions projected into some of the cameras could give supervision on such partly occluded samples, so here self-training on bev predictions could make sense.
+
+
+
+
+### generalization summary
+2,4,5,6 -> 1,3,5,7  
+| pretrained | permutation | mvaug | dropview | scores                                                                                  | save_dir                   |
+| ---------- | ----------- | ----- | -------- | --------------------------------------------------------------------------------------- | -------------------------- |
+| -          | -           | -     | -        | max_moda: 28.9%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 30.4%, epoch: 4.0%  |                            |
+| x          | -           | -     | -        | max_moda: 41.1%, max_modp: 70.3%, max_precision: 98.5%, max_recall: 41.7%, epoch: 5.0%  |                            |
+| -          | x           | -     | -        | max_moda: 59.0%, max_modp: 66.9%, max_precision: 93.0%, max_recall: 63.9%, epoch: 5.0%  |                            |
+| -          | -           | x     | -        | max_moda: 44.5%, max_modp: 67.0%, max_precision: 90.3%, max_recall: 49.9%, epoch: 9.0%  |                            |
+| -          | x           | x     | -        | max_moda: 56.4%, max_modp: 66.4%, max_precision: 93.5%, max_recall: 60.6%, epoch: 10.0% |                            |
+| x          | x           | x     | -        | max_moda: 67.3%, max_modp: 68.8%, max_precision: 96.1%, max_recall: 70.2%, epoch: 9.0%  | 2024-07-16_10-20-24-986906 |
+| x          | x           | x     | x        | max_moda: 65.7%, max_modp: 68.8%, max_precision: 95.4%, max_recall: 69.0%, epoch: 10.0% |
+
+1,3,5,7 -> 2,4,5,6   
+| pretrained | permutation | mvaug | dropview | scores                                                                                  |
+| ---------- | ----------- | ----- | -------- | --------------------------------------------------------------------------------------- |
+| -          | -           | -     | -        |                                                                                         |
+| x          | -           | -     | -        |                                                                                         |
+| -          | x           | -     | -        |                                                                                         |
+| -          | -           | x     | -        |                                                                                         |
+| -          | x           | x     | -        |                                                                                         |
+| x          | x           | x     | -        | max_moda: 59.9%, max_modp: 64.0%, max_precision: 92.0%, max_recall: 65.5%, epoch: 7.0%  |
+| x          | x           | x     | x        | max_moda: 54.0%, max_modp: 64.1%, max_precision: 96.7%, max_recall: 55.9%, epoch: 10.0% |
+
+
+Notes: my best results are competitive with GMVD, although still slightly worse. But they are **much** better then the results reported on MVDet by GMVD.
+
+Although both permutation and mvaug bring improvements separately (when not using pretrained weights), permuatation+mvaug is alightly worse than only permutation. However, while max_moda is achieved at epoch 5 with only permutation, it is achieved at epoch 10 with permutation+mvaug, suggesting that the model may not have reached it's max performance yet.
+=> I should increase the number of epochs slightly to allow for longer trainings when doing aggressive data augmentation.
+
+
+
+wildtrack 2,4,6 -> wildtrack 1,3,5
+| pretrained | permutation | mvaug | dropview | scores                                                                                 |
+| ---------- | ----------- | ----- | -------- | -------------------------------------------------------------------------------------- |
+| -          | -           | -     | -        | max_moda: 10.8%, max_modp: 41.4%, max_precision: 85.0%, max_recall: 13.1%, epoch: 2.0% |
+| x          | x           | x     | x        | max_moda: 54.2%, max_modp: 65.5%, max_precision: 89.6%, max_recall: 61.3%, epoch: 6.0% |
+
+
+In my experiments, I've discovered different types of failure cases:
+1. pedestrians are missed in all cameras and in bev (e.g. group of five in frame 24 on 2,4,6->1,3,5)
+2. pedestrians are missed in bev, but detected in at least one camera (see above section of  2,4,5,6 -> 1,3,5,7)
+3. pedestrian is detected in bev, but "more or less" missed in all cameras (i.e., no camera alone provides strong evidence for the detection, .e.g woman in brown cote, one of the most right-most detections in frame 7 of 2,4,6->1,3,5)
+
+Here, we could say that failure 1. probably is due to inadequate feature extraction in perspective view. We need to improve the perspective view feature extraction to handle these errors.  
+Failure 2 is due to inadequate fusion of the image-view features. I.e., while image view feature extraction is "good enough", the bev fusion is not well adapted and produces the error. We need to make the bev decoder better to handle these errors.  
+Failure 3 indicates a capable bev decoder, while the poor image features makes detection difficult. We could probably benefit from better image view feature extraction. 
+
+
+Other failure cases include:
+1. detections are inaccurate in all cameras and in bev (e.g., two pedestrians are not clearly separated and may appear as one detection, e.g. frame 14 of 2,4,6->1,3,5)
+  
+
 
 # Notes
 - Camera C3 is not undistorted properly. Perhaps they use another cameramodel for this camera? The projection of points looks alrgiht, although lines does not appear straight in this camera.
@@ -315,13 +419,13 @@ Another idea to attain BEV features that are more or less independent of the cam
 ### 4/7 
 Created BEV predictions by only using perspective view detections. I.e., make detections in perspective view -> project them all to bev -> NMS to get final bev predictions.
 
-These predictions are competitive with the standard BEV predictions in the camp adaptation setting. However, they are not better, so it is not clear whether the domain gap lies mainly in the perspective view backbone or in the bev decode head.  
+These predictions are competitive with the standard BEV predictions in the cam adaptation setting. However, they are not better, so it is not clear whether the domain gap lies mainly in the perspective view backbone or in the bev decode head.  
 There are a few problems with the evaluation above.  
 First, since the perspective view is trained to detect feet (rather than pedestrians), it cannot detect any pedestrian that is too close to the camera.  
 Second, the above scheme tests also the perspective view to bev projection and sensor fusion algorithm. It is not a precise evaluation of the perspective view prediction quality.  
-It would perhaps be better to evaluate the adaptation capabilities of the perspective view backbone in the perspective view.
+It would perhaps be better to evaluate the adaptation capabilities of the perspective view backbone **in** the perspective view.
 Alt 1. evaluate perspective view detections per camera.  
-Alt 2. evaluate the join perspective view detections (for example, are there any pedestrian that is missed in all cameras?)  
+Alt 2. evaluate the joint perspective view detections (for example, are there any pedestrian that is missed in all cameras?)  
 
 When evaluating different camera setups, it would be helpful to plot the field of views of each camera in the bev map to understand which parts of the bev we can expect detections in.  
 
@@ -420,9 +524,14 @@ It is time to start doing some experiments:
 - [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
 - [x] implement weak aug for teacher and strong aug for student (weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student)
 - [ ] do uda trainings with above augmentations with pseudo-labels/soft-labels
+- [x] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
+- [x] implement dropview probability
 
+Should I examine other adaptation benchmarks before trying to device an adaptation strategy. Yes, I believe that is a good idea. Study a few more relevant benchmarks to select the hypothesis which is most likely to be true. Then I will device an UDA method to address the chosen hypothesis.
 
-
+- [ ] multiviewx -> wildtrack. The performance of MVDet reported in GMVD on this benchmark is low, but I believe I can pump it up with my augmentation techniques.
+- [ ] multiviewx -> multiviewx as proposed by SHOT
+- [ ] wildtrack 2,4,6 -> wildtrack 1,3,5
 
 
 

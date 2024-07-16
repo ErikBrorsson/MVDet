@@ -40,8 +40,8 @@ class Augmentation:
         # print("map_gt.shape", map_gt.shape)
         # for img_gt in imgs_gt:
         #     print("img_gt.shape", img_gt.shape)
-
-        if self.dropview:
+        r = np.random.rand()
+        if r >= 0.5: # drop one image with 50% probability if dropview is activated
             # set all pixel values of the dropped image to 0
             drop_indx = np.random.choice(np.arange(imgs.shape[1]))
             imgs[:, drop_indx, :, :, :] = 0
@@ -510,7 +510,7 @@ class PerspectiveTrainer(BaseTrainer):
                 data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
 
             with torch.no_grad():
-                map_res, imgs_res = self.model(data, proj_mats)
+                map_res, imgs_res = self.model(data, proj_mats, visualize=True)
             if res_fpath is not None:
                 map_grid_res = map_res.detach().cpu().squeeze()
                 v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
@@ -568,7 +568,7 @@ class PerspectiveTrainer(BaseTrainer):
                         foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
                         foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
                         if not foot_coords[0].size == 0:
-                            temp = np.zeros((2, len(foot_coords[0])))
+                            # temp = np.zeros((2, len(foot_coords[0])))
                             temp = np.ones((3, len(foot_coords[0])))
                             temp[0,:] = foot_coords[1]
                             temp[1,:] = foot_coords[0]

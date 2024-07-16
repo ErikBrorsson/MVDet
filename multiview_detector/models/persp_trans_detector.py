@@ -50,6 +50,7 @@ class PerspTransDetector(nn.Module):
         assert N == self.num_cam
         world_features = []
         imgs_result = []
+        view_indicator_list = []
         for i in range(N):
             img_feature = self.base_pt1(imgs[:, i].to('cuda:0'))
             img_feature = self.base_pt2(img_feature.to('cuda:0'))
@@ -73,6 +74,11 @@ class PerspTransDetector(nn.Module):
                 # plt.show()
                 # plt.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
                 # plt.show()
+
+                view_indicator = torch.ones_like(img_feature)
+                view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, self.reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+                view_indicator_list.append(view_indicator.to('cuda:0'))
+
             world_features.append(world_feature.to('cuda:0'))
 
         world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
@@ -80,7 +86,21 @@ class PerspTransDetector(nn.Module):
             fig = plt.figure(figsize=(16,9))
             subplt0 = fig.add_subplot(111, title="concat_world_features")
             subplt0.imshow(torch.norm(world_features[0].detach(), dim=0).cpu().numpy())
-            plt.savefig(f"iall_bev_features_{i}.jpg")
+            plt.savefig(f"iall_bev_features.jpg")
+            plt.close(fig)
+
+            view_indicators = torch.cat(view_indicator_list + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+
+            fig = plt.figure(
+                
+            )
+            subplt0 = fig.add_subplot(321, title="view_indicators")
+            subplt1 = fig.add_subplot(322, title="view_indicators")
+            subplt4 = fig.add_subplot(323, title="view_indicators")
+            subplt0.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
+            subplt1.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
+            subplt4.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
+            plt.savefig(f"iview_indicators{i}.jpg")
             plt.close(fig)
             
         map_result = self.map_classifier(world_features.to('cuda:0'))
