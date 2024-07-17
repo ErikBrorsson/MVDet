@@ -170,7 +170,8 @@ def main(args):
     if args.uda:
         if args.target_epoch_start is None or args.target_weight_start is None or args.target_weight_end is None:
             # randomize the target weight schedule
-            target_epoch_start = np.random.choice(10) + 1
+            # target_epoch_start = np.random.choice(10) + 1
+            target_epoch_start = np.random.choice(7) + 4
             target_weight_start = np.random.rand()
             target_weight_end = target_weight_start + (1- target_weight_start)*np.random.rand()
         else:
@@ -193,7 +194,7 @@ def main(args):
         print("target_weights: ", target_weights)
 
         if args.pseudo_label_th is None:
-            pseudo_label_th = 0.3 + np.random.rand()*0.15 # random value between 0.3 and 0.45
+            pseudo_label_th = 0.37 + np.random.rand()*0.5 # random value between 0.3 and 0.45
         else:
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)

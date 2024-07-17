@@ -18,16 +18,19 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 
 ## General
 - [x] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
-- [ ] Investigate what component leads to poor generalization (perspective view feature extraction or BEV detection head)
+- [x] Investigate what component leads to poor generalization (perspective view feature extraction or BEV detection head)
   - [x] Transform perspective view predictins to 3D
   - [x] Do NMS on in bev
   - [x] on target domain: compare bev detections with transformed perspective view detections 
-  - [ ] draw some conclusion (is the perspective view preds in bev better than those of the bev head? Why/why not?)
+  - [x] draw some conclusion  
+      $\exists$ cases where pedestrians are missed in all views $\implies$ persp. view classifier (and/or feature extractor) is inadequate  
+      $\exists$ cases where pedestrians are detected in at least one view but missed in bev $\implies$ bev decoder is inadequate  
+      I.e., it seems like both persp. view classifier and bev decoder have generalization issues. We want to improve both of these.
 - [x] Check why pseudo-labels are very different from teacher predictions after training's finished (see logs 5/7)
   - [x] fixed bug in code
 - [x] Check why test scores are different during training and testing (see logs 5/7)
   - [x] fixed bug in code
-- [ ] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
+- [x] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
 - [x] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
 - [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
 
@@ -71,9 +74,9 @@ Option 1 has a natural "confidence weighting" as we use the MSE loss. I.e., for 
 For option 2 and 3, it could make sense to introduce confidence weighting to reduce the impact of noisy regions. This should be easy to do with a simple weighted MSE loss, where the weight is chosen as the confidence.
 
 ### data augmentation
-- [ ] dropview (GMVD propose to always drop one camera. I believe that it could be better to sometimes include all cameras, e.g., set a proability of dropping one camera)
+- [x] dropview (GMVD propose to always drop one camera. I believe that it could be better to sometimes include all cameras, e.g., set a proability of dropping one camera)
   - [x] Train baseline cam_adapt with dropview on source (no uda)
-  - [ ] Train UDA self-training with dropview on source and target
+  - [x] Train UDA self-training with dropview on source and target
 - [x] permutation augmentation (change the ordering of cameras). This could make the BEV decoder less overfit to a specific camera rig. 
 - [ ] 3DROM
 - [x] MVAug
@@ -361,7 +364,7 @@ Other failure cases include:
 - Isn't it strange to evaluate 2,4,5,6->1,3,5,7 since camera 5 is avialable (and in the same ordering) in both camera rigs? Perhaps we are basically just evaluating the models "single camera" performance, using only camera 5, while cameras 1,3,7 are useless.
 - GMVD uses resnet18 pretrained with ImageNet. In this repo, no pretrained weights are loaded originally. However, we can easily set pretrained=true when building resnet18. Then weights will be loaded from 'https://download.pytorch.org/models/resnet18-5c106cde.pth' , but it doesn't say what type of weights this is (imagenet?).
 -  How are predictions outside the platform treated? Are they simply ignored or do they lead to lower precision since they are not in the labels?  
-
+- predictions close to the boarder of the bev grid (region of interest) are problematic since nms doesn't really work on the boarder. If we would extend the predictions bev grid such that it is larger than the evaluation bev grid, it could be that nms finds that predictions that where originally inside the bev roi, would instead be outside.
 
 ### Tracking
 GMVD introduces new benchmarks for evaluating the generalizability of multi-view detectors. They evaluate MVDet, MVDetr, SHOT and GMVD on these benchmarks.
@@ -517,13 +520,12 @@ MVAug implementation seems correct now.
 It is time to start doing some experiments:
 
 - [x] generalization experiment (only mvaug, compare with only random perm)
-- [ ] generalization experiment (mvaug + random perm) 
+- [x] generalization experiment (mvaug + random perm) 
 
 ### 16/7
 - [x] only 50% of data should be augmented with MVAug according to GMVD
 - [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
 - [x] implement weak aug for teacher and strong aug for student (weak mvaug  + random perm for teacher, strong mvaug + random perm + dropview for student)
-- [ ] do uda trainings with above augmentations with pseudo-labels/soft-labels
 - [x] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
 - [x] implement dropview probability
 
@@ -533,7 +535,55 @@ Should I examine other adaptation benchmarks before trying to device an adaptati
 - [ ] multiviewx -> multiviewx as proposed by SHOT
 - [x] wildtrack 2,4,6 -> wildtrack 1,3,5
 
+### 17/7
+- [ ] uda trainings on 2,4,6->1,3,5
 
 
+baseline:   
+max_moda: 68.9%, max_modp: 66.7%, max_precision: 91.8%, max_recall: 75.6%, epoch: 8.0%
 
+
+uda experiments:  
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.529442357047416, 0.5537716176786276, 0.5781008783098391, 0.6024301389410507]
+pseudo_label_th:  0.4196905898765535
+max_moda: 65.5%, max_modp: 62.2%, max_precision: 98.0%, max_recall: 66.9%, epoch: 8.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.47958319143093275, 0.5507580172662846, 0.6219328431016363, 0.6931076689369882, 0.7642824947723399, 0.8354573206076917, 0.9066321464430436]
+pseudo_label_th:  0.39977931854928195
+max_moda: 68.8%, max_modp: 64.3%, max_precision: 95.5%, max_recall: 72.2%, epoch: 9.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.08801375805758505, 0.14867617584590007, 0.2093385936342151, 0.27000101142253013, 0.33066342921084513, 0.3913258469991602, 0.4519882647874752]
+pseudo_label_th:  0.41709663880397635
+moda: 66.0%, modp: 62.2%, precision: 96.4%, recall: 68.5%
+max_moda: 69.6%, max_modp: 62.7%, max_precision: 94.3%, max_recall: 74.2%, epoch: 6.0%
+
+target_weights:  [0.0, 0.0, 0.5656575015469459, 0.6174317863351922, 0.6692060711234386, 0.720980355911685, 0.7727546406999313, 0.8245289254881776, 0.8763032102764239, 0.92807749506]
+pseudo_label_th:  0.43602802542276353
+max_moda: 60.0%, max_modp: 61.9%, max_precision: 98.6%, max_recall: 60.8%, epoch: 8.0%
+
+target_weights:  [0.0, 0.370242316115, 0.38931753997, 0.40839276384, 0.4274679877, 0.4465432115647331, 0.46561843542701653, 0.4846936592893, 0.5037688831515835, 0.522844107013]
+pseudo_label_th:  0.3942720007566877
+max_moda: 32.1%, max_modp: 58.6%, max_precision: 91.8%, max_recall: 35.3%, epoch: 2.0%
+
+target_weights:  [0.508953068, 0.52522553, 0.541498005, 0.55777047, 0.5740429416, 0.5903154099442736, 0.6065878782040469, 0.6228603464638203, 0.6391328147235935, 0.6554052829833669]
+pseudo_label_th:  0.3980698068588894
+max_moda: 20.4%, max_modp: 61.4%, max_precision: 98.0%, max_recall: 20.8%, epoch: 8.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.9930710435442112, 0.9943342358059472, 0.9955974280676831, 0.9968606203294191, 0.9981238125911551, 0.9993870048528911]
+pseudo_label_th:  0.3169209365784296
+moda: 0.0%, modp: 54.3%, precision: 14.1%, recall: 86.4%
+max_moda: 62.4%, max_modp: 59.4%, max_precision: 88.3%, max_recall: 72.0%, epoch: 5.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9097386222697896, 0.9179633911828667, 0.9261881600959438, 0.934412929009021]
+pseudo_label_th:  0.38797777902092656
+max_moda: 69.4%, max_modp: 64.0%, max_precision: 95.3%, max_recall: 73.0%, epoch: 10.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6081786864038533, 0.9639007223686411]
+pseudo_label_th:  0.39786268125804347
+max_moda: 68.2%, max_modp: 64.2%, max_precision: 97.0%, max_recall: 70.4%, epoch: 10.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.38783079576445467, 0.45702052909058094, 0.5262102624167072, 0.5953999957428334, 0.6645897290689597, 0.733779462395086, 0.8029691957212122]
+pseudo_label_th:  0.3429979306797553
+moda: 0.0%, modp: 53.5%, precision: 11.7%, recall: 86.4%
+max_moda: 55.4%, max_modp: 61.4%, max_precision: 85.7%, max_recall: 66.5%, epoch: 5.0%
 
