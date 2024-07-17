@@ -1066,7 +1066,7 @@ class UDATrainer(BaseTrainer):
         t0 = time.time()
         if res_fpath is not None:
             assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
             with torch.no_grad():
                 map_res, imgs_res = self.model(data, proj_mats)
             if res_fpath is not None:
