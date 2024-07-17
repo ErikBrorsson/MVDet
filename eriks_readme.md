@@ -587,3 +587,10 @@ pseudo_label_th:  0.3429979306797553
 moda: 0.0%, modp: 53.5%, precision: 11.7%, recall: 86.4%
 max_moda: 55.4%, max_modp: 61.4%, max_precision: 85.7%, max_recall: 66.5%, epoch: 5.0%
 
+Conclusions from above: training on target too early leads to very poor performance -> should not start earlier than epoch ~4  
+setting pseudo-label threshold to close to 30 leads to very poor precision metric, but high recall.  
+setting pseudo-label threshold over 40 leads to high precision but low recall.
+Iäve started another run with 10 experiments, now narrowing the search interval to pseudolabel threhsold [0.37,0.42] and start epoch [4,10]
+
+
+
