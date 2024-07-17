@@ -531,7 +531,7 @@ Should I examine other adaptation benchmarks before trying to device an adaptati
 
 - [ ] multiviewx -> wildtrack. The performance of MVDet reported in GMVD on this benchmark is low, but I believe I can pump it up with my augmentation techniques.
 - [ ] multiviewx -> multiviewx as proposed by SHOT
-- [ ] wildtrack 2,4,6 -> wildtrack 1,3,5
+- [x] wildtrack 2,4,6 -> wildtrack 1,3,5
 
 
 

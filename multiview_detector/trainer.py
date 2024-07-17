@@ -40,17 +40,20 @@ class Augmentation:
         # print("map_gt.shape", map_gt.shape)
         # for img_gt in imgs_gt:
         #     print("img_gt.shape", img_gt.shape)
+        imgs_clone= torch.clone(imgs)
+        imgs_labels_clone= [torch.clone(x) for x in imgs_labels]
+
         r = np.random.rand()
         if r >= 0.5: # drop one image with 50% probability if dropview is activated
             # set all pixel values of the dropped image to 0
             drop_indx = np.random.choice(np.arange(imgs.shape[1]))
-            imgs[:, drop_indx, :, :, :] = 0
+            imgs_clone[:, drop_indx, :, :, :] = 0
 
             # set the perspective view label for the dropped view to None
             # since don't want to provide supervision on a dropped view.
-            imgs_labels[drop_indx] = None
+            imgs_labels_clone[drop_indx] = None
 
-        return imgs, map_label, imgs_labels, proj_mats
+        return imgs_clone, map_label, imgs_labels_clone, proj_mats
     
 
     def camera_permutation_augment(self, imgs, map_label, imgs_labels, proj_mats):
@@ -80,7 +83,7 @@ class Augmentation:
 
         # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
         # augment the map_label
-        map_gt_aug_temp = scene_aug(map_gt)
+        map_gt_aug_temp = scene_aug(torch.clone(map_gt))
 
         # TODO assuming batch_size 1
         map_gt_aug = torch.zeros_like(map_gt)
@@ -90,7 +93,7 @@ class Augmentation:
         temp[:, 0] = foot_points[:, 1]
         temp[:, 1] = foot_points[:, 0]
         foot_points = temp
-        foot_points_aug, pedestrian_ids = scene_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=map_gt.shape[-2:])
+        foot_points_aug, pedestrian_ids = scene_aug.augment_gt_point_view_based(foot_points.detach().cpu(), gt_person_ids=None, filter_out_of_frame=True, frame_size=map_gt.shape[-2:])
         for pos in foot_points_aug:
             map_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
 
@@ -110,7 +113,7 @@ class Augmentation:
                 persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
                         degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
                 
-            img = data[0, i, :, :]
+            img = torch.clone(data[0, i, :, :])
             # proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
 
             # augment the image
@@ -194,7 +197,7 @@ class Augmentation:
             imgs_labels
             proj_mats: output is MVDet standard (image->bev)
         """
-        if self.mvaug:
+        if False:
             r = np.random.rand() # augment 50% of data with mvaug
             if r >= 0.5:
                 imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
@@ -555,6 +558,11 @@ class PerspectiveTrainer(BaseTrainer):
             recall_s.update(recall)
 
             if visualize:
+                if persp_map:
+                    # initialize perspective view bev predictions
+                    map_res_from_perspective = torch.zeros_like(map_res).detach().cpu()
+                    map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
+
                 for cam_indx, _ in enumerate(imgs_res):
                     cam_number = data_loader.dataset.cameras[cam_indx]
 
@@ -563,8 +571,6 @@ class PerspectiveTrainer(BaseTrainer):
                     heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
 
                     if persp_map:
-                        map_res_from_perspective = torch.zeros_like(map_res).detach().cpu()
-                        map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
                         foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
                         foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
                         if not foot_coords[0].size == 0:
@@ -844,23 +850,26 @@ class UDATrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, ((data, map_gt, imgs_gt, _, proj_mats_source), (data_target, map_gt_target, imgs_gt_target, _, proj_mats_target)) in enumerate(zip(data_loader, data_loader_target)):
+        for batch_idx, ((data, map_gt, imgs_gt, _, _, _, _, _, proj_mats_mvaug_features_src),
+                        (data_target, map_gt_target, imgs_gt_target, _, _, _, _, _, proj_mats_mvaug_features_trg)) in enumerate(zip(data_loader, data_loader_target)):
+
+            img_gt_shape = imgs_gt[0].shape
+
 
             # train on source data
             optimizer.zero_grad()
 
-            data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_source)
-
-
+            data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features_src)
 
             map_res, imgs_res = self.model(data, proj_mats_source)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
             for img_res, img_gt in zip(imgs_res, imgs_gt):
-                loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                if img_gt is not None: # may be none if we are using dropview augmentation
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
             loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
-                   loss / len(imgs_gt) * self.alpha
+                   loss / len([x for x in imgs_gt if x is not None]) * self.alpha
             loss.backward()
             # optimizer.step()
             losses += loss.item()
@@ -875,8 +884,6 @@ class UDATrainer(BaseTrainer):
             recall = true_positive / (true_positive + false_negative + 1e-4)
             precision_s.update(precision)
             recall_s.update(recall)
-
-            img_gt_shape = imgs_gt[0].shape
 
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
@@ -901,8 +908,9 @@ class UDATrainer(BaseTrainer):
 
             # create bev pseudo-labels
             with torch.no_grad():
-                data_target, map_gt_target, imgs_gt_target, proj_mats_target = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_target)
-                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_target, proj_mats_target)
+                # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
+                data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher)
             temp = map_pred_teacher.detach().cpu().squeeze()
 
             if not self.soft_labels:
@@ -939,10 +947,10 @@ class UDATrainer(BaseTrainer):
                     imgs_pseudo_labels.append(img_pseudo_label)
 
                 # apply augmentation to target images and pseudo-labels prior to student training
-                data_target, map_pseudo_label, imgs_pseudo_labels, proj_mats_target = self.augmentation.strong_augmentation(data_target,
-                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_target)
+                data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                 # student predict and compute loss
-                map_res_target, imgs_res_target = self.model(data_target, proj_mats_target)
+                map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
                 loss = 0
                 for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                     if not img_pseudo_label is None:
@@ -953,10 +961,10 @@ class UDATrainer(BaseTrainer):
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher
                 imgs_pseudo_labels = [None]*len(self.target_cameras)
-                data_target, map_pseudo_label, imgs_pseudo_labels, proj_mats_target = self.augmentation.strong_augmentation(data_target,
-                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_target)                
+                data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
                 # student predict and compute loss
-                map_res_target, imgs_res_target = self.model(data_target, proj_mats_target)
+                map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
                 loss = 0
                 loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
 
@@ -1017,7 +1025,7 @@ class UDATrainer(BaseTrainer):
                         pseudo_view1_foot = pseudo_view1[1]
 
                         cam_num = self.target_cameras[cam_indx]
-                        img0 = self.denormalize(data_target[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                        img0 = self.denormalize(data_student[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
                         img0 = Image.fromarray((img0 * 255).astype('uint8'))
                         # head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
                         # head_cam_result.save(os.path.join(epoch_dir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
