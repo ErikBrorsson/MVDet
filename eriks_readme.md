@@ -33,6 +33,9 @@ rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/lo
 - [x] run scene generalization exps on e.g., 1,3,5 -> 2,4,6. It makes sense to try with zero cameras overlapping. On the other hand, such scenarios are available in GMVD dataset
 - [x] run exps with pretrained resnet18 (simply to set pretrained=True in this repo)
 - [x] implement early stopping (saving the model with highest moda and printing best results after training's finished)
+- [ ] UDA with confidence weighted cross-entropy
+  - [ ] implement cross-entropy loss and train domain generalization network
+  - [ ] implement confidence weighted cross entropy in UDA setting
 
 ### implement EMA teacher
 
@@ -592,5 +595,53 @@ setting pseudo-label threshold to close to 30 leads to very poor precision metri
 setting pseudo-label threshold over 40 leads to high precision but low recall.
 Iäve started another run with 10 experiments, now narrowing the search interval to pseudolabel threhsold [0.37,0.42] and start epoch [4,10]
 
+Another 10 trainings yielded 8 results at least as good as the baseline. 4 results reached ~71% max moda, and 1 result 73% max moda, which can probably be seen as a significant improvement.  I can not easily say why the poor experiments turned out as they did. In fact, the exp reaching only ~56% max moda started self-training at epoch 10, with reasonable parameters.  
+
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.9000313692461928, 0.9133325596859133, 0.9266337501256339, 0.9399349405653544, 0.953236131005075]  
+pseudo_label_th:  0.3724288045815374  
+max_moda: 73.0%, max_modp: 62.7%, max_precision: 95.0%, max_recall: 77.1%, epoch: 10.0%
+
+target_weights:  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9097386222697896]  
+pseudo_label_th:  0.39932592634030883  
+max_moda: 56.5%, max_modp: 67.5%, max_precision: 98.2%, max_recall: 57.6%, epoch: 10.0%
+
+
+max_moda: 64.1%, max_modp: 63.9%, max_precision: 97.8%, max_recall: 65.5%, epoch: 8.0%  
+max_moda: 71.6%, max_modp: 63.4%, max_precision: 95.5%, max_recall: 75.2%, epoch: 9.0%  
+max_moda: 69.0%, max_modp: 64.7%, max_precision: 93.1%, max_recall: 74.6%, epoch: 6.0%  
+max_moda: 69.1%, max_modp: 61.1%, max_precision: 94.9%, max_recall: 73.0%, epoch: 10.0%  
+max_moda: 70.8%, max_modp: 62.6%, max_precision: 95.8%, max_recall: 74.1%, epoch: 7.0%  
+max_moda: 73.0%, max_modp: 62.7%, max_precision: 95.0%, max_recall: 77.1%, epoch: 10.0%  
+max_moda: 69.5%, max_modp: 61.7%, max_precision: 95.2%, max_recall: 73.2%, epoch: 10.0%  
+max_moda: 56.5%, max_modp: 67.5%, max_precision: 98.2%, max_recall: 57.6%, epoch: 10.0%  
+max_moda: 71.1%, max_modp: 61.8%, max_precision: 93.0%, max_recall: 76.9%, epoch: 7.0%  
+max_moda: 69.5%, max_modp: 62.9%, max_precision: 95.5%, max_recall: 73.0%, epoch: 10.0%  
+
+mean, std  
+68.42 $\pm$ 4.56
+
+### 18/7
+running 10 baseline experiments to verify whether any of the self-training results from yesterday was successful.
+
+max_moda: 66.3%, max_modp: 65.4%, max_precision: 90.7%, max_recall: 73.8%, epoch: 5.0%  
+max_moda: 66.9%, max_modp: 65.1%, max_precision: 92.1%, max_recall: 73.2%, epoch: 6.0%  
+max_moda: 62.7%, max_modp: 65.3%, max_precision: 94.5%, max_recall: 66.6%, epoch: 9.0%  
+max_moda: 66.9%, max_modp: 64.9%, max_precision: 93.1%, max_recall: 72.3%, epoch: 7.0%  
+max_moda: 65.0%, max_modp: 66.5%, max_precision: 96.4%, max_recall: 67.5%, epoch: 10.0%  
+max_moda: 71.5%, max_modp: 64.5%, max_precision: 92.3%, max_recall: 78.0%, epoch: 8.0%  
+max_moda: 64.5%, max_modp: 66.7%, max_precision: 96.0%, max_recall: 67.3%, epoch: 10.0%  
+max_moda: 64.5%, max_modp: 66.9%, max_precision: 94.0%, max_recall: 68.9%, epoch: 10.0%  
+max_moda: 69.2%, max_modp: 65.8%, max_precision: 94.6%, max_recall: 73.4%, epoch: 10.0%  
+max_moda: 66.3%, max_modp: 66.8%, max_precision: 95.0%, max_recall: 70.0%, epoch: 9.0%  
+
+mean, std  
+66.38 $\pm$ 2.39
+
+From above UDA vs baseline experiments, the UDA yields higher max_moda in 8 of 10 experiments. However, I also note that although the seed was the same (80,81,...,89) for both sets of experiments, the training progression differs even when the target_weight is zero. For example, in the third to last training (with max_moda 56.5), the target weight is zero for all save the last epoch, but the baseline training on this seed yields much higher performance. So, the poor score of 56.5 can not be attributed to the UDA training, but rather just an unfortunate seed/run. Similarly, some runs with UDA reached max_moda even before UDA training kicked in, still beating the baseline. Another interesting observation is that while max_moda is improved for UDA, the max_modp is decreased in almost all experiments.
+
+- [ ] inspect results from yesterday to check for any qualitative difference between uda and baseline
+  - [x] The teacher ps-label seems to be rotated/shifted compared with teacher output sometimes. This is very strange! (e.g. train_target_map_199 in 2024-07-17_12-48-57-773335/epoch_10)
+  - [x] post uda training it seems like the model has got a bit better at predictive feet key points in perspective view (especially close range, which is typically missed without completely uda training). Although the pseudo-abels looks quite okay, which could possibly lead to very confident predictions post uda, the model is still not confident. Maybe it just needs more time to adapt? 20 epochs?
+  - [x] it is difficult to see any obvious qualitative differences. 
 
 

@@ -179,7 +179,7 @@ def main(args):
             target_weight_start = args.target_weight_start
             target_weight_end = args.target_weight_end
         
-        target_weights = [0. for x in range(10)]
+        target_weights = [0. for x in range(args.epochs)]
         increment_steps = args.epochs - target_epoch_start
         if increment_steps == 0:
             step_size = 0
