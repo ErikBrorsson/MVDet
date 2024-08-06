@@ -12,9 +12,67 @@ python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wild
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
 
-# UDA baseline
+# Paper 1 outline
 
-## TODO
+## abstract
+We consider the problem of unsupervised domain adaptation for mutli-view pedestrian detection. First, we introduce several training tricks that makes the chosen model (MVDet) more generalizable. Second, we show how performance can be furhter increased by adopting self-training techniques that has been widely used for monocular object detection and semantic segmetnation.
+- [ ] contributions
+  - [ ] propose training techniques that makes multi-view OD networks more generalizable (permutation augmentation, pretraining, dropout, mvaug)
+  - [ ] we propose a multi-view self-training framework for UDA of multi-view pedestrian detection. This includes pseudo-labelling in BEV and projecting the pseudo-labels back into each camera view to be able to leverage perspective view and bev view supervision on target data.
+  - [ ] extensive evaluation make our paper a first baseline for multi-view pedestrian UDA. It will serve as a baseline that subsequent papers can use to benchmark their proposed improvements to mutli-view UDA. 
+
+## motivation
+
+I'm mainly interested in camera rig adaptation, as this would be very valuable at Volvo. Camera rig adaptation would allow us to collect training data with a single camera rig and then adapt the model to new installations without need for further annotation work.
+
+Therefore, I am interested in the camera rig adaptation benchmarks proposed in the GMVD paper, which include wildtrack->wildtrack, multiviewx->multiviewX and GMVD->GMVD camera rig adaptation. 
+
+Since I aim to use UDA techniques to perform the camera rig adaptation, and the same techniques are also likely applicable to sim2real adaptation, it makes sense to also include such benchmarks to make the paper stronger.
+Previously studied sim2real benchmarks include multiviewX->wildtrack and GMVD->wildtrack.
+
+While I like the generalizability and adaptation benchmarks proposed by GMVD, there are several flaws/shortcuts in their implementation/experiments with MVDet.
+By using pretraining, random permutations of camera ordering and mvaug, I've been able to significantly improve MVDet on several benchmarks proposed in GMVD.
+This is in itself an achievement.
+Furthermore, I've successfully implemented UDA self-training for MVDet on some benchmarks.
+
+**How many models should I evaluate?**  
+It seems like my "generalizable" MVDet is almost as good as GMVD, so it is definitely relevant to use this model.  
+However, if I do not evaluate any other models, there would of course be some critique. Are my methods applicable to transformer architectures? Other CNN based architectures? CNN networks trained with cross-entropy instead of MSE loss? However, I think that the paper could be published even only with this model.
+
+**How many benchmarks should I evaluate?**  
+Since the Wildtrack dataset has a very limited test set, and even data leakage between train and test set (some people standing in the same spot), it would be undesirable to only evaluate on wildtrack->wildtrack adaptation.  
+I think I'd rather evaluate a single model on many benchmarks, than evaluating many models on a single benchmark.  
+Therefore, the next step is to download mutliviewx and GMVD dataset and evaluate my MVDet implementation on also these benchmarks.  
+A risk with introducing sim2real adaptation is that there could be further complications, that are not visible when doing real2real camera adaptation. SOlving these issues may not necessarily benefit the original task of real2real camera rig adaptation. This could result in me spending a lot of time on sim2real adaptation while in reality I'm interested in real2real adaptation. However, I find this risk quite low. I suspect that the two tasks are mutually benefitial (i.e. improvements to sim2real adaptation probably also lead to improvements in real2real adaptation).
+
+# Paper 2 outline
+
+## abstract
+We consider the task of UDA for multi-view pedestrain detection. We build upon our recent work that proposed a UDA baseline for multi-view object detection. In this paper, we make at least one improvement. For example, we propose to refine the pseudo-labels using multi-objects tracking algorithms. This leads to increased pseudo-label quality and subsequently increased performance of the student network.
+
+
+# TODO
+
+Evaluate my implemetnation of MVDet on all relevant adaptation benchmarks. If I'm successful in this, I'd say I could write a draft and submit it to a conference even without implementating additional methods. To make the paper stronger, I would implement the proposed techniques also for other models (e.g., MVDetr, SHOT and GMVD).
+
+- [ ] improve MVDet generalization capabilities with training tricks and boost further with UDA.  
+These experiments cover table 3 and 4 of GMVD paper, with the addition of 2,4,6->1,3,5 and 1,3,5->2,4,6
+  - [x] 2,4,6 -> 1,3,5
+  - [ ] 1,3,5 -> 2,4,6 (ONGOING)
+  - [x] 2,4,5,6 -> 1,3,5,7
+  - [ ] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+  - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
+  - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
+
+- [ ] improve MVDet on multiviewX -> wildtrack by training tricks and boost further with UDA.  
+Pretraining and dropout here could be valuable since multiviewx contains 6 cameras and wildtrack 7.  
+These experiments cover table 5 of GMVD paper.
+
+- [ ] improve MVDet on camera rig adaptation on multiviewX. This covers table 6 of GMVD paper
+
+
+
+# UDA baseline
 
 ## General
 - [x] Plot perspective view foot/head predictions on target data in all cameras (not just one as is done now)
@@ -539,7 +597,7 @@ Should I examine other adaptation benchmarks before trying to device an adaptati
 - [x] wildtrack 2,4,6 -> wildtrack 1,3,5
 
 ### 17/7
-- [ ] uda trainings on 2,4,6->1,3,5
+- [x] uda trainings on 2,4,6->1,3,5
 
 
 baseline:   
@@ -639,9 +697,129 @@ mean, std
 
 From above UDA vs baseline experiments, the UDA yields higher max_moda in 8 of 10 experiments. However, I also note that although the seed was the same (80,81,...,89) for both sets of experiments, the training progression differs even when the target_weight is zero. For example, in the third to last training (with max_moda 56.5), the target weight is zero for all save the last epoch, but the baseline training on this seed yields much higher performance. So, the poor score of 56.5 can not be attributed to the UDA training, but rather just an unfortunate seed/run. Similarly, some runs with UDA reached max_moda even before UDA training kicked in, still beating the baseline. Another interesting observation is that while max_moda is improved for UDA, the max_modp is decreased in almost all experiments.
 
-- [ ] inspect results from yesterday to check for any qualitative difference between uda and baseline
-  - [x] The teacher ps-label seems to be rotated/shifted compared with teacher output sometimes. This is very strange! (e.g. train_target_map_199 in 2024-07-17_12-48-57-773335/epoch_10)
+- [x] inspect results from yesterday to check for any qualitative difference between uda and baseline
+  - [x] Note that when mvaug is used, the teacher output is aligned with the label, while the teacher ps-label is aligned with the student output. This is because mvaug is only applied to the teacher pseudo-label and the input to the student. (e.g. train_target_map_199 in 2024-07-17_12-48-57-773335/epoch_10)
   - [x] post uda training it seems like the model has got a bit better at predictive feet key points in perspective view (especially close range, which is typically missed without completely uda training). Although the pseudo-abels looks quite okay, which could possibly lead to very confident predictions post uda, the model is still not confident. Maybe it just needs more time to adapt? 20 epochs?
   - [x] it is difficult to see any obvious qualitative differences. 
 
+- [x] start training with 20 epochs
+- [x] start generalization trainings and uda trainings (5 each) on adaptation scenario 1
+- [ ] check results from above trainings
+  - [ ] if I'm relatively satisfied with above results, it could be a good idea to start studying GMVD benchmark
+  - [ ] if I'm not satisfied, the next step is perhaps to implement cross-entropy loss and confidence weighted self-training
+
+### 6/8
+
+- [x] summarize results of 2,4,6->1,3,5 with/without uda and 20 epochs
+  - [x] over 20 epochs, uda significantly improve moda and recall, while precision is ~unchanged, and modp slightly decreased
+  - [x] while the relationship between recall and preciison metrics is clear, I don't exactly understand how moda and modp relates to each other.
+      MODP def in CLEAR_MOD_HUN.py: sum(1 - distances[distances < td] / td) / np.sum(c)  
+      As I understand it, modp measures the average distance of positive assignments between gt and preds? So, perhaps it is not very surprising that this metric may decrease when more positive asignments between gts and preds are achieved. I.e., when the model successfully detects more difficult pedestrians, the modp may decrease since it is more difficult to assess the exact location of these pedestrians.  
+      Additionally, also in the GMVD paper, some models that achieve VERY low MODA, have competetive MODP (or even better) than models with reasonable MODA. This shows that the MODP metric alone is perhaps not very useful in a generalization/UDA setting. We can probably accept a slight decrease in modp in favor of high increase of moda.
+- [x] summarize results of 2,4,5,6 -> 1,3,5,7 with/without uda and 10 epochs
+  - [x] only 2 uda exps reached max_moda after uda kicked in, so it is dificult to draw conclusions
+  - [x] started the same exps but with 20 epochs now
+- [ ] summarize results of 2,4,5,6 -> 1,3,5,7 with/without uda and 20 epochs
+
+
+**2,4,6 -> 1,3,5**
+
+running 5 baseline exps with 20 epochs  
+uda :  False  
+dropview :  True  
+permutation :  True  
+mvaug :  True  
+soft_labels :  False  
+pretrained :  True  
+max_moda: 65.9%, max_modp: 67.3%, max_precision: 96.7%, max_recall: 68.2%, epoch: 12.0%  
+max_moda: 66.1%, max_modp: 65.0%, max_precision: 91.3%, max_recall: 73.0%, epoch: 12.0%  
+max_moda: 63.7%, max_modp: 67.5%, max_precision: 95.5%, max_recall: 66.8%, epoch: 17.0%  
+max_moda: 67.5%, max_modp: 66.9%, max_precision: 93.9%, max_recall: 72.3%, epoch: 8.0%  
+max_moda: 61.9%, max_modp: 67.9%, max_precision: 96.4%, max_recall: 64.3%, epoch: 13.0%  
+
+summary:
+max_moda: 65.0 ± 2.0  
+max_modp: 66.9 ± 1.0  
+max_prec: 94.8 ± 2  
+max_reca: 68.9 ± 3.3
+
+
+running 5 uda exps with 20 epochs  
+uda :  True  
+dropview :  True  
+permutation :  True  
+mvaug :  True  
+soft_labels :  False  
+pretrained :  True  
+max_moda: 74.9%, max_modp: 67.2,%, max_precision: 96.1%, max_recall: 78.0,%, epoch: 18.0% (2024-07-19_15-34-49-648126)    
+max_moda: 75.8%, max_modp: 65.1,%, max_precision: 94.3%, max_recall: 80.7,%, epoch: 16.0%  
+max_moda: 72.8%, max_modp: 66.3,%, max_precision: 97.1%, max_recall: 75.0,%, epoch: 15.0%  
+max_moda: 72.4%, max_modp: 59.8,%, max_precision: 95.0%, max_recall: 76.4,%, epoch: 19.0%  
+max_moda: 74.5%, max_modp: 60.7,%, max_precision: 95.7%, max_recall: 77.9,%, epoch: 13.0%  
+
+summary:
+max_moda: 74.1 ± 1.3  
+max_modp: 63.8 ± 3.0  
+max_prec: 95.6 ± 1.0  
+max_reca: 77.6 ± 1.9
+
+I conclude that training for 20 epochs without and with UDA shows significant benefits of UDA.  
+moda and recall are significantly higher, while preciison is more or less the same.
+However, modp decreases slightly. Why is that?
+
+**2,4,5,6 -> 1,3,5,7** 
+
+baseline  
+uda :  False  
+dropview :  True  
+permutation :  True  
+mvaug :  True  
+soft_labels :  False  
+pretrained :  True  
+max_moda: 70.5%, max_modp: 66.8%, max_precision: 92.1%, max_recall: 77.1%, epoch: 7.0%  
+max_moda: 69.6%, max_modp: 69.2%, max_precision: 95.9%, max_recall: 72.8%, epoch: 10.0%  
+max_moda: 69.0%, max_modp: 68.4%, max_precision: 96.2%, max_recall: 71.8%, epoch: 7.0%  
+max_moda: 68.6%, max_modp: 68.9%, max_precision: 97.3%, max_recall: 70.6%, epoch: 10.0%  
+max_moda: 66.6%, max_modp: 67.9%, max_precision: 96.6%, max_recall: 69.0%, epoch: 8.0%  
+
+with uda  
+uda :  True  
+dropview :  True  
+permutation :  True  
+mvaug :  True  
+soft_labels :  False  
+pretrained :  True  
+max_moda: 74.6%, max_modp: 67.7%, max_precision: 94.6%, max_recall: 79.1%, epoch: 9.0%  
+** max_moda: 72.4%, max_modp: 68.0%, max_precision: 97.0%, max_recall: 74.7%, epoch: 8.0%  
+** max_moda: 73.7%, max_modp: 66.4%, max_precision: 93.2%, max_recall: 79.5%, epoch: 8.0%  
+max_moda: 73.8%, max_modp: 66.0%, max_precision: 97.2%, max_recall: 76.1%, epoch: 9.0%  
+** max_moda: 71.3%, max_modp: 68.8%, max_precision: 93.1%, max_recall: 77.0%, epoch: 8.0%  
+
+** invalid because max_moda is reached before uda has kicked in.
+
+
+
+baseline 20 epochs
+max_moda: 71.5%, max_modp: 69.0%, max_precision: 95.1%, max_recall: 75.4%, epoch: 17.0%
+max_moda: 70.4%, max_modp: 69.9%, max_precision: 97.3%, max_recall: 72.4%, epoch: 17.0%
+max_moda: 70.2%, max_modp: 70.7%, max_precision: 97.6%, max_recall: 72.0%, epoch: 13.0%
+max_moda: 70.1%, max_modp: 67.1%, max_precision: 95.5%, max_recall: 73.5%, epoch: 11.0%
+max_moda: 72.5%, max_modp: 69.3%, max_precision: 96.0%, max_recall: 75.6%, epoch: 19.0%
+
+uda 20 epochs (all valid since UDA always started no later than epoch 10)
+max_moda: 78.7%, max_modp: 71.3%, max_precision: 96.1%, max_recall: 82.0%, epoch: 17.0%
+max_moda: 77.7%, max_modp: 71.7%, max_precision: 96.4%, max_recall: 80.8%, epoch: 13.0%
+max_moda: 79.6%, max_modp: 70.6%, max_precision: 95.8%, max_recall: 83.3%, epoch: 16.0%
+max_moda: 77.3%, max_modp: 70.6%, max_precision: 96.7%, max_recall: 80.0%, epoch: 18.0%
+max_moda: 78.5%, max_modp: 69.9%, max_precision: 95.9%, max_recall: 81.9%, epoch: 15.0%
+
+Conclusion: large improvements to moda and recall, while modp and precision is relatively unchanged.
+
+
+### 7/8
+
+- [ ] 1,3,5 -> 2,4,6 (ONGOING)
+- [ ] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+- [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
+- [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
 
