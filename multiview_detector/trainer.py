@@ -564,13 +564,14 @@ class PerspectiveTrainer(BaseTrainer):
                     map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
 
                 for cam_indx, _ in enumerate(imgs_res):
-                    cam_number = data_loader.dataset.cameras[cam_indx]
+                    # cam_number = data_loader.dataset.cameras[cam_indx]
+                    cam_number = cam_indx
 
                     pred_view1 = imgs_res[cam_indx]
                     heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
                     heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
 
-                    if persp_map:
+                    if persp_map: # TODO doesn't work if n_views_train > n_views_test, since we don't have the projection matrices for the duplicate views
                         foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
                         foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
                         if not foot_coords[0].size == 0:
