@@ -799,7 +799,7 @@ max_moda: 73.8%, max_modp: 66.0%, max_precision: 97.2%, max_recall: 76.1%, epoch
 
 
 
-baseline 20 epochs
+baseline 20 epochs (GMVD report 43 moda)
 max_moda: 71.5%, max_modp: 69.0%, max_precision: 95.1%, max_recall: 75.4%, epoch: 17.0%
 max_moda: 70.4%, max_modp: 69.9%, max_precision: 97.3%, max_recall: 72.4%, epoch: 17.0%
 max_moda: 70.2%, max_modp: 70.7%, max_precision: 97.6%, max_recall: 72.0%, epoch: 13.0%
@@ -818,8 +818,130 @@ Conclusion: large improvements to moda and recall, while modp and precision is r
 
 ### 7/8
 
+timeplan:
+
+- [x] 0.5h mail & planering
+- [ ] 2h analysera exps
+  - [ ] 1
+  - [ ] 2
+  - [ ] 3
+  - [ ] 4 
+
+2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
+
+1h lunch
+
+3h träna med multiviewx
+
+1h starta träningar på givna multiviewx scenarion
+
+0.5h nedvarvning
+
+
 - [ ] 1,3,5 -> 2,4,6 (ONGOING)
 - [ ] 1,3,5,7 -> 2,4,5,6 (ONGOING)
 - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
 - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
+
+
+**1,3,5 -> 2,4,6**
+BASELINE
+max_moda: 49.2%, max_modp: 57.7%, max_precision: 80.7%, max_recall: 64.6%, epoch: 17.0%
+max_moda: 53.4%, max_modp: 56.6%, max_precision: 88.1%, max_recall: 61.7%, epoch: 13.0%
+max_moda: 53.8%, max_modp: 59.0%, max_precision: 85.6%, max_recall: 64.7%, epoch: 20.0%
+max_moda: 48.5%, max_modp: 58.3%, max_precision: 86.0%, max_recall: 58.0%, epoch: 20.0%
+max_moda: 50.8%, max_modp: 56.8%, max_precision: 79.9%, max_recall: 68.0%, epoch: 10.0%
+
+
+UDA
+max_moda: 39.2%, max_modp: 57.1%, max_precision: 83.4%, max_recall: 48.9%, epoch: 8.0%
+max_moda: 42.2%, max_modp: 56.6%, max_precision: 83.1%, max_recall: 53.0%, epoch: 8.0%
+max_moda: 32.7%, max_modp: 57.3%, max_precision: 91.2%, max_recall: 36.1%, epoch: 8.0%
+max_moda: 32.5%, max_modp: 55.7%, max_precision: 77.3%, max_recall: 45.9%, epoch: 5.0%
+max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0%
+
+
+target_epoch_start:  9
+target_weight_start:  0.9819741551394067
+target_weight_end:  0.9855022020890921
+pseudo_label_th:  0.4115575244026454
+max_moda: 39.2%, max_modp: 57.1%, max_precision: 83.4%, max_recall: 48.9%, epoch: 8.0%
+
+target_epoch_start:  10
+target_weight_start:  0.9640833372484451
+target_weight_end:  0.9714488343411891
+pseudo_label_th:  0.3767152060998524
+max_moda: 42.2%, max_modp: 56.6%, max_precision: 83.1%, max_recall: 53.0%, epoch: 8.0%
+
+
+target_epoch_start:  5
+target_weight_start:  0.055013664364538806
+target_weight_end:  0.6168385333831856
+pseudo_label_th:  0.40451766176998266
+max_moda: 32.7%, max_modp: 57.3%, max_precision: 91.2%, max_recall: 36.1%, epoch: 8.0%
+
+
+target_epoch_start:  6
+target_weight_start:  0.8920190502937498
+target_weight_end:  0.9835724921382933
+pseudo_label_th:  0.3890191507494425
+max_moda: 32.5%, max_modp: 55.7%, max_precision: 77.3%, max_recall: 45.9%, epoch: 5.0%
+
+
+target_epoch_start:  4
+target_weight_start:  0.6235311448968591
+target_weight_end:  0.8356029872491133
+pseudo_label_th:  0.3804726593843305
+max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0%
+
+
+
+**1,3,5,7 -> 2,4,5,6**
+BASELINE (GMVD report ~28 moda)
+max_moda: 63.7%, max_modp: 66.6%, max_precision: 95.8%, max_recall: 66.6%, epoch: 7.0%
+max_moda: 69.5%, max_modp: 62.5%, max_precision: 92.4%, max_recall: 75.7%, epoch: 10.0%
+max_moda: 68.4%, max_modp: 64.4%, max_precision: 87.1%, max_recall: 80.3%, epoch: 13.0%
+max_moda: 64.8%, max_modp: 64.4%, max_precision: 91.9%, max_recall: 71.1%, epoch: 7.0%
+max_moda: 68.5%, max_modp: 66.0%, max_precision: 90.3%, max_recall: 76.7%, epoch: 19.0%
+
+UDA
+max_moda: 57.8%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 60.7%, epoch: 16.0%
+max_moda: 67.4%, max_modp: 64.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 12.0%
+max_moda: 71.8%, max_modp: 63.9%, max_precision: 91.2%, max_recall: 79.5%, epoch: 19.0%
+max_moda: 52.2%, max_modp: 65.1%, max_precision: 90.9%, max_recall: 58.0%, epoch: 10.0%
+max_moda: 61.8%, max_modp: 56.2%, max_precision: 88.2%, max_recall: 71.3%, epoch: 17.0%
+
+
+target_epoch_start:  6
+target_weight_start:  0.2915669508485078
+target_weight_end:  0.5547190114162668
+pseudo_label_th:  0.39792450956136016
+max_moda: 57.8%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 60.7%, epoch: 16.0%
+
+target_epoch_start:  9
+target_weight_start:  0.5768850844257131
+target_weight_end:  0.9962002109364421
+pseudo_label_th:  0.3953487829227514
+max_moda: 67.4%, max_modp: 64.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 12.0%
+
+
+target_epoch_start:  10
+target_weight_start:  0.7902624852905654
+target_weight_end:  0.7984854761492666
+pseudo_label_th:  0.3787424311359612
+max_moda: 71.8%, max_modp: 63.9%, max_precision: 91.2%, max_recall: 79.5%, epoch: 19.0%
+
+target_epoch_start:  4
+target_weight_start:  0.11409665330602148
+target_weight_end:  0.2881477673113796
+pseudo_label_th:  0.38548330817705034
+max_moda: 52.2%, max_modp: 65.1%, max_precision: 90.9%, max_recall: 58.0%, epoch: 10.0%
+
+target_epoch_start:  6
+target_weight_start:  0.16788158936672803
+target_weight_end:  0.9216746465654325
+pseudo_label_th:  0.373039888572794
+max_moda: 61.8%, max_modp: 56.2%, max_precision: 88.2%, max_recall: 71.3%, epoch: 17.0%
+
+
 

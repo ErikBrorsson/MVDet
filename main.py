@@ -171,7 +171,7 @@ def main(args):
         if args.target_epoch_start is None or args.target_weight_start is None or args.target_weight_end is None:
             # randomize the target weight schedule
             # target_epoch_start = np.random.choice(10) + 1
-            target_epoch_start = np.random.choice(7) + 4
+            target_epoch_start = np.random.choice(7) + 9
             target_weight_start = np.random.rand()
             target_weight_end = target_weight_start + (1- target_weight_start)*np.random.rand()
         else:
