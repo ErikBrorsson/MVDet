@@ -822,10 +822,15 @@ timeplan:
 
 - [x] 0.5h mail & planering
 - [ ] 2h analysera exps
+  - [x] 1
+  - [x] 2
+  - [ ] 3
+  - [ ] 4 
+- [ ] 2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
   - [ ] 1
   - [ ] 2
   - [ ] 3
-  - [ ] 4 
+  - [ ] 4
 
 2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
 
@@ -838,8 +843,12 @@ timeplan:
 0.5h nedvarvning
 
 
-- [ ] 1,3,5 -> 2,4,6 (ONGOING)
-- [ ] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+- [x] 1,3,5 -> 2,4,6 (ONGOING)
+- [x] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+Both above experiments resulted in UDA degrading the performance in comparison with the baseline. 
+Seems like 1,3,(5),7->2,4,(5),6 is more difficult than the other way around.
+I noticed that pseudo-labels seems to be of worse quality than in the successful experiments of 2,4,6->1,3,5.
+I've started another set of uda experiments where uda kicks in at a later epoch. Perhaps this will give the model time enough to produce pseudo-labels of sufficient quality.
 - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
 - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
 
@@ -893,7 +902,6 @@ target_weight_start:  0.6235311448968591
 target_weight_end:  0.8356029872491133
 pseudo_label_th:  0.3804726593843305
 max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0%
-
 
 
 **1,3,5,7 -> 2,4,5,6**
