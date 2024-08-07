@@ -58,11 +58,24 @@ Evaluate my implemetnation of MVDet on all relevant adaptation benchmarks. If I'
 - [ ] improve MVDet generalization capabilities with training tricks and boost further with UDA.  
 These experiments cover table 3 and 4 of GMVD paper, with the addition of 2,4,6->1,3,5 and 1,3,5->2,4,6
   - [x] 2,4,6 -> 1,3,5
+    - [x] baseline
+    - [x] improve baseline with generalization tricks
+    - [x] improve further with uda
   - [ ] 1,3,5 -> 2,4,6 (ONGOING)
+    - [x] baseline
+    - [x] improve baseline with generalization tricks
+    - [ ] improve further with uda, need to continue parameter search
   - [x] 2,4,5,6 -> 1,3,5,7
-  - [ ] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+    - [x] baseline
+    - [x] improve baseline with generalization tricks
+    - [x] improve further with uda
+  - [x] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+    - [x] baseline
+    - [x] improve baseline with generalization tricks
+    - [x] improve further with uda
   - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
-  - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
+  - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6  
+  Before I proceed with 7->4 cam adaptation, I must decide whether to keep the test cams in correct positions or not.
 
 - [ ] improve MVDet on multiviewX -> wildtrack by training tricks and boost further with UDA.  
 Pretraining and dropout here could be valuable since multiviewx contains 6 cameras and wildtrack 7.  
@@ -829,8 +842,8 @@ timeplan:
 - [ ] 2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
   - [x] 1
   - [x] 2
-  - [ ] 3
-  - [ ] 4
+  - [x] 3
+  - [x] 4
 
 
 3h träna med multiviewx
@@ -847,7 +860,10 @@ Seems like 1,3,(5),7->2,4,(5),6 is more difficult than the other way around.
 I noticed that pseudo-labels seems to be of worse quality than in the successful experiments of 2,4,6->1,3,5.
 I've started another set of uda experiments where uda kicks in at a later epoch. Perhaps this will give the model time enough to produce pseudo-labels of sufficient quality.
 - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
-- [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
+- [ ] 1,2,3,4,5,6,7 -> 2,4,5,6  
+For these experiments, I suspect that GMVD do not duplicate views during training, which could make the model confused when this happens during testing. It makes sense to also train the model with duplicate views.
+  - [ ] implement training with duplicate views
+  - [x] implement testing with duplicate views
 
 
 **1,3,5 -> 2,4,6**  
@@ -926,5 +942,39 @@ UDA with later start
 uda moda: 71.0 ± 4.3
 
 repeating the first and fourth experiment above but now with uda_start=14, ps-label-th=0.38, to see if I can pump those numbers up.
+
+
+**1,2,3,4,5,6,7 -> four cameras**  
+
+Default MVDet results:
+
+/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default/2024-07-01_18-07-44
+slurm-2464253_3  
+evaluated on all 7 cameras yield  
+moda: 87.4%, modp: 75.5%, precision: 93.2%, recall: 94.2%
+
+evaluated on 2,4,5,6 yields   
+moda: 32.8%, modp: 65.9%, precision: 90.1%, recall: 36.8%
+
+evaluated on 1,3,5,7 yields  
+moda: 48.4%, modp: 72.3%, precision: 94.2%, recall: 51.6%
+
+I note that, due to chance, the views sometimes end up in the ''correct'' positions when duplication is used. Therefore, the performance varies drastically between samples. Very poor performance is achieved when few views are in the expected position, while decent performance is achived when many views are in the expected position.
+In reality, it doesn't make sense to ''shuffle'' the views just because some cameras are broken. It would make more sense to keep all available cameras in their original position, and put duplicates where in place of the broken cameras.
+
+| model         | 1,2,3,4,5,6,7 | 1,3,5,7               | 2,4,5,6     |
+| ------------- | ------------- | --------------------- | ----------- |
+| default MVDet | moda: 87.4%   | moda: 48.4%,          | moda: 32.8% |
+| General MVDet |               | (epoch 9) moda: 71.8% |             |
+| UDA MVDet     |               |                       |             |
+
+
+Conclusion: Seems like my training tricks does the charm also for this benchmark. GMVD has been very lazy...
+
+
+**TODO**
+- [ ] 7 -> 4 cameras adaptation
+  - [ ] evaluate default MVDet and general MVDet in the setting where all available cameras are in the correct place. It doesn't make sense to shuffle them
+- [ ] 
 
 

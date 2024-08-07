@@ -868,6 +868,30 @@ class UDATrainer(BaseTrainer):
 
         self.augmentation = augmentation_module
 
+
+    def duplicate_images(self, imgs, proj_mats):
+        B, N, C, H, W = imgs.shape
+
+        duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
+        cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
+        for i in range(N):
+            cam_ordering.append(i) # ensures that all views are added
+            n_duplicates = np.sum(duplicate_indices == i)
+            for j in range(n_duplicates):
+                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
+        assert len(cam_ordering) == self.model.num_cam
+        print("duplicates ordering: ", cam_ordering)
+
+        imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
+        proj_mats_extended = [None]*self.model.num_cam
+        for i in range(self.model.num_cam):
+            for batch in range(B):
+                imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
+                proj_mats_extended[i] = proj_mats[cam_ordering[i]]
+
+        return imgs_extended, proj_mats_extended
+
+
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
         self.model.train()
@@ -938,6 +962,12 @@ class UDATrainer(BaseTrainer):
             with torch.no_grad():
                 # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
                 data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                
+                # if the target data includes less views than source data, we resort to duplicating some views.
+                B, N, C, H, W = data_teacher.shape
+                if N < self.model.num_cam:
+                    data_teacher, proj_mats_teacher = self.duplicate_images(data_teacher, proj_mats_teacher)
+
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher)
             temp = map_pred_teacher.detach().cpu().squeeze()
 
@@ -977,6 +1007,12 @@ class UDATrainer(BaseTrainer):
                 # apply augmentation to target images and pseudo-labels prior to student training
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
+                
+                # if the target data includes less views than source data, we resort to duplicating some views.
+                B, N, C, H, W = data_student.shape
+                if N < self.model.num_cam:
+                    data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
+
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
                 loss = 0
@@ -991,6 +1027,11 @@ class UDATrainer(BaseTrainer):
                 imgs_pseudo_labels = [None]*len(self.target_cameras)
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
+                # if the target data includes less views than source data, we resort to duplicating some views.
+                B, N, C, H, W = data_student.shape
+                if N < self.model.num_cam:
+                    data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
+
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
                 loss = 0
