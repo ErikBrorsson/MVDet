@@ -824,17 +824,14 @@ timeplan:
 - [ ] 2h analysera exps
   - [x] 1
   - [x] 2
-  - [ ] 3
-  - [ ] 4 
+  - [x] 3
+  - [x] 4 
 - [ ] 2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
   - [x] 1
   - [x] 2
   - [ ] 3
   - [ ] 4
 
-2h implementera 1,2,3,4,5,6,7 -> 2,4,5,6
-
-1h lunch
 
 3h träna med multiviewx
 
@@ -853,103 +850,81 @@ I've started another set of uda experiments where uda kicks in at a later epoch.
 - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6
 
 
-**1,3,5 -> 2,4,6**
-BASELINE
-max_moda: 49.2%, max_modp: 57.7%, max_precision: 80.7%, max_recall: 64.6%, epoch: 17.0%
-max_moda: 53.4%, max_modp: 56.6%, max_precision: 88.1%, max_recall: 61.7%, epoch: 13.0%
-max_moda: 53.8%, max_modp: 59.0%, max_precision: 85.6%, max_recall: 64.7%, epoch: 20.0%
-max_moda: 48.5%, max_modp: 58.3%, max_precision: 86.0%, max_recall: 58.0%, epoch: 20.0%
-max_moda: 50.8%, max_modp: 56.8%, max_precision: 79.9%, max_recall: 68.0%, epoch: 10.0%
+**1,3,5 -> 2,4,6**  
+BASELINE  
+max_moda: 49.2%, max_modp: 57.7%, max_precision: 80.7%, max_recall: 64.6%, epoch: 17.0%  
+max_moda: 53.4%, max_modp: 56.6%, max_precision: 88.1%, max_recall: 61.7%, epoch: 13.0%  
+max_moda: 53.8%, max_modp: 59.0%, max_precision: 85.6%, max_recall: 64.7%, epoch: 20.0%  
+max_moda: 48.5%, max_modp: 58.3%, max_precision: 86.0%, max_recall: 58.0%, epoch: 20.0%  
+max_moda: 50.8%, max_modp: 56.8%, max_precision: 79.9%, max_recall: 68.0%, epoch: 10.0%  
 
 
 UDA
-max_moda: 39.2%, max_modp: 57.1%, max_precision: 83.4%, max_recall: 48.9%, epoch: 8.0%
-max_moda: 42.2%, max_modp: 56.6%, max_precision: 83.1%, max_recall: 53.0%, epoch: 8.0%
-max_moda: 32.7%, max_modp: 57.3%, max_precision: 91.2%, max_recall: 36.1%, epoch: 8.0%
-max_moda: 32.5%, max_modp: 55.7%, max_precision: 77.3%, max_recall: 45.9%, epoch: 5.0%
-max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0%
+
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                 |
+| --------- | ------------ | ---------- | ----------- | -------------------------------------------------------------------------------------- |
+| 9         | 0.98         | 0.98       | 0.412       | max_moda: 39.2%, max_modp: 57.1%, max_precision: 83.4%, max_recall: 48.9%, epoch: 8.0% |
+| 10        | 0.96         | 0.97       | 0.376       | max_moda: 42.2%, max_modp: 56.6%, max_precision: 83.1%, max_recall: 53.0%, epoch: 8.0% |
+| 5         | 0.05         | 0.61       | 0.404       | max_moda: 32.7%, max_modp: 57.3%, max_precision: 91.2%, max_recall: 36.1%, epoch: 8.0% |
+| 6         | 0.89         | 0.98       | 0.389       | max_moda: 32.5%, max_modp: 55.7%, max_precision: 77.3%, max_recall: 45.9%, epoch: 5.0% |
+| 4         | 0.62         | 0.83       | 0.380       | max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0% |
 
 
-target_epoch_start:  9
-target_weight_start:  0.9819741551394067
-target_weight_end:  0.9855022020890921
-pseudo_label_th:  0.4115575244026454
-max_moda: 39.2%, max_modp: 57.1%, max_precision: 83.4%, max_recall: 48.9%, epoch: 8.0%
+Note: In all but the third experiment, the model seems to produce many false positives after UDA training, resulting in low precision and moda reaching zero.
+In the third experiment, however, precision goes to 100% while recall becomes very low. Could it be because the pseudo-label threshold is very high relative to the low target_epoch_start. I.e., only very select few pseudo-labels are created in beginning of uda training, leading to overfitting to a small number of pedestrians.
 
-target_epoch_start:  10
-target_weight_start:  0.9640833372484451
-target_weight_end:  0.9714488343411891
-pseudo_label_th:  0.3767152060998524
-max_moda: 42.2%, max_modp: 56.6%, max_precision: 83.1%, max_recall: 53.0%, epoch: 8.0%
+starting new experiments with later uda start
 
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 14        | 0.98         | 0.98       | 0.412       | max_moda: 48.9%, max_modp: 57.0%, max_precision: 77.3%, max_recall: 69.3%, epoch: 14.0% |
+| 15        | 0.96         | 0.97       | 0.376       | max_moda: 46.6%, max_modp: 57.0%, max_precision: 84.5%, max_recall: 57.1%, epoch: 12.0% |
+| 10        | 0.05         | 0.61       | 0.404       | max_moda: 52.4%, max_modp: 56.5%, max_precision: 85.7%, max_recall: 62.9%, epoch: 10.0% |
+| 11        | 0.89         | 0.98       | 0.389       | max_moda: 51.6%, max_modp: 56.8%, max_precision: 85.2%, max_recall: 62.4%, epoch: 9.0%  |
+| 9         | 0.62         | 0.83       | 0.380       | max_moda: 44.5%, max_modp: 58.2%, max_precision: 89.7%, max_recall: 50.3%, epoch: 9.0%  |
 
-target_epoch_start:  5
-target_weight_start:  0.055013664364538806
-target_weight_end:  0.6168385333831856
-pseudo_label_th:  0.40451766176998266
-max_moda: 32.7%, max_modp: 57.3%, max_precision: 91.2%, max_recall: 36.1%, epoch: 8.0%
+In all cases above, the precision becomes very low and 0.0 moda is reached. => seems like a lot of false positives.
+Seems like pseudo-label-th must be significantly higher for this benchmark, perhaps ~0.42
 
 
-target_epoch_start:  6
-target_weight_start:  0.8920190502937498
-target_weight_end:  0.9835724921382933
-pseudo_label_th:  0.3890191507494425
-max_moda: 32.5%, max_modp: 55.7%, max_precision: 77.3%, max_recall: 45.9%, epoch: 5.0%
+**1,3,5,7 -> 2,4,5,6**  
+BASELINE (GMVD report ~28 moda)  
+max_moda: 63.7%, max_modp: 66.6%, max_precision: 95.8%, max_recall: 66.6%, epoch: 7.0%  
+max_moda: 69.5%, max_modp: 62.5%, max_precision: 92.4%, max_recall: 75.7%, epoch: 10.0%  
+max_moda: 68.4%, max_modp: 64.4%, max_precision: 87.1%, max_recall: 80.3%, epoch: 13.0%  
+max_moda: 64.8%, max_modp: 64.4%, max_precision: 91.9%, max_recall: 71.1%, epoch: 7.0%  
+max_moda: 68.5%, max_modp: 66.0%, max_precision: 90.3%, max_recall: 76.7%, epoch: 19.0%  
 
+baseline moda: 67.0 ± 2.3
 
-target_epoch_start:  4
-target_weight_start:  0.6235311448968591
-target_weight_end:  0.8356029872491133
-pseudo_label_th:  0.3804726593843305
-max_moda: 12.7%, max_modp: 59.1%, max_precision: 67.6%, max_recall: 24.4%, epoch: 5.0%
-
-
-**1,3,5,7 -> 2,4,5,6**
-BASELINE (GMVD report ~28 moda)
-max_moda: 63.7%, max_modp: 66.6%, max_precision: 95.8%, max_recall: 66.6%, epoch: 7.0%
-max_moda: 69.5%, max_modp: 62.5%, max_precision: 92.4%, max_recall: 75.7%, epoch: 10.0%
-max_moda: 68.4%, max_modp: 64.4%, max_precision: 87.1%, max_recall: 80.3%, epoch: 13.0%
-max_moda: 64.8%, max_modp: 64.4%, max_precision: 91.9%, max_recall: 71.1%, epoch: 7.0%
-max_moda: 68.5%, max_modp: 66.0%, max_precision: 90.3%, max_recall: 76.7%, epoch: 19.0%
 
 UDA
-max_moda: 57.8%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 60.7%, epoch: 16.0%
-max_moda: 67.4%, max_modp: 64.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 12.0%
-max_moda: 71.8%, max_modp: 63.9%, max_precision: 91.2%, max_recall: 79.5%, epoch: 19.0%
-max_moda: 52.2%, max_modp: 65.1%, max_precision: 90.9%, max_recall: 58.0%, epoch: 10.0%
-max_moda: 61.8%, max_modp: 56.2%, max_precision: 88.2%, max_recall: 71.3%, epoch: 17.0%
+
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 6         | 0.3          | 0.6        | 0.397       | max_moda: 57.8%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 60.7%, epoch: 16.0% |
+| 9         | 0.6          | 1.0        | 0.395       | max_moda: 67.4%, max_modp: 64.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 12.0% |
+| 10        | 0.8          | 0.8        | 0.379       | max_moda: 71.8%, max_modp: 63.9%, max_precision: 91.2%, max_recall: 79.5%, epoch: 19.0% |
+| 4         | 0.1          | 0.3        | 0.385       | max_moda: 52.2%, max_modp: 65.1%, max_precision: 90.9%, max_recall: 58.0%, epoch: 10.0% |
+| 6         | 0.17         | 0.92       | 0.373       | max_moda: 61.8%, max_modp: 56.2%, max_precision: 88.2%, max_recall: 71.3%, epoch: 17.0% |
 
 
-target_epoch_start:  6
-target_weight_start:  0.2915669508485078
-target_weight_end:  0.5547190114162668
-pseudo_label_th:  0.39792450956136016
-max_moda: 57.8%, max_modp: 66.6%, max_precision: 95.4%, max_recall: 60.7%, epoch: 16.0%
 
-target_epoch_start:  9
-target_weight_start:  0.5768850844257131
-target_weight_end:  0.9962002109364421
-pseudo_label_th:  0.3953487829227514
-max_moda: 67.4%, max_modp: 64.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 12.0%
+Starting a second set of experiments, now starting UDA training later since it seemed to start too early before.
+
+UDA with later start
+
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 11        | 0.3          | 0.6        | 0.397       | max_moda: 64.3%, max_modp: 62.6%, max_precision: 95.0%, max_recall: 67.9%, epoch: 16.0% |
+| 14        | 0.6          | 1.0        | 0.395       | max_moda: 74.1%, max_modp: 62.3%, max_precision: 92.8%, max_recall: 80.3%, epoch: 15.0% |
+| 15        | 0.8          | 0.8        | 0.379       | max_moda: 75.6%, max_modp: 62.1%, max_precision: 93.8%, max_recall: 81.0%, epoch: 20.0% |
+| 9         | 0.1          | 0.3        | 0.385       | max_moda: 67.4%, max_modp: 63.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 10.0% |
+| 11        | 0.17         | 0.92       | 0.373       | max_moda: 73.9%, max_modp: 62.6%, max_precision: 92.2%, max_recall: 80.8%, epoch: 17.0% |
 
 
-target_epoch_start:  10
-target_weight_start:  0.7902624852905654
-target_weight_end:  0.7984854761492666
-pseudo_label_th:  0.3787424311359612
-max_moda: 71.8%, max_modp: 63.9%, max_precision: 91.2%, max_recall: 79.5%, epoch: 19.0%
+uda moda: 71.0 ± 4.3
 
-target_epoch_start:  4
-target_weight_start:  0.11409665330602148
-target_weight_end:  0.2881477673113796
-pseudo_label_th:  0.38548330817705034
-max_moda: 52.2%, max_modp: 65.1%, max_precision: 90.9%, max_recall: 58.0%, epoch: 10.0%
-
-target_epoch_start:  6
-target_weight_start:  0.16788158936672803
-target_weight_end:  0.9216746465654325
-pseudo_label_th:  0.373039888572794
-max_moda: 61.8%, max_modp: 56.2%, max_precision: 88.2%, max_recall: 71.3%, epoch: 17.0%
-
+repeating the first and fourth experiment above but now with uda_start=14, ps-label-th=0.38, to see if I can pump those numbers up.
 
 

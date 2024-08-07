@@ -48,43 +48,43 @@ class PerspTransDetector(nn.Module):
     def forward(self, imgs, proj_mats, visualize=False):
         B, N, C, H, W = imgs.shape
         
-        # assert N == self.num_cam
-        assert N <= self.num_cam, "the number of input views to the model must be no more than the maximum number of views that the model is designed for"
-        if N < self.num_cam:
-            # the number of input views is less than what the model expects.
-            # => we must extend the data with more views (either duplicate images or black images)
-            # imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
-            # proj_mats_extended = [None]*self.num_cam
-            # permutation = np.random.permutation(self.num_cam)
-            # for i in range(self.num_cam):
-            #     for batch in range(B):
-            #         if i < N:
-            #             imgs_extended[batch, permutation[i], :, :, :] = imgs[batch, i, :, :, :]
-            #             proj_mats_extended[permutation[i]] = proj_mats[i]
-            #         else:
-            #             imgs_extended[batch, permutation[i], :, :, :] = torch.zeros_like(imgs[batch, i, :, :, :])
-            #             proj_mats_extended[permutation[i]] = None
+        assert N == self.num_cam
+        # assert N <= self.num_cam, "the number of input views to the model must be no more than the maximum number of views that the model is designed for"
+        # if N < self.num_cam:
+        #     # the number of input views is less than what the model expects.
+        #     # => we must extend the data with more views (either duplicate images or black images)
+        #     # imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
+        #     # proj_mats_extended = [None]*self.num_cam
+        #     # permutation = np.random.permutation(self.num_cam)
+        #     # for i in range(self.num_cam):
+        #     #     for batch in range(B):
+        #     #         if i < N:
+        #     #             imgs_extended[batch, permutation[i], :, :, :] = imgs[batch, i, :, :, :]
+        #     #             proj_mats_extended[permutation[i]] = proj_mats[i]
+        #     #         else:
+        #     #             imgs_extended[batch, permutation[i], :, :, :] = torch.zeros_like(imgs[batch, i, :, :, :])
+        #     #             proj_mats_extended[permutation[i]] = None
 
 
-            duplicate_indices = np.random.choice(N, self.num_cam - N, replace=True)
-            cam_ordering = [] # a list with indices with length==self.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
-            for i in range(N):
-                cam_ordering.append(i) # ensures that all views are added
-                n_duplicates = np.sum(duplicate_indices == i)
-                for j in range(n_duplicates):
-                    cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
-            assert len(cam_ordering) == self.num_cam
-            print("duplicates ordering: ", cam_ordering)
+        #     duplicate_indices = np.random.choice(N, self.num_cam - N, replace=True)
+        #     cam_ordering = [] # a list with indices with length==self.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
+        #     for i in range(N):
+        #         cam_ordering.append(i) # ensures that all views are added
+        #         n_duplicates = np.sum(duplicate_indices == i)
+        #         for j in range(n_duplicates):
+        #             cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
+        #     assert len(cam_ordering) == self.num_cam
+        #     print("duplicates ordering: ", cam_ordering)
 
-            imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
-            proj_mats_extended = [None]*self.num_cam
-            for i in range(self.num_cam):
-                for batch in range(B):
-                    imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
-                    proj_mats_extended[i] = proj_mats[cam_ordering[i]]
-            imgs = imgs_extended
-            proj_mats = proj_mats_extended
-            B, N, C, H, W = imgs.shape
+        #     imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
+        #     proj_mats_extended = [None]*self.num_cam
+        #     for i in range(self.num_cam):
+        #         for batch in range(B):
+        #             imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
+        #             proj_mats_extended[i] = proj_mats[cam_ordering[i]]
+        #     imgs = imgs_extended
+        #     proj_mats = proj_mats_extended
+        #     B, N, C, H, W = imgs.shape
 
         world_features = []
         imgs_result = []

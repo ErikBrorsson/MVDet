@@ -231,6 +231,29 @@ class PerspectiveTrainer(BaseTrainer):
         self.augmentation = augmentation_module
 
 
+    def duplicate_images(self, imgs, proj_mats):
+        B, N, C, H, W = imgs.shape
+
+        duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
+        cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
+        for i in range(N):
+            cam_ordering.append(i) # ensures that all views are added
+            n_duplicates = np.sum(duplicate_indices == i)
+            for j in range(n_duplicates):
+                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
+        assert len(cam_ordering) == self.model.num_cam
+        print("duplicates ordering: ", cam_ordering)
+
+        imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
+        proj_mats_extended = [None]*self.model.num_cam
+        for i in range(self.model.num_cam):
+            for batch in range(B):
+                imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
+                proj_mats_extended[i] = proj_mats[cam_ordering[i]]
+
+        return imgs_extended, proj_mats_extended
+
+
     def visualize_grid_and_bev(self, proj_mat, img, bev, f_name, foot_points, map_label=None):
         bev_h = 360
         bev_w = 120
@@ -511,6 +534,10 @@ class PerspectiveTrainer(BaseTrainer):
         for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
             if test_time_aug:
                 data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+
+            B, N, C, H, W = data.shape
+            if N < self.model.num_cam:
+                data, proj_mats = self.duplicate_images(data, proj_mats)
 
             with torch.no_grad():
                 map_res, imgs_res = self.model(data, proj_mats, visualize=True)
