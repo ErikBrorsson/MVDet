@@ -3,11 +3,13 @@ docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/dat
 
 docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/mnts/mnt0:/mnt -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -w /code mvdet
 
-python main.py -d wildtrack
+python main.py -d wildtrack --data_path /data/Wildtrack 
+python main.py -d multiviewx --data_path /data/MultiviewX 
 
 python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
 
 python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --trg_cams "2,4,5,6" --cls_thres 0.05 --persp_map
+python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --src_cams "1,2,3,4,5,6,7" --trg_cams "2,4,5,6"
 
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
@@ -69,20 +71,19 @@ These experiments cover table 3 and 4 of GMVD paper, with the addition of 2,4,6-
     - [x] baseline
     - [x] improve baseline with generalization tricks
     - [x] improve further with uda
-  - [x] 1,3,5,7 -> 2,4,5,6 (ONGOING)
+  - [x] 1,3,5,7 -> 2,4,5,6
     - [x] baseline
     - [x] improve baseline with generalization tricks
     - [x] improve further with uda
-  - [ ] 1,2,3,4,5,6,7 -> 1,3,5,7
-  - [ ] 1,2,3,4,5,6,7 -> 2,4,5,6  
-  Before I proceed with 7->4 cam adaptation, I must decide whether to keep the test cams in correct positions or not.
+  - [x] 1,2,3,4,5,6,7 -> 1,3,5,7
+  - [x] 1,2,3,4,5,6,7 -> 2,4,5,6  
+  In the current implementation, I duplicate random cameras (sometimes multiple duplicates), which may yield e.g., 1,3,5,5,5,7,7, in which case only 2 cameras are in the same position as during training. This makes the curent evaluation setting rather difficult. If camera positions where perserved, this benchmark would become presumably much easier. In any case, even in the more difficult setting, my training tricks (MVDet general) reaches good performance (quite close to supervised performance) on both 1,3,5,7 and 2,4,5,6.
 
+- [ ] improve MVDet on camera rig adaptation on multiviewX. This covers table 6 of GMVD paper
+- [ ] improve MVDet on camera rig adaptation on GMVD dataset
 - [ ] improve MVDet on multiviewX -> wildtrack by training tricks and boost further with UDA.  
 Pretraining and dropout here could be valuable since multiviewx contains 6 cameras and wildtrack 7.  
 These experiments cover table 5 of GMVD paper.
-
-- [ ] improve MVDet on camera rig adaptation on multiviewX. This covers table 6 of GMVD paper
-
 
 
 # UDA baseline
@@ -902,6 +903,9 @@ starting new experiments with later uda start
 In all cases above, the precision becomes very low and 0.0 moda is reached. => seems like a lot of false positives.
 Seems like pseudo-label-th must be significantly higher for this benchmark, perhaps ~0.42
 
+Starting 5 new uda exps with higher ps-label-th than above.
+
+
 
 **1,3,5,7 -> 2,4,5,6**  
 BASELINE (GMVD report ~28 moda)  
@@ -942,6 +946,7 @@ UDA with later start
 uda moda: 71.0 ± 4.3
 
 repeating the first and fourth experiment above but now with uda_start=14, ps-label-th=0.38, to see if I can pump those numbers up.
+=> 73.5 moda for the first exp and 70.9 moda for the second exp
 
 
 **1,2,3,4,5,6,7 -> four cameras**  
@@ -962,19 +967,46 @@ moda: 48.4%, modp: 72.3%, precision: 94.2%, recall: 51.6%
 I note that, due to chance, the views sometimes end up in the ''correct'' positions when duplication is used. Therefore, the performance varies drastically between samples. Very poor performance is achieved when few views are in the expected position, while decent performance is achived when many views are in the expected position.
 In reality, it doesn't make sense to ''shuffle'' the views just because some cameras are broken. It would make more sense to keep all available cameras in their original position, and put duplicates where in place of the broken cameras.
 
-| model         | 1,2,3,4,5,6,7 | 1,3,5,7               | 2,4,5,6     |
-| ------------- | ------------- | --------------------- | ----------- |
-| default MVDet | moda: 87.4%   | moda: 48.4%,          | moda: 32.8% |
-| General MVDet |               | (epoch 9) moda: 71.8% |             |
-| UDA MVDet     |               |                       |             |
+| model         | 1,2,3,4,5,6,7 | 1,3,5,7                | 2,4,5,6                              |
+| ------------- | ------------- | ---------------------- | ------------------------------------ |
+| default MVDet | moda: 87.4%   | moda: 48.4%,           | moda: 32.8%                          |
+| General MVDet |               | (epoch 16) moda: 76.8% | (loading model from epoch 16)  73.3% |
+| UDA MVDet     |               |                        |                                      |
 
 
-Conclusion: Seems like my training tricks does the charm also for this benchmark. GMVD has been very lazy...
+Conclusion: Seems like my training tricks does the charm also for this benchmark. GMVD has been very lazy...  
+Also note that MVDet 1,3,5,7->1,3,5,7 (fully supervised) gets 78.2 moda according to GMVD paper. So the adaptation setting 1,2,3,4,5,6,7->1,3,5,7 is basically solved with my training tricks, no need for UDA.
+Furthermore, the same model gets 73.3% on 1,2,3,4,5,6,7->2,4,5,6. While these numbers could be pumped up somewhat with early stopping, they are probably still significantly worse than the supervised results 2,4,5,6->2,4,5,6 of 85.2 moda reported in the GMVD paper.
+So in this case, it could be worth investigating UDA.
+However, if the ordering of the cameras are persperved when some cameras are removed, this benchmark becomes even easier. So it may not be that interesting to study.
 
 
-**TODO**
-- [ ] 7 -> 4 cameras adaptation
-  - [ ] evaluate default MVDet and general MVDet in the setting where all available cameras are in the correct place. It doesn't make sense to shuffle them
-- [ ] 
+
+### 8/8
+
+
+timeplan
+
+- [x] 1h analyze old exps
+- [ ] 2h multiviewx cam adapt
+  - [x] 1
+  - [x] 2
+  - [x] 3
+  - [x] 4
+
+
+**multiviewx cam adapt**  
+- [x] download data and setup normal training (RuntimeError: main thread is not in main loop. I believe that this is due to visualization issues inside docker)
+(Adding matplotlib.use('Agg') solved this issue)
+- [ ] setup cam-adapt training
+- [ ] train MVDet on cam-adapt
+- [ ] train MVDet general on cam-adapt
+- [ ] train MVDet uda on cam-adapt
+
+
+multiviewx normal (supervised) setting
+/home/gpss1/remote/phd/code/bev/MVDet/logs/multiviewx_frame/default
+max_moda: 83.9%, max_modp: 80.3%, max_precision: 98.2%, max_recall: 85.4%, epoch: 8.0%
+
 
 

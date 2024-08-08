@@ -3,7 +3,9 @@ import torch
 import os
 import numpy as np
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 import cv2
 from PIL import Image
 from multiview_detector.evaluation.evaluate import evaluate
@@ -556,10 +558,10 @@ class PerspectiveTrainer(BaseTrainer):
                 temp = map_grid_res
                 scores = temp[temp > self.cls_thres]
                 positions = (temp > self.cls_thres).nonzero().float()
-                if data_loader.dataset.base.indexing == 'xy':
-                    positions = positions[:, [1, 0]]
-                else:
-                    positions = positions
+                # if data_loader.dataset.base.indexing == 'xy':
+                #     positions = positions[:, [1, 0]]
+                # else:
+                #     positions = positions
                 if not torch.numel(positions) == 0:
                     ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
                     positions = positions[ids[:count], :]

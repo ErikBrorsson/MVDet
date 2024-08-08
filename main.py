@@ -79,8 +79,45 @@ def main(args):
             test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
 
+    elif 'multiviewx' in args.dataset:
+        data_path = args.data_path
+        if args.cam_adapt:
+            assert args.src_cams is not None and args.trg_cams is not None, "src_cams and trg_cams must be specified in cam_adapt setting"
+            trg_cams = args.trg_cams.split(",")
+            trg_cams = [int(x) for x in trg_cams]
+
+            src_cams = args.src_cams.split(",")
+            src_cams = [int(x) for x in src_cams]
+
+            source_base = MultiviewX(data_path, cameras=src_cams)
+            target_base = MultiviewX(data_path, cameras=trg_cams)
+            test_base = MultiviewX(data_path, cameras=trg_cams)
+
+            train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
+            train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            train_loader_target = torch.utils.data.DataLoader(train_set_target, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+        else:
+            base = MultiviewX(data_path)
+            test_base = base
+
+            train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+
     else:
-        raise Exception('must choose from [wildtrack]')
+        raise Exception('must choose from [wildtrack, multiviewx]')
 
 
 
@@ -199,9 +236,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    # print('Testing...')
-    # test_loss, test_prec, moda = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-    #                                             test_set.gt_fpath, True)
+    print('Testing...')
+    test_loss, test_prec, moda, modp, precision, recall  = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+                                                test_set.gt_fpath)
     max_moda = -1e10
     best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):

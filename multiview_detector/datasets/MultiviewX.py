@@ -12,25 +12,28 @@ extrinsic_camera_matrix_filenames = ['extr_Camera1.xml', 'extr_Camera2.xml', 'ex
 
 
 class MultiviewX(VisionDataset):
-    def __init__(self, root):
+    def __init__(self, root, cameras=[1,2,3,4,5,6]):
         super().__init__(root)
         # MultiviewX has xy-indexing: H*W=640*1000, thus x is \in [0,1000), y \in [0,640)
         # MultiviewX has consistent unit: meter (m) for calibration & pos annotation
         self.__name__ = 'MultiviewX'
         self.img_shape, self.worldgrid_shape = [1080, 1920], [640, 1000]  # H,W; N_row,N_col
-        self.num_cam, self.num_frame = 6, 400
+        self.num_frame = 400
+        self.cameras = [x - 1 for x in cameras] # in the code, the camera index is sometimes used to reference the position in a list => need range 0-6 instead of 1-7
+        self.num_cam = len(self.cameras)
         # x,y correspond to w,h
         self.indexing = 'xy'
         # convert x,y to i,j, then use i,j for world map indexing
         self.worldgrid2worldcoord_mat = np.array([[0, 0.025, 0], [0.025, 0, 0], [0, 0, 1]])
-        self.intrinsic_matrices, self.extrinsic_matrices = zip(
-            *[self.get_intrinsic_extrinsic_matrix(cam) for cam in range(self.num_cam)])
-
+        self.intrinsic_matrices, self.extrinsic_matrices = {}, {}
+        for cam in self.cameras:
+            self.intrinsic_matrices[cam], self.extrinsic_matrices[cam] = self.get_intrinsic_extrinsic_matrix(cam)
+        
     def get_image_fpaths(self, frame_range):
-        img_fpaths = {cam: {} for cam in range(self.num_cam)}
+        img_fpaths = {cam: {} for cam in self.cameras}
         for camera_folder in sorted(os.listdir(os.path.join(self.root, 'Image_subsets'))):
             cam = int(camera_folder[-1]) - 1
-            if cam >= self.num_cam:
+            if cam not in self.cameras:
                 continue
             for fname in sorted(os.listdir(os.path.join(self.root, 'Image_subsets', camera_folder))):
                 frame = int(fname.split('.')[0])
@@ -85,7 +88,7 @@ class MultiviewX(VisionDataset):
         fp_calibration.release()
 
         rotation_matrix, _ = cv2.Rodrigues(rvec)
-        translation_matrix = np.array(tvec, dtype=np.float).reshape(3, 1)
+        translation_matrix = np.array(tvec, dtype=np.float32).reshape(3, 1)
         extrinsic_matrix = np.hstack((rotation_matrix, translation_matrix))
 
         return intrinsic_matrix, extrinsic_matrix
@@ -116,7 +119,7 @@ def test():
 
     foot_3ds = dataset.get_worldcoord_from_pos(np.arange(np.product(dataset.worldgrid_shape)))
     errors = []
-    for cam in range(dataset.num_cam):
+    for cam in dataset.cameras:
         projected_foot_2d = get_imagecoord_from_worldcoord(foot_3ds, dataset.intrinsic_matrices[cam],
                                                            dataset.extrinsic_matrices[cam])
         for pos in range(np.product(dataset.worldgrid_shape)):
