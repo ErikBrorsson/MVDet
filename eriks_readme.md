@@ -1015,3 +1015,31 @@ max_moda: 83.9%, max_modp: 80.3%, max_precision: 98.2%, max_recall: 85.4%, epoch
 
 
 
+### 10/8
+
+1,3,5 -> 2,4,6
+
+| model            | moda |
+| ---------------- | ---- |
+| MVDet default    | ?    |
+| MVDet general    | ~50% |
+| MVDet uda        | ~40% |
+| MVDet supervised | ?    |
+
+Note: THe baseline performance fluctuates a lot during training.
+For example, the second exp moda drops from 53.4 at epoch 13 to 13.2 at epoch 16.
+Why is that?
+- are the features alright? But the classifier is sensitive to the classification threshold?
+- is the mean-teacher more stable? Evaluate it during training.
+
+started 4 new exps (1 of each for the above table). Now also saving the latest model and ema model. After this, I will have a hunch of the gap between default/general/supervised, and I can study whether it is ACTUALLY a large difference in performance between the latest model and the best model, or if it is only a matter of tuning the classification threshold.
+
+
+
+multiviewX
+| model            | moda |
+| ---------------- | ---- |
+| MVDet default    | ?    |
+| MVDet general    | ?    |
+| MVDet uda        | ?    |
+| MVDet supervised | ?    |
