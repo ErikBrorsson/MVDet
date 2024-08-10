@@ -875,6 +875,11 @@ max_moda: 53.8%, max_modp: 59.0%, max_precision: 85.6%, max_recall: 64.7%, epoch
 max_moda: 48.5%, max_modp: 58.3%, max_precision: 86.0%, max_recall: 58.0%, epoch: 20.0%  
 max_moda: 50.8%, max_modp: 56.8%, max_precision: 79.9%, max_recall: 68.0%, epoch: 10.0%  
 
+Note: THe baseline performance fluctuates a lot during training.
+For example, the second exp moda drops from 53.4 at epoch 13 to 13.2 at epoch 16.
+Why is that?
+- are the features alright? But the classifier is sensitive to the classification threshold?
+- is the mean-teacher more stable? Evaluate it during training.
 
 UDA
 

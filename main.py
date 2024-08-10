@@ -201,9 +201,6 @@ def main(args):
         model.load_state_dict(torch.load(resume_fname))
 
 
-    # print('Testing...')
-    # trainer.test(test_loader, os.path.join(logdir, 'test.txt'), train_set.gt_fpath, True)
-
     if args.uda:
         if args.target_epoch_start is None or args.target_weight_start is None or args.target_weight_end is None:
             # randomize the target weight schedule
@@ -236,9 +233,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    print('Testing...')
-    test_loss, test_prec, moda, modp, precision, recall  = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                test_set.gt_fpath)
+    # print('Testing...')
+    # test_loss, test_prec, moda, modp, precision, recall  = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+    #                                             test_set.gt_fpath)
     max_moda = -1e10
     best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
@@ -260,6 +257,10 @@ def main(args):
             torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
             if args.uda:
                 torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
+
+        torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector_latest.pth'))
+        if args.uda:
+            torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema_latest.pth'))
 
 
         x_epoch.append(epoch)
