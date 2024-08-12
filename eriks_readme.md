@@ -1003,10 +1003,10 @@ timeplan
 **multiviewx cam adapt**  
 - [x] download data and setup normal training (RuntimeError: main thread is not in main loop. I believe that this is due to visualization issues inside docker)
 (Adding matplotlib.use('Agg') solved this issue)
-- [ ] setup cam-adapt training
-- [ ] train MVDet on cam-adapt
-- [ ] train MVDet general on cam-adapt
-- [ ] train MVDet uda on cam-adapt
+- [x] setup cam-adapt training
+- [x] train MVDet on cam-adapt
+- [x] train MVDet general on cam-adapt
+- [x] train MVDet uda on cam-adapt
 
 
 multiviewx normal (supervised) setting
@@ -1021,10 +1021,10 @@ max_moda: 83.9%, max_modp: 80.3%, max_precision: 98.2%, max_recall: 85.4%, epoch
 
 | model            | moda |
 | ---------------- | ---- |
-| MVDet default    | ?    |
-| MVDet general    | ~50% |
-| MVDet uda        | ~40% |
-| MVDet supervised | ?    |
+| MVDet default    | 5.8  |
+| MVDet general    | 49.3 |
+| MVDet uda        | ?    |
+| MVDet supervised | 80.6 |
 
 Note: THe baseline performance fluctuates a lot during training.
 For example, the second exp moda drops from 53.4 at epoch 13 to 13.2 at epoch 16.
@@ -1039,7 +1039,63 @@ started 4 new exps (1 of each for the above table). Now also saving the latest m
 multiviewX
 | model            | moda |
 | ---------------- | ---- |
-| MVDet default    | ?    |
-| MVDet general    | ?    |
+| MVDet default    | 2.6  |
+| MVDet general    | 55.4 |
 | MVDet uda        | ?    |
-| MVDet supervised | ?    |
+| MVDet supervised | 70.4 |
+
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 14        | 0.14         | 0.22       | 0.41        | max_moda: 52.6%, max_modp: 69.9%, max_precision: 96.1%, max_recall: 54.8%, epoch: 14.0% |
+| 12        | 0.7          | 0.91       | 0.40        | max_moda: 52.7%, max_modp: 66.2%, max_precision: 88.3%, max_recall: 60.7%, epoch: 11.0% |
+| 15        | 0.19         | 0.95       | 0.40        | max_moda: 51.0%, max_modp: 67.3%, max_precision: 87.5%, max_recall: 59.5%, epoch: 10.0% |
+| 12        | 0.16         | 0.7        | 0.38        | max_moda: 51.4%, max_modp: 67.2%, max_precision: 88.7%, max_recall: 58.9%, epoch: 12.0% |
+| 10        | 0.17         | 0.8        | 0.41        | max_moda: 46.6%, max_modp: 63.7%, max_precision: 84.5%, max_recall: 57.1%, epoch: 9.0%  |
+
+In all five uda exps, the precision increases and recall decreases as UDA kicks in. Seems like pseudo-labels are accurate but include too many false negative.
+Lower ps-label-th?
+
+
+Trying different cls thresholds for the 3rd UDA exp:  
+The max moda, which was 51%, was reached before uda kicked in.  
+A hypothesis is that the feature representation may actually improve by UDA, but since the cls_thres is not well tuned, the performance gets worse.  
+Test this hypothesis by using different cls tresholds on the latest model (epoch 20).  
+
+max_moda: 51.0%, max_modp: 67.3%, max_precision: 87.5%, max_recall: 59.5%, epoch: 10.0%
+
+latest checkpoint yields
+| cls thresh | scores                                                    |
+| ---------- | --------------------------------------------------------- |
+| 0.4        | moda: 45.6%, modp: 64.4%, precision: 98.4%, recall: 46.3% |
+| 0.3        | moda: 45.6%, modp: 64.2%, precision: 93.5%, recall: 49.0% |
+| 0.2        | moda: 36.8%, modp: 63.9%, precision: 77.1%, recall: 52.3% |
+
+As threshold is lowered, precision decreases steadily. Now 77 recall is far worse than at epoch 10, and at the same time, recall is also far worse. 
+Seems like the model has indeed degraded.
+
+
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 14        | 0.14         | 0.22       | 0.38        | max_moda: 51.3%, max_modp: 70.1%, max_precision: 91.8%, max_recall: 56.3%, epoch: 14.0% |
+| 12        | 0.7          | 0.91       | 0.37        | max_moda: 57.2%, max_modp: 64.5%, max_precision: 96.8%, max_recall: 59.2%, epoch: 19.0% |
+| 15        | 0.19         | 0.95       | 0.37        | max_moda: 53.5%, max_modp: 68.0%, max_precision: 95.6%, max_recall: 56.2%, epoch: 15.0% |
+| 12        | 0.16         | 0.7        | 0.35        | max_moda: 54.5%, max_modp: 62.6%, max_precision: 90.5%, max_recall: 60.8%, epoch: 20.0% |
+| 10        | 0.17         | 0.8        | 0.38        | max_moda: 46.7%, max_modp: 66.4%, max_precision: 86.7%, max_recall: 55.2%, epoch: 10.0% |
+
+
+### 11/8
+
+- [x] 1h analyze exps 
+- [x] 1h device future plan
+  - [x] 1, started new exps on multiviewx with lower pseudo-label-th, as there seemed to be many false negatives in ps-labels.
+  - [x] 2
+- [x] 1h read articles 
+- [x] 1h analyze multiview x
+
+1. Look into more UDA OD papers to see if I have missed some important detail in the literature. 
+   1. Tracking have been used (e.g. Automatic adaptation of object detectors to new domains using self-training)
+   2. A method for choosing a pseudo-label threshold is proposed by "A Free Lunch for Unsupervised Domain Adaptive Object Detection without Source Data"
+
+
+
+

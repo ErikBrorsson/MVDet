@@ -976,10 +976,10 @@ class UDATrainer(BaseTrainer):
             if not self.soft_labels:
                 scores = temp[temp > pseudo_label_th]
                 positions = (temp > pseudo_label_th).nonzero().float()
-                # if data_loader.dataset.base.indexing == 'xy':
-                #     positions = positions[:, [1, 0]]
-                # else:
-                #     positions = positions
+                if data_loader.dataset.base.indexing == 'xy':
+                    positions = positions[:, [1, 0]]
+                else:
+                    positions = positions
                 if not torch.numel(positions) == 0:
                     ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
                     positions = positions[ids[:count], :]
