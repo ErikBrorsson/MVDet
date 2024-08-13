@@ -47,6 +47,94 @@ I think I'd rather evaluate a single model on many benchmarks, than evaluating m
 Therefore, the next step is to download mutliviewx and GMVD dataset and evaluate my MVDet implementation on also these benchmarks.  
 A risk with introducing sim2real adaptation is that there could be further complications, that are not visible when doing real2real camera adaptation. SOlving these issues may not necessarily benefit the original task of real2real camera rig adaptation. This could result in me spending a lot of time on sim2real adaptation while in reality I'm interested in real2real adaptation. However, I find this risk quite low. I suspect that the two tasks are mutually benefitial (i.e. improvements to sim2real adaptation probably also lead to improvements in real2real adaptation).
 
+## main results
+
+### 2,4,5,6 -> 1,3,5,7
+
+MVDet General 20 epochs (GMVD report 43 moda)  
+max_moda: 71.5%, max_modp: 69.0%, max_precision: 95.1%, max_recall: 75.4%, epoch: 17.0%  
+max_moda: 70.4%, max_modp: 69.9%, max_precision: 97.3%, max_recall: 72.4%, epoch: 17.0%  
+max_moda: 70.2%, max_modp: 70.7%, max_precision: 97.6%, max_recall: 72.0%, epoch: 13.0%  
+max_moda: 70.1%, max_modp: 67.1%, max_precision: 95.5%, max_recall: 73.5%, epoch: 11.0%  
+max_moda: 72.5%, max_modp: 69.3%, max_precision: 96.0%, max_recall: 75.6%, epoch: 19.0%  
+mean ~71
+
+UDA 20 epochs (all valid since UDA always started no later than epoch 10)  
+max_moda: 78.7%, max_modp: 71.3%, max_precision: 96.1%, max_recall: 82.0%, epoch: 17.0%  
+max_moda: 77.7%, max_modp: 71.7%, max_precision: 96.4%, max_recall: 80.8%, epoch: 13.0%  
+max_moda: 79.6%, max_modp: 70.6%, max_precision: 95.8%, max_recall: 83.3%, epoch: 16.0%  
+max_moda: 77.3%, max_modp: 70.6%, max_precision: 96.7%, max_recall: 80.0%, epoch: 18.0%  
+max_moda: 78.5%, max_modp: 69.9%, max_precision: 95.9%, max_recall: 81.9%, epoch: 15.0%  
+mean ~78
+
+### 1,3,5,7 -> 2,4,5,6
+
+MVDet General 20 epochs  
+max_moda: 63.7%, max_modp: 66.6%, max_precision: 95.8%, max_recall: 66.6%, epoch: 7.0%  
+max_moda: 69.5%, max_modp: 62.5%, max_precision: 92.4%, max_recall: 75.7%, epoch: 10.0%  
+max_moda: 68.4%, max_modp: 64.4%, max_precision: 87.1%, max_recall: 80.3%, epoch: 13.0%  
+max_moda: 64.8%, max_modp: 64.4%, max_precision: 91.9%, max_recall: 71.1%, epoch: 7.0%  
+max_moda: 68.5%, max_modp: 66.0%, max_precision: 90.3%, max_recall: 76.7%, epoch: 19.0%  
+baseline moda: 67.0 ± 2.3
+
+UDA 20 epochs  
+max_moda: 64.3%, max_modp: 62.6%, max_precision: 95.0%, max_recall: 67.9%, epoch: 16.0%  
+max_moda: 74.1%, max_modp: 62.3%, max_precision: 92.8%, max_recall: 80.3%, epoch: 15.0%  
+max_moda: 75.6%, max_modp: 62.1%, max_precision: 93.8%, max_recall: 81.0%, epoch: 20.0%  
+max_moda: 67.4%, max_modp: 63.5%, max_precision: 88.1%, max_recall: 77.9%, epoch: 10.0%  
+max_moda: 73.9%, max_modp: 62.6%, max_precision: 92.2%, max_recall: 80.8%, epoch: 17.0%  
+uda moda: 71.0 ± 4.3
+
+### 1,3,5 -> 2,4,6
+
+| model            | moda |
+| ---------------- | ---- |
+| MVDet default    | 5.8  |
+| MVDet general    | 49.3 |
+| MVDet uda        | ?    |
+| MVDet supervised | 80.6 |
+
+### 2,4,6 -> 1,3,5
+
+max_moda: 65.9%, max_modp: 67.3%, max_precision: 96.7%, max_recall: 68.2%, epoch: 12.0%  
+max_moda: 66.1%, max_modp: 65.0%, max_precision: 91.3%, max_recall: 73.0%, epoch: 12.0%  
+max_moda: 63.7%, max_modp: 67.5%, max_precision: 95.5%, max_recall: 66.8%, epoch: 17.0%  
+max_moda: 67.5%, max_modp: 66.9%, max_precision: 93.9%, max_recall: 72.3%, epoch: 8.0%  
+max_moda: 61.9%, max_modp: 67.9%, max_precision: 96.4%, max_recall: 64.3%, epoch: 13.0%  
+max_moda: 65.0 ± 2.0
+
+
+UDA 20 epochs  
+max_moda: 74.9%, max_modp: 67.2,%, max_precision: 96.1%, max_recall: 78.0,%, epoch: 18.0% (2024-07-19_15-34-49-648126)    
+max_moda: 75.8%, max_modp: 65.1,%, max_precision: 94.3%, max_recall: 80.7,%, epoch: 16.0%  
+max_moda: 72.8%, max_modp: 66.3,%, max_precision: 97.1%, max_recall: 75.0,%, epoch: 15.0%  
+max_moda: 72.4%, max_modp: 59.8,%, max_precision: 95.0%, max_recall: 76.4,%, epoch: 19.0%  
+max_moda: 74.5%, max_modp: 60.7,%, max_precision: 95.7%, max_recall: 77.9,%, epoch: 13.0%  
+max_moda: 74.1 ± 1.3      
+
+
+### MultiviewX 
+
+| model                | moda    |
+| -------------------- | ------- |
+| MVDet default        | 2.6     |
+| MVDet general        | 55.4    |
+| MVDet uda            | ?       |
+| MVDet supervised     | 70.4    |
+| GMVD (with dropview) | 58 (66) |
+
+MVDet General  
+max_moda: 53.3%, max_modp: 69.1%, max_precision: 93.4%, max_recall: 57.4%, epoch: 19.0%  
+max_moda: 53.9%, max_modp: 68.7%, max_precision: 94.9%, max_recall: 57.0%, epoch: 17.0%  
+max_moda: 54.6%, max_modp: 70.3%, max_precision: 96.2%, max_recall: 56.9%, epoch: 20.0%  
+max_moda: 56.7%, max_modp: 70.0%, max_precision: 91.6%, max_recall: 62.4%, epoch: 16.0%  
+max_moda: 54.6%, max_modp: 66.6%, max_precision: 90.3%, max_recall: 61.1%, epoch: 14.0%  
+
+### GMVD dataset
+TODO
+
+
+
 # Paper 2 outline
 
 ## abstract
@@ -910,7 +998,19 @@ Seems like pseudo-label-th must be significantly higher for this benchmark, perh
 
 Starting 5 new uda exps with higher ps-label-th than above.
 
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 14        | 0.98         | 0.98       | 0.45        | max_moda: 46.0%, max_modp: 56.3%, max_precision: 91.5%, max_recall: 50.7%, epoch: 13.0% |
+| 15        | 0.96         | 0.97       | 0.4         | max_moda: 46.0%, max_modp: 57.1%, max_precision: 83.6%, max_recall: 57.2%, epoch: 12.0% |
+| 10        | 0.05         | 0.61       | 0.44        | max_moda: 47.2%, max_modp: 56.0%, max_precision: 81.0%, max_recall: 61.7%, epoch: 9.0%  |
+| 11        | 0.89         | 0.98       | 0.42        | max_moda: 49.8%, max_modp: 57.8%, max_precision: 85.3%, max_recall: 60.2%, epoch: 9.0%  |
+| 9         | 0.62         | 0.83       | 0.4         | max_moda: 43.4%, max_modp: 56.1%, max_precision: 81.5%, max_recall: 56.1%, epoch: 8.0%  |
 
+1st: precision and recall gets lower as uda kicks in
+2nd: preciison gets lower and recall gets higher
+3rd: precision up, recall down
+4th: precision down, recall same
+5th: precision same, recall down
 
 **1,3,5,7 -> 2,4,5,6**  
 BASELINE (GMVD report ~28 moda)  
@@ -1036,14 +1136,35 @@ started 4 new exps (1 of each for the above table). Now also saving the latest m
 
 
 
-multiviewX
-| model            | moda |
-| ---------------- | ---- |
-| MVDet default    | 2.6  |
-| MVDet general    | 55.4 |
-| MVDet uda        | ?    |
-| MVDet supervised | 70.4 |
+**multiviewX**  
+| model                | moda    |
+| -------------------- | ------- |
+| MVDet default        | 2.6     |
+| MVDet general        | 55.4    |
+| MVDet uda            | ?       |
+| MVDet supervised     | 70.4    |
+| GMVD (with dropview) | 58 (66) |
 
+| pretrained | permutation | mvaug | dropview | scores                                                                                  | save_dir |
+| ---------- | ----------- | ----- | -------- | --------------------------------------------------------------------------------------- | -------- |
+| -          | -           | -     | -        |                                                                                         |          |
+| x          | -           | -     | -        | max_moda: 35.3%, max_modp: 66.6%, max_precision: 83.2%, max_recall: 44.2%, epoch: 5.0%  |          |
+| x          | x           | -     | -        | max_moda: 42.9%, max_modp: 69.3%, max_precision: 91.2%, max_recall: 47.5%, epoch: 13.0% |          |
+| x          | -           | x     | -        | max_moda: 46.7%, max_modp: 70.6%, max_precision: 96.0%, max_recall: 48.7%, epoch: 14.0% |          |
+| x          | -           | -     | x        | max_moda: 36.9%, max_modp: 66.8%, max_precision: 90.7%, max_recall: 41.1%, epoch: 6.0%  |          |
+| x          | x           | x     | -        | max_moda: 50.9%, max_modp: 69.7%, max_precision: 97.3%, max_recall: 52.3%, epoch: 13.0% |          |
+| x          | x           | -     | x        | max_moda: 50.4%, max_modp: 69.4%, max_precision: 90.4%, max_recall: 56.4%, epoch: 17.0% |          |
+
+
+MVDet General  
+max_moda: 53.3%, max_modp: 69.1%, max_precision: 93.4%, max_recall: 57.4%, epoch: 19.0%  
+max_moda: 53.9%, max_modp: 68.7%, max_precision: 94.9%, max_recall: 57.0%, epoch: 17.0%  
+max_moda: 54.6%, max_modp: 70.3%, max_precision: 96.2%, max_recall: 56.9%, epoch: 20.0%  
+max_moda: 56.7%, max_modp: 70.0%, max_precision: 91.6%, max_recall: 62.4%, epoch: 16.0%  
+max_moda: 54.6%, max_modp: 66.6%, max_precision: 90.3%, max_recall: 61.1%, epoch: 14.0%  
+
+
+UDA  
 | uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
 | --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
 | 14        | 0.14         | 0.22       | 0.41        | max_moda: 52.6%, max_modp: 69.9%, max_precision: 96.1%, max_recall: 54.8%, epoch: 14.0% |
@@ -1054,7 +1175,6 @@ multiviewX
 
 In all five uda exps, the precision increases and recall decreases as UDA kicks in. Seems like pseudo-labels are accurate but include too many false negative.
 Lower ps-label-th?
-
 
 Trying different cls thresholds for the 3rd UDA exp:  
 The max moda, which was 51%, was reached before uda kicked in.  
@@ -1083,7 +1203,17 @@ Seems like the model has indeed degraded.
 | 10        | 0.17         | 0.8        | 0.38        | max_moda: 46.7%, max_modp: 66.4%, max_precision: 86.7%, max_recall: 55.2%, epoch: 10.0% |
 
 
-### 11/8
+Large param search yielded only 3 decent results:
+| uda_start | weight_start | weight_end | ps-label-th | scores                                                                                  |
+| --------- | ------------ | ---------- | ----------- | --------------------------------------------------------------------------------------- |
+| 11        | 0.4          | 0.7        | 0.36        | max_moda: 53.5%, max_modp: 65.6%, max_precision: 92.5%, max_recall: 58.2%, epoch: 18.0% |
+| 14        | 0.6          | 0.9        | 0.35        | max_moda: 58.0%, max_modp: 63.1%, max_precision: 96.5%, max_recall: 60.2%, epoch: 20.0% |
+| 11        | 0.6          | 0.6        | 0.37        | max_moda: 53.7%, max_modp: 64.9%, max_precision: 91.0%, max_recall: 59.6%, epoch: 17.0% |
+
+Interestingly, even with 0.35 ps-label-th, the precision is very high (96.5 %). Maybe ps-label-th can be even lower?
+
+
+### 12/8
 
 - [x] 1h analyze exps 
 - [x] 1h device future plan
@@ -1097,5 +1227,32 @@ Seems like the model has indeed degraded.
    2. A method for choosing a pseudo-label threshold is proposed by "A Free Lunch for Unsupervised Domain Adaptive Object Detection without Source Data"
 
 
+### 13/8
+
+MultiviewX
+
+
+UDA large param search
+
+- [x] 20 uda runs ongoing with wide range of start_epoch and ps-label-th
+- [ ] 10 runs with 30 epochs
+
+
+
+- [ ] default mvdet GMVD dataset experiment
+- [ ] mvdet general on gmvd dataset
+- [ ] mvdet uda on gmvd dataset
+
+
+- [x] 1h articles
+  - [x] 1
+  - [x] 2
+  - [x] 3
+- [x] 0.5h log results, start new multiviewx
+
+TODO
+- [ ] check results of multiviewx experiments.
+- [ ] run vid2frame.py on alvis to extract data
+- [ ] start training on GMVD
 
 
