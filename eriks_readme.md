@@ -1212,6 +1212,13 @@ Large param search yielded only 3 decent results:
 
 Interestingly, even with 0.35 ps-label-th, the precision is very high (96.5 %). Maybe ps-label-th can be even lower?
 
+12, 36
+15, 34
+15, 35
+
+On two of the most successful runs, max_moda is reached the first epoch after UDA has kicked in. Thereafter, precision starts dropping. This happens when pseudo-label threshold ~34-35.
+On the third successful run, moda is maintained, with ps-label-threshold ~36.
+
 
 ### 12/8
 
@@ -1256,3 +1263,13 @@ TODO
 - [ ] start training on GMVD
 
 
+### 15/8
+meeting with Knut:
+- Since my MVDet general is not clearly better than GMVD, it is perhaps difficult to argue why I should not use GMVD model for my camera rig adaptation experiments. => switch to GMVD, and perhaps use that model for all my experiments in the report?
+- From my experiments, it has become clear that choosing the pseudo-label threshold is difficult and sometimes result in inadequate self-training. Knut and I discussed the possibility to select a threshold automatically, perhaps formulate it as a control problem? Use PI-controller to lower (increase) the threshold if too few (many) pseudo-labels are created.
+- The paper should focus on UDA for multi-view object detection. The training tricks are probably not as interesting.
+- Introduce counting as an auxiliary regression task. Perhaps it is easy for the model to learn to count the number of objects? In that case, this count could be used as guidance when selecting pseudo-label threshold.
+- I should read articles on 
+  - choosing pseudo-label threshold for UDA OD
+  - counting objects in OD. Perhaps this is closely related to set prediction? E.g., MVDetr?
+  - 
