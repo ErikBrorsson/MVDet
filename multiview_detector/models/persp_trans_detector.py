@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, dataset, arch='resnet18', pretrained=False):
+    def __init__(self, dataset, arch='resnet18', pretrained=False, avgpool=False):
         super().__init__()
         self.num_cam = dataset.num_cam
         print("# cameras in model: ", self.num_cam)
         self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
         self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
         self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
+        self.avgpool = avgpool
 
         if arch == 'vgg11':
             base = vgg11().features
@@ -38,7 +39,13 @@ class PerspTransDetector(nn.Module):
         # 2.5cm -> 0.5m: 20x
         self.img_classifier = nn.Sequential(nn.Conv2d(out_channel, 64, 1), nn.ReLU(),
                                             nn.Conv2d(64, 2, 1, bias=False)).to('cuda:0')
-        self.map_classifier = nn.Sequential(nn.Conv2d(out_channel * self.num_cam + 2, 512, 3, padding=1), nn.ReLU(),
+        
+        if self.avgpool:
+            n_inputs_channels = out_channel + 2
+        else:
+            n_inputs_channels = out_channel * self.num_cam + 2
+
+        self.map_classifier = nn.Sequential(nn.Conv2d(n_inputs_channels, 512, 3, padding=1), nn.ReLU(),
                                             # nn.Conv2d(512, 512, 5, 1, 2), nn.ReLU(),
                                             nn.Conv2d(512, 512, 3, padding=2, dilation=2), nn.ReLU(),
                                             nn.Conv2d(512, 1, 3, padding=4, dilation=4, bias=False)).to('cuda:0')
@@ -119,7 +126,13 @@ class PerspTransDetector(nn.Module):
 
             world_features.append(world_feature.to('cuda:0'))
 
-        world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+        if self.avgpool:
+            world_features = torch.cat(world_features, dim=1)
+            world_features = torch.mean(world_features, dim=1)    
+            world_features = torch.cat([world_features] + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+        else:
+            world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+
         if visualize:
             fig = plt.figure(figsize=(16,9))
             subplt0 = fig.add_subplot(111, title="concat_world_features")

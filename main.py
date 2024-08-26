@@ -123,11 +123,11 @@ def main(args):
 
     # model
     if args.variant == 'default':
-        model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained)
+        model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
 
         if args.uda:
             # init ema model
-            ema_model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained)
+            ema_model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
             for param in ema_model.parameters():
                 param.detach_()
             mp = list(model.parameters())
@@ -312,6 +312,7 @@ if __name__ == '__main__':
     parser.add_argument('--src_cams', type=str, default=None)
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--alpha_teacher', type=float, default=0.99)
+    parser.add_argument('--avgpool', action="store_true")
 
     # below parameters are randomized if not set
     parser.add_argument('--target_epoch_start', type=int, default=None, help='the epoch at which training on target domain starts')

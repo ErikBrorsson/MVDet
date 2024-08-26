@@ -77,9 +77,43 @@ def main(args):
             train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
             train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
-
+    
+    elif 'multiviewx' in args.dataset:
+        data_path = args.data_path
+        if args.cam_adapt:
+            assert args.trg_cams is not None, "src_cams and trg_cams must be specified in cam_adapt setting"
+            trg_cams = args.trg_cams.split(",")
+            trg_cams = [int(x) for x in trg_cams]
+            print("trg_cams: ", trg_cams)
+            test_base = MultiviewX(data_path, cameras=trg_cams)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            train_base = MultiviewX(data_path, cameras=trg_cams)
+            train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            if args.src_cams is not None:
+                src_cams = args.src_cams.split(",")
+                src_cams = [int(x) for x in src_cams]
+                print("src_cams: ", src_cams)
+                train_base_src = MultiviewX(data_path, cameras=src_cams)
+                train_set_src = frameDataset(train_base_src, train=True, transform=train_trans, grid_reduce=4)
+             
+        else:
+            test_base = MultiviewX(data_path)
+            test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)            
+            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
+            
+            train_base = MultiviewX(data_path)
+            train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
+                                                    num_workers=args.num_workers, pin_memory=True)
     else:
-        raise Exception('must choose from [wildtrack]')
+        raise Exception('must choose from [wildtrack, multiviewx]')
 
 
 
