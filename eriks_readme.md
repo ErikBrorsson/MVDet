@@ -1273,3 +1273,69 @@ meeting with Knut:
   - choosing pseudo-label threshold for UDA OD
   - counting objects in OD. Perhaps this is closely related to set prediction? E.g., MVDetr?
   - 
+
+### 16/8
+timeplan
+- [x] 0.5 h fix some bugs with interactive gt
+- [x] 1h meeting
+- [x] 2h create dataset
+- [x] 0.5h buy worlds tickets
+- [ ] 2h read on UDA OD ps-label th
+  - [ ] 1
+  - [ ] 2
+  - [ ] 3
+  - [ ] 4
+- [ ] 1h review alvis experiments (start new)
+
+New ideas:
+Most object (pedestrian) counting methods predict a density map whose sum over any region should equal the count of objects/people in that region.
+This is basically the output of MVDet, except it is not normalized. 
+After proper normalization (training with a well chosen gaussian kernel), summing over MVDet predictions could yield the count.
+However, the confidence will typically be lower on the target domain, so the count will also be lower in that case.
+Perhaps the scores could be slightly adjusted (scaled) by estimating the "confidence gap" between source and target domain. Then the count could be successfully attained by summation.
+The benefit of summation is that no thresholding is involved. For example, the sum will be roughly the same regardless if the predictions have confidence 0.35 or 0.4, while the counting by detection could yield immensly different results. Therefore, tuning the pseudo-label threshold with guidance of the sum could have a stabilizing effect.
+
+Should I use GMVD?
+I note that Enhancing Multi-view Pedestrian Detection Through Generalized 3D Feature Pulling has substantially better generalization capabilities than GMVD, but they dont provide their code. They also use max pooling, but on 3D voxels, rather than on 2D bev plane like GMVD.
+So as far as I can tell, GMVD seems to be the most generalizable model that provides code.
+
+
+UDA OD ps-label-threshold
+| method                        | selection strategy  |
+| ----------------------------- | ------------------- |
+| MIC                           | hyper param = 0.8   |
+| unbiased mean teacher         | hyper param = 0.8   |
+| cross-domain adaptive teacher | hyper param = 0.8   |
+| Automatic adaptation          | histogram matching  |
+| a free lunch                  | self-entropy decent |
+
+
+[unbiased mean teacher](https://openaccess.thecvf.com/content/CVPR2021/papers/Deng_Unbiased_Mean_Teacher_for_Cross-Domain_Object_Detection_CVPR_2021_paper.pdf)  
+
+
+
+### 19/8
+timeplan
+- [x] 1h hjälp kristofer med static free space
+- [x] 2h artiklar
+- [x] 1h lunch
+- [x] 1h f2f
+- [x] 1,5h GMVD code
+
+TODO
+- [ ] Implement GMVD avg pooling in MVDet repo and try on wildtrack cam adaptation benchmarks. If it gives similar results as GMVD report, it could be easier for me to continue using MVDet repo instead of moving my code to GMVD. However, there are some diferences. For example, I don't think GMVD use perspective view supervision.
+- [ ] start GMVD trainings on relevant benchmarks
+
+
+
+### 26/8
+timeplan 
+- [x] 1h möte, mail, bolån
+- [x] 1h GMVD planera benchmarks
+- [ ] 0.5h volvo förebered möte imorgon
+- [ ] 1h GMVD
+- [ ] 1h lunch
+- [ ] 2h GMVD
+- [ ] 2h ICIP presentation
+
+
