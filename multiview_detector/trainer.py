@@ -990,6 +990,10 @@ class UDATrainer(BaseTrainer):
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
                 # TODO self.pom doesn't work after mvaug, does it?
+                if data_loader.dataset.base.indexing == 'xy':
+                    positions = positions[:, [1, 0]]
+                else:
+                    positions = positions
                 imgs_pseudo_labels = []
                 for cam in self.target_cameras:
                     img_pseudo_label = torch.zeros(img_gt_shape)
