@@ -995,7 +995,9 @@ class UDATrainer(BaseTrainer):
                     map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
                 
                 if self.weighted_mse:
-                    map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, map_pred_teacher > self.high_th)).float()
+                    filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                    map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
+                    
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
                 # TODO self.pom doesn't work after mvaug, does it?
