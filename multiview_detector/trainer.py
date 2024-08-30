@@ -14,6 +14,7 @@ from multiview_detector.utils.meters import AverageMeter
 from multiview_detector.utils.image_utils import add_heatmap_to_image
 from multiview_detector.utils.projection import get_imagecoord_from_worldcoord, get_worldcoord_from_imagecoord,\
     get_worldcoord_from_imagecoord_w_projmat, get_worldgrid_from_worldcoord
+from multiview_detector.loss.gaussian_mse import WeightedGaussianMSE
 
 import torchvision
 from multiview_detector.augmentation.homographyaugmentation import HomographyDataAugmentation
@@ -847,7 +848,8 @@ class BBOXTrainer(BaseTrainer):
 class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
-                 soft_labels=False, augmentation_module: Augmentation=Augmentation()):
+                 soft_labels=False, augmentation_module: Augmentation=Augmentation(),
+                 weighted_mse=False, low_th=0.1, high_th=0.9):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -869,6 +871,10 @@ class UDATrainer(BaseTrainer):
         self.soft_labels = soft_labels
 
         self.augmentation = augmentation_module
+
+        self.weighted_mse = weighted_mse
+        self.low_th = low_th
+        self.high_th = high_th
 
 
     def duplicate_images(self, imgs, proj_mats):
@@ -976,10 +982,10 @@ class UDATrainer(BaseTrainer):
             if not self.soft_labels:
                 scores = temp[temp > pseudo_label_th]
                 positions = (temp > pseudo_label_th).nonzero().float()
-                if data_loader.dataset.base.indexing == 'xy':
-                    positions = positions[:, [1, 0]]
-                else:
-                    positions = positions
+                # if data_loader.dataset.base.indexing == 'xy':
+                #     positions = positions[:, [1, 0]]
+                # else:
+                #     positions = positions
                 if not torch.numel(positions) == 0:
                     ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
                     positions = positions[ids[:count], :]
@@ -987,6 +993,9 @@ class UDATrainer(BaseTrainer):
                 map_pseudo_label = torch.zeros_like(map_pred_teacher)
                 for pos in positions:
                     map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                
+                if self.weighted_mse:
+                    map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, map_pred_teacher > self.high_th)).float()
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
                 # TODO self.pom doesn't work after mvaug, does it?
@@ -1025,8 +1034,13 @@ class UDATrainer(BaseTrainer):
                 for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                     if not img_pseudo_label is None:
                         loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
-                loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
-                    loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+
+                if self.weighted_mse:
+                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel, map_pseudo_label_weight) + \
+                        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+                else:                    
+                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
+                        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
             else:
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher

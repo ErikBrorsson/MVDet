@@ -481,6 +481,12 @@ There exist many frames where the bev predictions projected into some of the cam
 | x          | x           | x     | -        | max_moda: 67.3%, max_modp: 68.8%, max_precision: 96.1%, max_recall: 70.2%, epoch: 9.0%  | 2024-07-16_10-20-24-986906 |
 | x          | x           | x     | x        | max_moda: 65.7%, max_modp: 68.8%, max_precision: 95.4%, max_recall: 69.0%, epoch: 10.0% |
 
+MVDet+avgpool: 69.5 max_moda
+MVDet+avgpool+dropview+mvaug: 74.2
+GMVD (from paper): 66.5 moda
+GMVD+dropview (from paper): 75.1 moda
+
+
 1,3,5,7 -> 2,4,5,6   
 | pretrained | permutation | mvaug | dropview | scores                                                                                  |
 | ---------- | ----------- | ----- | -------- | --------------------------------------------------------------------------------------- |
@@ -1332,10 +1338,89 @@ TODO
 timeplan 
 - [x] 1h möte, mail, bolån
 - [x] 1h GMVD planera benchmarks
-- [ ] 0.5h volvo förebered möte imorgon
-- [ ] 1h GMVD
-- [ ] 1h lunch
-- [ ] 2h GMVD
-- [ ] 2h ICIP presentation
+- [x] 2h volvo kalibrering
+- [x] 1h GMVD
+- [x] 2h GMVD
+
+
+GMVD dropview is implemented such that one camera is selected for drop and duplicate in every EPOCH. Why don't they sample a new drop/duplicate camera in every batch?
+There is no motivation as to why the camera drop should only be changed every epoch. Also, since the dataloader samples from different datasets inside every epoch, and the datasets may have varying nymber of cameras, their implementation doesnt really work.
+Note: from the paper it doesnt seem like they use dropview when training on GMVD train set. So they only use drop view when they have a single dataset. Thus, they may not have encountered the problem of selecting a camera to drop in every epoch...
+
+TODO
+- [x] GMVD_DATASET repo didnt work with dropview, since concatDataset doesnt support it. Now I've changed dropview such that it drops in every batch instead of every epoch, making it compatible with concatDataset. Now I should be able to run GMVD with/without dropview on both multiviewx, wildtrack and gmvd in my gmvd_clone repo.
+- [x] Initial exps on my dropview GMVD yields similar results as GMVD paper => good to go with UDA on GMVD
+- [ ] move UDA code from MVDet to GMVD repo (benefits include easier explanation of baseline in paper, and GMVD also have implemented training with softmax layer)
+
+
+MVDet+avgpool+dropview+mvaug: ONGOING slurm-2659490_211
+
+
+### 30/8
+
+**gmvd paper in parenthesis**
+**1,3,5,7 -> 2,4,5,6**  
+| model           | moda              |
+| --------------- | ----------------- |
+| GMVD            | 61.1, 61.4 (52.4) |
+| GMVD dropview   | 65.8, 66.5 (62.6) |
+| GMVD uda        | ?                 |
+| GMVD supervised | 81.0              |
+
+above supervised exp reached max moda at epoch 3. finished at 5.5 moda
+
+| model                      | moda    |
+| -------------------------- | ------- |
+| MVDet+avgpool              | ongoing |
+| MVDet+avgpool+dropview     | ongoing |
+| MVDet+avgpool+dropview+uda | ~20     |
+| MVDet+avgpool supervised   | ongoing |
+
+
+
+**2,4,5,6 -> 1,3,5,7**  
+| model           | moda              |
+| --------------- | ----------------- |
+| GMVD            | 66.5, 67.4 (66.5) |
+| GMVD dropview   | 70.9, 67.9 (75.1) |
+| GMVD uda        | ?                 |
+| GMVD supervised | 78.0              |
+above supervised exp reached max moda at epoch 4. finished at 3.2 moda
+
+| model                          | moda                                       |
+| ------------------------------ | ------------------------------------------ |
+| MVDet+avgpool                  | 69.5                                       |
+| MVDet+avgpool w/o persp superv | 69.2                                       |
+| MVDet+avgpool+dropview         | 70.1                                       |
+| MVDet+avgpool+dropview+mvaug   | 74.2                                       |
+| MVDet+avgpool+dropview+uda     | 75.9 +- 1.1 (75.9, 74.2, 75.1, 77.2, 77.1) |
+| MVDet+avgpool supervised       | ongoing                                    |
+
+
+**2,4,6 -> 1,3,5**  
+| model                      | moda    |
+| -------------------------- | ------- |
+| MVDet+avgpool+dropview     | ongoing |
+| MVDet+avgpool+dropview+uda | ?       |
+| MVDet+avgpool supervised   | ongoing |
+
+
+**1,3,5 -> 2,4,6**
+| model                      | moda    |
+| -------------------------- | ------- |
+| MVDet+avgpool+dropview     | ongoing |
+| MVDet+avgpool+dropview+uda | ?       |
+| MVDet+avgpool supervised   | ongoing |
+
+
+
+**Multivewx cam adapt setting**
+| model                      | moda    |
+| -------------------------- | ------- |
+| MVDet+avgpool              | ongoing |
+| MVDet+avgpool+dropview     | ongoing |
+| MVDet+avgpool+dropview+uda | ?       |
+| MVDet+avgpool supervised   | ongoing |
+| paper GMVD (with dropview) | 58 (66) |
 
 

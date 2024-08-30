@@ -12,7 +12,7 @@ import torch
 import torch.optim as optim
 import torchvision.transforms as T
 from multiview_detector.datasets import *
-from multiview_detector.loss.gaussian_mse import GaussianMSE
+from multiview_detector.loss.gaussian_mse import GaussianMSE, WeightedGaussianMSE
 from multiview_detector.models.persp_trans_detector import PerspTransDetector
 from multiview_detector.models.image_proj_variant import ImageProjVariant
 from multiview_detector.models.res_proj_variant import ResProjVariant
@@ -150,7 +150,8 @@ def main(args):
                                                     epochs=args.epochs)
 
     # loss
-    criterion = GaussianMSE().cuda()
+    criterion = WeightedGaussianMSE().cuda()
+
 
     # logging
     logdir = f'logs/{args.dataset}_frame/{args.variant}/' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S-%f')# if not args.resume else f'logs/{args.dataset}_frame/{args.variant}/{args.resume}'
@@ -188,7 +189,8 @@ def main(args):
         trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom,
                              args.train_viz, target_cameras=target_base.cameras,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
-                             augmentation_module=augmentation)
+                             augmentation_module=augmentation, weighted_mse=args.weighted_mse,
+                             low_th=args.low_th, high_th=args.high_th)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
 
@@ -313,6 +315,9 @@ if __name__ == '__main__':
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--alpha_teacher', type=float, default=0.99)
     parser.add_argument('--avgpool', action="store_true")
+    parser.add_argument('--weighted_mse', action="store_true")
+    parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
+    parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')
 
     # below parameters are randomized if not set
     parser.add_argument('--target_epoch_start', type=int, default=None, help='the epoch at which training on target domain starts')
