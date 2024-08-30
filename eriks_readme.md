@@ -1369,12 +1369,12 @@ MVDet+avgpool+dropview+mvaug: ONGOING slurm-2659490_211
 
 above supervised exp reached max moda at epoch 3. finished at 5.5 moda
 
-| model                      | moda |
-| -------------------------- | ---- |
-| MVDet+avgpool              | 55.9 |
-| MVDet+avgpool+dropview     | 63.0 |
-| MVDet+avgpool+dropview+uda | ~20  |
-| MVDet+avgpool supervised   | 82.2 |
+| model                      | moda  |
+| -------------------------- | ----- |
+| MVDet+avgpool              | 55.9  |
+| MVDet+avgpool+dropview     | 63.0  |
+| MVDet+avgpool+dropview+uda | ~64.5 |
+| MVDet+avgpool supervised   | 82.2  |
 
 
 
@@ -1432,6 +1432,11 @@ Otherwise it is difficult for me to do the UDA with such a poor baseline.
 pred < low_th constitutes "sure negative". Here the weight should be 1.
 pseudo-labels constitutes "sure positves". I let the weight be 1 where gaussianKernel(pseudo-label) > 0.1.
 Everywhere else, the weight is 0. I.e., in all regions where (pred > low_th and not close to a pseudo-label).
+
+
+![alt text](resources/images/weights_epoch20.png)
+![alt text](resources/images/weights_epoch3.jpg)
+
 
 # TODO
 check how duplicate images is used in UDATrainer. Seems like I'm duplicating images even when using avg_pooling, which is unnecessary.

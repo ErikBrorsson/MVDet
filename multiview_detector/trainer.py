@@ -200,17 +200,18 @@ class Augmentation:
             imgs_labels
             proj_mats: output is MVDet standard (image->bev)
         """
-        if False:
-            r = np.random.rand() # augment 50% of data with mvaug
-            if r >= 0.5:
-                imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
-            else:
-                proj_mats = [torch.linalg.inv(m) for m in proj_mats]
-        else:
-            proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        # TODO not using any augmentation for the teacher
+        # if False:
+        #     r = np.random.rand() # augment 50% of data with mvaug
+        #     if r >= 0.5:
+        #         imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
+        #     else:
+        #         proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        # else:
+        #     proj_mats = [torch.linalg.inv(m) for m in proj_mats]
 
-        if self.permutation:
-            imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
+        # if self.permutation:
+        #     imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
         # if self.dropview:
         #     imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
         return imgs, map_label, imgs_labels, proj_mats
@@ -972,10 +973,11 @@ class UDATrainer(BaseTrainer):
                 # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
                 data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
                 
-                # if the target data includes less views than source data, we resort to duplicating some views.
-                B, N, C, H, W = data_teacher.shape
-                if N < self.model.num_cam:
-                    data_teacher, proj_mats_teacher = self.duplicate_images(data_teacher, proj_mats_teacher)
+                if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                    # if the target data includes less views than source data, we resort to duplicating some views.
+                    B, N, C, H, W = data_teacher.shape
+                    if N < self.model.num_cam:
+                        data_teacher, proj_mats_teacher = self.duplicate_images(data_teacher, proj_mats_teacher)
 
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher)
             temp = map_pred_teacher.detach().cpu().squeeze()
@@ -1030,10 +1032,11 @@ class UDATrainer(BaseTrainer):
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                 
-                # if the target data includes less views than source data, we resort to duplicating some views.
-                B, N, C, H, W = data_student.shape
-                if N < self.model.num_cam:
-                    data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
+                if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                    # if the target data includes less views than source data, we resort to duplicating some views.
+                    B, N, C, H, W = data_student.shape
+                    if N < self.model.num_cam:
+                        data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
 
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
