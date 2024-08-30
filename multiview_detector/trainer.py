@@ -1082,10 +1082,13 @@ class UDATrainer(BaseTrainer):
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
                     fig = plt.figure()
-                    subplt0 = fig.add_subplot(411, title="student output")
-                    subplt1 = fig.add_subplot(412, title="label")
-                    subplt2 = fig.add_subplot(413, title="teacher pseudo (or soft) label")
-                    subplt3 = fig.add_subplot(414, title="teacher output")
+                    subplt0 = fig.add_subplot(511, title="student output")
+                    subplt1 = fig.add_subplot(512, title="label")
+                    subplt2 = fig.add_subplot(513, title="teacher pseudo (or soft) label")
+                    subplt3 = fig.add_subplot(514, title="teacher output")
+                    if self.weighted_mse:
+                        subplt4 = fig.add_subplot(515, title="pseudo-label weight")
+                        subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
                     subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.map_kernel)
                                 .cpu().detach().numpy().squeeze())

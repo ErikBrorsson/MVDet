@@ -1369,12 +1369,12 @@ MVDet+avgpool+dropview+mvaug: ONGOING slurm-2659490_211
 
 above supervised exp reached max moda at epoch 3. finished at 5.5 moda
 
-| model                      | moda    |
-| -------------------------- | ------- |
-| MVDet+avgpool              | ongoing |
-| MVDet+avgpool+dropview     | ongoing |
-| MVDet+avgpool+dropview+uda | ~20     |
-| MVDet+avgpool supervised   | ongoing |
+| model                      | moda |
+| -------------------------- | ---- |
+| MVDet+avgpool              | 55.9 |
+| MVDet+avgpool+dropview     | 63.0 |
+| MVDet+avgpool+dropview+uda | ~20  |
+| MVDet+avgpool supervised   | 82.2 |
 
 
 
@@ -1394,33 +1394,36 @@ above supervised exp reached max moda at epoch 4. finished at 3.2 moda
 | MVDet+avgpool+dropview         | 70.1                                       |
 | MVDet+avgpool+dropview+mvaug   | 74.2                                       |
 | MVDet+avgpool+dropview+uda     | 75.9 +- 1.1 (75.9, 74.2, 75.1, 77.2, 77.1) |
-| MVDet+avgpool supervised       | ongoing                                    |
+| MVDet+avgpool supervised       | 77.3                                       |
 
 
 **2,4,6 -> 1,3,5**  
-| model                      | moda    |
-| -------------------------- | ------- |
-| MVDet+avgpool+dropview     | ongoing |
-| MVDet+avgpool+dropview+uda | ?       |
-| MVDet+avgpool supervised   | ongoing |
+| model                      | moda |
+| -------------------------- | ---- |
+| MVDet+avgpool+dropview     | 63.9 |
+| MVDet+avgpool+dropview+uda | ?    |
+| MVDet+avgpool supervised   | 73.8 |
 
 
 **1,3,5 -> 2,4,6**
-| model                      | moda    |
-| -------------------------- | ------- |
-| MVDet+avgpool+dropview     | ongoing |
-| MVDet+avgpool+dropview+uda | ?       |
-| MVDet+avgpool supervised   | ongoing |
+| model                      | moda |
+| -------------------------- | ---- |
+| MVDet+avgpool+dropview     | 47.9 |
+| MVDet+avgpool+dropview+uda | ?    |
+| MVDet+avgpool supervised   | 76.7 |
 
 
 
-**Multivewx cam adapt setting**
-| model                      | moda    |
-| -------------------------- | ------- |
-| MVDet+avgpool              | ongoing |
-| MVDet+avgpool+dropview     | ongoing |
-| MVDet+avgpool+dropview+uda | ?       |
-| MVDet+avgpool supervised   | ongoing |
-| paper GMVD (with dropview) | 58 (66) |
+**Multiviewx cam adapt setting**
+| model                      | moda                                       |
+| -------------------------- | ------------------------------------------ |
+| MVDet+avgpool              | 43.4                                       |
+| MVDet+avgpool+dropview     | mean ~50 over 5 exps slurm-2674260_235-239 |
+| MVDet+avgpool+dropview+uda | ?                                          |
+| MVDet+avgpool supervised   | 71.4                                       |
+| paper GMVD (with dropview) | 58 (66)                                    |
+
+mvdet+avgpool+dropview is much worse than GMVD paper. I need to get experimental results from GMVD here.
+Otherwise it is difficult for me to do the UDA with such a poor baseline.
 
 
