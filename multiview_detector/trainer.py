@@ -849,7 +849,7 @@ class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
-                 weighted_mse=False, low_th=0.1, high_th=0.9):
+                 weighted_mse=False, low_th=0.1, high_th=0.9, uda_persp_sup=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -875,6 +875,7 @@ class UDATrainer(BaseTrainer):
         self.weighted_mse = weighted_mse
         self.low_th = low_th
         self.high_th = high_th
+        self.uda_persp_sup = uda_persp_sup
 
 
     def duplicate_images(self, imgs, proj_mats):
@@ -1006,20 +1007,24 @@ class UDATrainer(BaseTrainer):
                 else:
                     positions = positions
                 imgs_pseudo_labels = []
-                for cam in self.target_cameras:
-                    img_pseudo_label = torch.zeros(img_gt_shape)
+                if self.uda_persp_sup:
+                    for cam in self.target_cameras:
+                        img_pseudo_label = torch.zeros(img_gt_shape)
 
-                    for grid_pos in positions:
-                        pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
-                        bbox = self.pom[pos.item()][cam]
-                        if bbox is None:
-                            continue                    
-                        foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
-                        head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                        img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
-                        img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
+                        for grid_pos in positions:
+                            pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
+                            bbox = self.pom[pos.item()][cam]
+                            if bbox is None:
+                                continue                    
+                            foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                            head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                            img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                            img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
 
-                    imgs_pseudo_labels.append(img_pseudo_label)
+                        imgs_pseudo_labels.append(img_pseudo_label)
+                else:
+                    for cam in self.target_cameras:
+                        imgs_pseudo_labels.append(None)
 
                 # apply augmentation to target images and pseudo-labels prior to student training
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
@@ -1036,14 +1041,15 @@ class UDATrainer(BaseTrainer):
                 for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                     if not img_pseudo_label is None:
                         loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.img_kernel)
+                if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
+                    loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
 
                 if self.weighted_mse:
-                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel, map_pseudo_label_weight) + \
-                        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel, map_pseudo_label_weight)
                 else:                    
-                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel) + \
-                        loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel)
             else:
+                raise Exception("Soft labels not implemented")
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher
                 imgs_pseudo_labels = [None]*len(self.target_cameras)

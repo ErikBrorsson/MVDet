@@ -1427,3 +1427,13 @@ mvdet+avgpool+dropview is much worse than GMVD paper. I need to get experimental
 Otherwise it is difficult for me to do the UDA with such a poor baseline.
 
 
+
+**weighted mse**
+pred < low_th constitutes "sure negative". Here the weight should be 1.
+pseudo-labels constitutes "sure positves". I let the weight be 1 where gaussianKernel(pseudo-label) > 0.1.
+Everywhere else, the weight is 0. I.e., in all regions where (pred > low_th and not close to a pseudo-label).
+
+
+
+
+

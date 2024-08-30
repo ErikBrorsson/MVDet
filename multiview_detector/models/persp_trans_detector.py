@@ -127,6 +127,7 @@ class PerspTransDetector(nn.Module):
             world_features.append(world_feature.to('cuda:0'))
 
         if self.avgpool:
+            world_features = [x.unsqueeze(0) for x in world_features]
             world_features = torch.cat(world_features, dim=1)
             world_features = torch.mean(world_features, dim=1)    
             world_features = torch.cat([world_features] + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)

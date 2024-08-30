@@ -190,7 +190,7 @@ def main(args):
                              args.train_viz, target_cameras=target_base.cameras,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
                              augmentation_module=augmentation, weighted_mse=args.weighted_mse,
-                             low_th=args.low_th, high_th=args.high_th)
+                             low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
 
@@ -316,6 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('--alpha_teacher', type=float, default=0.99)
     parser.add_argument('--avgpool', action="store_true")
     parser.add_argument('--weighted_mse', action="store_true")
+    parser.add_argument('--uda_persp_sup', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
     parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')
 
