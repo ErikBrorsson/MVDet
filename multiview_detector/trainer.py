@@ -44,7 +44,7 @@ class Augmentation:
         # for img_gt in imgs_gt:
         #     print("img_gt.shape", img_gt.shape)
         imgs_clone= torch.clone(imgs)
-        imgs_labels_clone= [torch.clone(x) for x in imgs_labels]
+        imgs_labels_clone= [torch.clone(x) if x is not None else None for x in imgs_labels]
 
         r = np.random.rand()
         if r >= 0.5: # drop one image with 50% probability if dropview is activated

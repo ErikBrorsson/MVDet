@@ -1433,7 +1433,8 @@ pred < low_th constitutes "sure negative". Here the weight should be 1.
 pseudo-labels constitutes "sure positves". I let the weight be 1 where gaussianKernel(pseudo-label) > 0.1.
 Everywhere else, the weight is 0. I.e., in all regions where (pred > low_th and not close to a pseudo-label).
 
-
+# TODO
+check how duplicate images is used in UDATrainer. Seems like I'm duplicating images even when using avg_pooling, which is unnecessary.
 
 
 
