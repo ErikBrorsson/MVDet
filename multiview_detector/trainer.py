@@ -35,7 +35,6 @@ class Augmentation:
         self.reducedgrid_shape = list(map(lambda x: int(x / grid_reduce), worldgrid_shape))
 
 
-
     def dropview_augment(self, imgs, map_label, imgs_labels, proj_mats):
         # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
 
@@ -43,20 +42,40 @@ class Augmentation:
         # print("map_gt.shape", map_gt.shape)
         # for img_gt in imgs_gt:
         #     print("img_gt.shape", img_gt.shape)
-        imgs_clone= torch.clone(imgs)
-        imgs_labels_clone= [torch.clone(x) if x is not None else None for x in imgs_labels]
-
         r = np.random.rand()
         if r >= 0.5: # drop one image with 50% probability if dropview is activated
-            # set all pixel values of the dropped image to 0
             drop_indx = np.random.choice(np.arange(imgs.shape[1]))
-            imgs_clone[:, drop_indx, :, :, :] = 0
+            # duplicate_indx = np.random.choice([i for i in range(imgs.shape[1]) if drop_indx!=i])
 
-            # set the perspective view label for the dropped view to None
-            # since don't want to provide supervision on a dropped view.
-            imgs_labels_clone[drop_indx] = None
+            # replace the dropped image with one of the kept images.
+            # imgs_clone[:, drop_indx, :, :, :] = imgs_clone[:, duplicate_indx, :, :, :]
 
-        return imgs_clone, map_label, imgs_labels_clone, proj_mats
+            # # set the perspective view label for the dropped view to None
+            # # since don't want to provide supervision on a dropped view.
+            # imgs_labels_clone[drop_indx] = None
+
+            # if self.avgpool:
+            #     proj_mats[drop_indx] = None
+            # else:
+            #     proj_mats[drop_indx] = proj_mats[duplicate_indx]
+
+            select_indx = [i for i in range(imgs.shape[1]) if i!=drop_indx]
+            imgs = imgs[:, select_indx, :, :, :]
+            imgs_labels_new = []
+            proj_mats_new = []
+            for i in select_indx:
+                imgs_labels_new.append(imgs_labels[i])
+                proj_mats_new.append(proj_mats[i])
+
+            proj_mats = proj_mats_new
+            imgs_labels = imgs_labels_new
+
+        # imgs_new= torch.clone(imgs)
+        # imgs_labels_new= [torch.clone(x) if x is not None else None for x in imgs_labels]
+            
+
+
+        return imgs, map_label, imgs_labels, proj_mats
     
 
     def camera_permutation_augment(self, imgs, map_label, imgs_labels, proj_mats):
@@ -235,27 +254,35 @@ class PerspectiveTrainer(BaseTrainer):
         self.augmentation = augmentation_module
 
 
-    def duplicate_images(self, imgs, proj_mats):
+    def duplicate_images(self, imgs, imgs_labels, proj_mats):
         B, N, C, H, W = imgs.shape
 
         duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
         cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
+        cam_ordering_labels = [] # same list as cam_ordering, but with None instead of duplicates, e.g, [0,None,1,2,3,None,4]
         for i in range(N):
             cam_ordering.append(i) # ensures that all views are added
+            cam_ordering_labels.append(i)
             n_duplicates = np.sum(duplicate_indices == i)
             for j in range(n_duplicates):
-                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
+                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication.
+                cam_ordering_labels.append(None) 
         assert len(cam_ordering) == self.model.num_cam
+        assert len(cam_ordering_labels) == self.model.num_cam
         print("duplicates ordering: ", cam_ordering)
 
         imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
         proj_mats_extended = [None]*self.model.num_cam
+        imgs_labels_extended = [None]*self.model.num_cam
         for i in range(self.model.num_cam):
             for batch in range(B):
                 imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
                 proj_mats_extended[i] = proj_mats[cam_ordering[i]]
+                if not imgs_labels is None:
+                    if not cam_ordering_labels[i] is None:
+                        imgs_labels_extended[i] = imgs_labels[cam_ordering_labels[i]]
 
-        return imgs_extended, proj_mats_extended
+        return imgs_extended, imgs_labels_extended, proj_mats_extended
 
 
     def visualize_grid_and_bev(self, proj_mat, img, bev, f_name, foot_points, map_label=None):
@@ -477,6 +504,10 @@ class PerspectiveTrainer(BaseTrainer):
 
 
             data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features) 
+            if not self.model.avgpool:
+                B, N, C, H, W = data.shape
+                if N < self.model.num_cam:
+                    data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
             map_res, imgs_res = self.model(data, proj_mats)
             
@@ -539,9 +570,10 @@ class PerspectiveTrainer(BaseTrainer):
             if test_time_aug:
                 data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
 
-            B, N, C, H, W = data.shape
-            if N < self.model.num_cam:
-                data, proj_mats = self.duplicate_images(data, proj_mats)
+            if not self.model.avgpool:
+                B, N, C, H, W = data.shape
+                if N < self.model.num_cam:
+                    data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
             with torch.no_grad():
                 map_res, imgs_res = self.model(data, proj_mats, visualize=True)
@@ -878,28 +910,35 @@ class UDATrainer(BaseTrainer):
         self.high_th = high_th
         self.uda_persp_sup = uda_persp_sup
 
-
-    def duplicate_images(self, imgs, proj_mats):
+    def duplicate_images(self, imgs, imgs_labels, proj_mats):
         B, N, C, H, W = imgs.shape
 
         duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
         cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
+        cam_ordering_labels = [] # same list as cam_ordering, but with None instead of duplicates, e.g, [0,None,1,2,3,None,4]
         for i in range(N):
             cam_ordering.append(i) # ensures that all views are added
+            cam_ordering_labels.append(i)
             n_duplicates = np.sum(duplicate_indices == i)
             for j in range(n_duplicates):
-                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
+                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication.
+                cam_ordering_labels.append(None) 
         assert len(cam_ordering) == self.model.num_cam
+        assert len(cam_ordering_labels) == self.model.num_cam
         print("duplicates ordering: ", cam_ordering)
 
         imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
         proj_mats_extended = [None]*self.model.num_cam
+        imgs_labels_extended = [None]*self.model.num_cam
         for i in range(self.model.num_cam):
             for batch in range(B):
                 imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
                 proj_mats_extended[i] = proj_mats[cam_ordering[i]]
+                if not imgs_labels is None:
+                    if not cam_ordering_labels[i] is None:
+                        imgs_labels_extended[i] = imgs_labels[cam_ordering_labels[i]]
 
-        return imgs_extended, proj_mats_extended
+        return imgs_extended, imgs_labels_extended, proj_mats_extended
 
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
@@ -923,12 +962,19 @@ class UDATrainer(BaseTrainer):
 
             data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features_src)
 
+            if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                # if the target data includes less views than source data, we resort to duplicating some views.
+                B, N, C, H, W = data.shape
+                if N < self.model.num_cam:
+                    data, imgs_gt, proj_mats_source = self.duplicate_images(data, imgs_gt, proj_mats_source)
+
+
             map_res, imgs_res = self.model(data, proj_mats_source)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
             for img_res, img_gt in zip(imgs_res, imgs_gt):
-                if img_gt is not None: # may be none if we are using dropview augmentation
+                if img_gt is not None: # may be none if using dropview augmentation
                     loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
             loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
                    loss / len([x for x in imgs_gt if x is not None]) * self.alpha
@@ -977,7 +1023,7 @@ class UDATrainer(BaseTrainer):
                     # if the target data includes less views than source data, we resort to duplicating some views.
                     B, N, C, H, W = data_teacher.shape
                     if N < self.model.num_cam:
-                        data_teacher, proj_mats_teacher = self.duplicate_images(data_teacher, proj_mats_teacher)
+                        data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher)
             temp = map_pred_teacher.detach().cpu().squeeze()
@@ -1036,7 +1082,7 @@ class UDATrainer(BaseTrainer):
                     # if the target data includes less views than source data, we resort to duplicating some views.
                     B, N, C, H, W = data_student.shape
                     if N < self.model.num_cam:
-                        data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
+                        data_student, _, proj_mats_student = self.duplicate_images(data_student, None, proj_mats_student)
 
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)

@@ -1369,12 +1369,14 @@ MVDet+avgpool+dropview+mvaug: ONGOING slurm-2659490_211
 
 above supervised exp reached max moda at epoch 3. finished at 5.5 moda
 
-| model                      | moda  |
-| -------------------------- | ----- |
-| MVDet+avgpool              | 55.9  |
-| MVDet+avgpool+dropview     | 63.0  |
-| MVDet+avgpool+dropview+uda | ~64.5 |
-| MVDet+avgpool supervised   | 82.2  |
+| model                                      | moda                         |
+| ------------------------------------------ | ---------------------------- |
+| MVDet+avgpool                              | 55.9                         |
+| MVDet+avgpool+dropview                     | 63.0                         |
+| MVDet+avgpool+dropview+uda                 | ~61  slurm-2674407_225-229   |
+| MVDet+avgpool+dropview+uda (w/o persp sup) | ~64.5  slurm-2674829_225-229 |
+| MVDet+avgpool supervised                   | 82.2                         |
+
 
 
 

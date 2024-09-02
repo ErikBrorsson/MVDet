@@ -55,7 +55,8 @@ class PerspTransDetector(nn.Module):
     def forward(self, imgs, proj_mats, visualize=False):
         B, N, C, H, W = imgs.shape
         
-        assert N == self.num_cam
+        if not self.avgpool:
+            assert N == self.num_cam
         # assert N <= self.num_cam, "the number of input views to the model must be no more than the maximum number of views that the model is designed for"
         # if N < self.num_cam:
         #     # the number of input views is less than what the model expects.
