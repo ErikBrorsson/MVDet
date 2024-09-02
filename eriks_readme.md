@@ -1417,13 +1417,14 @@ above supervised exp reached max moda at epoch 4. finished at 3.2 moda
 
 
 **Multiviewx cam adapt setting**
-| model                      | moda                                       |
-| -------------------------- | ------------------------------------------ |
-| MVDet+avgpool              | 43.4                                       |
-| MVDet+avgpool+dropview     | mean ~50 over 5 exps slurm-2674260_235-239 |
-| MVDet+avgpool+dropview+uda | ?                                          |
-| MVDet+avgpool supervised   | 71.4                                       |
-| paper GMVD (with dropview) | 58 (66)                                    |
+| model                             | moda                                       |
+| --------------------------------- | ------------------------------------------ |
+| MVDet+avgpool                     | 43.4                                       |
+| MVDet+avgpool+dropview            | mean ~50 over 5 exps slurm-2674260_235-239 |
+| MVDet+avgpool+dropview+uda        | ?                                          |
+| MVDet+avgpool supervised          | 71.4                                       |
+| paper GMVD (with dropview)        | 58 (66)                                    |
+| experimental GMVD (with dropview) | 58 (66)                                    |
 
 mvdet+avgpool+dropview is much worse than GMVD paper. I need to get experimental results from GMVD here.
 Otherwise it is difficult for me to do the UDA with such a poor baseline.
@@ -1439,9 +1440,25 @@ Everywhere else, the weight is 0. I.e., in all regions where (pred > low_th and 
 ![alt text](resources/images/weights_epoch20.png)
 ![alt text](resources/images/weights_epoch3.jpg)
 
+### 2/9
+Re-wrote dropview: now it doesnt set values to zero, but rather drops the images. In case of avgpool=False, images will be duplicated.
+Restarting some baseline exps with the reimplemented dropview:
+
+**Multiviewx cam adapt setting**
+slurm-2690972_231
+
+**2,4,5,6 -> 1,3,5,7**  
+slurm-2690962_212
+
+**1,3,5,7 -> 2,4,5,6**  
+slurm-2690962_216
+
+**1,3,5->2,4,6** and other way around
+2690998_x
+
+
 
 # TODO
-check how duplicate images is used in UDATrainer. Seems like I'm duplicating images even when using avg_pooling, which is unnecessary.
 
 
 
