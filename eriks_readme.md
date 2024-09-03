@@ -1374,6 +1374,7 @@ above supervised exp reached max moda at epoch 3. finished at 5.5 moda
 | MVDet+avgpool                              | 55.9                         |
 | MVDet+avgpool+dropview                     | 63.0                         |
 | MVDet+avgpool+dropview+uda                 | ~61  slurm-2674407_225-229   |
+| MVDet+avgpool+dropview (new impl)          | 57.4                         |
 | MVDet+avgpool+dropview+uda (w/o persp sup) | ~64.5  slurm-2674829_225-229 |
 | MVDet+avgpool supervised                   | 82.2                         |
 
@@ -1389,30 +1390,33 @@ above supervised exp reached max moda at epoch 3. finished at 5.5 moda
 | GMVD supervised | 78.0              |
 above supervised exp reached max moda at epoch 4. finished at 3.2 moda
 
-| model                          | moda                                       |
-| ------------------------------ | ------------------------------------------ |
-| MVDet+avgpool                  | 69.5                                       |
-| MVDet+avgpool w/o persp superv | 69.2                                       |
-| MVDet+avgpool+dropview         | 70.1                                       |
-| MVDet+avgpool+dropview+mvaug   | 74.2                                       |
-| MVDet+avgpool+dropview+uda     | 75.9 +- 1.1 (75.9, 74.2, 75.1, 77.2, 77.1) |
-| MVDet+avgpool supervised       | 77.3                                       |
+| model                             | moda                                       |
+| --------------------------------- | ------------------------------------------ |
+| MVDet+avgpool                     | 69.5                                       |
+| MVDet+avgpool w/o persp superv    | 69.2                                       |
+| MVDet+avgpool+dropview            | 70.1                                       |
+| MVDet+avgpool+dropview (new impl) | 72.8                                       |
+| MVDet+avgpool+dropview+mvaug      | 74.2                                       |
+| MVDet+avgpool+dropview+uda        | 75.9 +- 1.1 (75.9, 74.2, 75.1, 77.2, 77.1) |
+| MVDet+avgpool supervised          | 77.3                                       |
 
 
 **2,4,6 -> 1,3,5**  
-| model                      | moda |
-| -------------------------- | ---- |
-| MVDet+avgpool+dropview     | 63.9 |
-| MVDet+avgpool+dropview+uda | ?    |
-| MVDet+avgpool supervised   | 73.8 |
+| model                             | moda |
+| --------------------------------- | ---- |
+| MVDet+avgpool+dropview            | 63.9 |
+| MVDet+avgpool+dropview (new impl) | 67.8 |
+| MVDet+avgpool+dropview+uda        | ?    |
+| MVDet+avgpool supervised          | 73.8 |
 
 
 **1,3,5 -> 2,4,6**
-| model                      | moda |
-| -------------------------- | ---- |
-| MVDet+avgpool+dropview     | 47.9 |
-| MVDet+avgpool+dropview+uda | ?    |
-| MVDet+avgpool supervised   | 76.7 |
+| model                             | moda |
+| --------------------------------- | ---- |
+| MVDet+avgpool+dropview            | 47.9 |
+| MVDet+avgpool+dropview (new impl) | 42.4 |
+| MVDet+avgpool+dropview+uda        | ?    |
+| MVDet+avgpool supervised          | 76.7 |
 
 
 
@@ -1424,7 +1428,7 @@ above supervised exp reached max moda at epoch 4. finished at 3.2 moda
 | MVDet+avgpool+dropview+uda        | ?                                          |
 | MVDet+avgpool supervised          | 71.4                                       |
 | paper GMVD (with dropview)        | 58 (66)                                    |
-| experimental GMVD (with dropview) | 58 (66)                                    |
+| experimental GMVD (with dropview) |                                            |
 
 mvdet+avgpool+dropview is much worse than GMVD paper. I need to get experimental results from GMVD here.
 Otherwise it is difficult for me to do the UDA with such a poor baseline.
@@ -1445,20 +1449,34 @@ Re-wrote dropview: now it doesnt set values to zero, but rather drops the images
 Restarting some baseline exps with the reimplemented dropview:
 
 **Multiviewx cam adapt setting**
-slurm-2690972_231
+
+| model                             | moda                     |
+| --------------------------------- | ------------------------ |
+| MVDet+avgpool+dropview            | 45.2   slurm-2690972_231 |
+| paper GMVD (with dropview)        | 58 (66)                  |
+| experimental GMVD (with dropview) | 36 (46)                  |
+| experimental GMVD supervised      | 59.5                     |
+
 
 **2,4,5,6 -> 1,3,5,7**  
 slurm-2690962_212
+max_moda: 72.8%, max_modp: 71.3%, max_precision: 94.6%, max_recall: 77.2%, epoch: 10.0%
+
 
 **1,3,5,7 -> 2,4,5,6**  
 slurm-2690962_216
+max_moda: 57.4%, max_modp: 68.9%, max_precision: 94.2%, max_recall: 61.1%, epoch: 9.0%
 
-**1,3,5->2,4,6** and other way around
-2690998_x
+
+**1,3,5->2,4,6**
+max_moda: 42.2%, max_modp: 60.5%, max_precision: 90.5%, max_recall: 47.2%, epoch: 11.0%
+
+**2,4,6->1,3,5**
+max_moda: 67.8%, max_modp: 69.2%, max_precision: 94.2%, max_recall: 72.2%, epoch: 9.0%
 
 
 
 # TODO
 
-
+Do the same baseline experiments but without perspective view supervision. Perhaps it is not beneficial in UDA setting.
 

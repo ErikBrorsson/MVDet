@@ -242,7 +242,7 @@ class BaseTrainer(object):
 
 
 class PerspectiveTrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, augmentation_module: Augmentation=Augmentation()):
+    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, augmentation_module: Augmentation=Augmentation(), persp_sup=True):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.criterion = criterion
@@ -252,6 +252,7 @@ class PerspectiveTrainer(BaseTrainer):
         self.alpha = alpha
 
         self.augmentation = augmentation_module
+        self.persp_sup = persp_sup
 
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
@@ -514,11 +515,13 @@ class PerspectiveTrainer(BaseTrainer):
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
-            for img_res, img_gt in zip(imgs_res, imgs_gt):
-                if not img_gt is None: # may be none after data augmentation
-                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-            loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
-                   loss / len(imgs_gt) * self.alpha
+            if self.persp_sup:
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    if not img_gt is None: # may be none after data augmentation
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                loss = loss / len([x for x in imgs_gt if x is not None]) * self.alpha
+
+            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel)
             loss.backward()
             optimizer.step()
             losses += loss.item()
@@ -882,7 +885,7 @@ class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
-                 weighted_mse=False, low_th=0.1, high_th=0.9, uda_persp_sup=False):
+                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -909,6 +912,7 @@ class UDATrainer(BaseTrainer):
         self.low_th = low_th
         self.high_th = high_th
         self.uda_persp_sup = uda_persp_sup
+        self.persp_sup = persp_sup
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
         B, N, C, H, W = imgs.shape
@@ -973,11 +977,13 @@ class UDATrainer(BaseTrainer):
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
-            for img_res, img_gt in zip(imgs_res, imgs_gt):
-                if img_gt is not None: # may be none if using dropview augmentation
-                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-            loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
-                   loss / len([x for x in imgs_gt if x is not None]) * self.alpha
+            if self.persp_sup:
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    if img_gt is not None: # may be none if using dropview augmentation
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                loss = loss / len([x for x in imgs_gt if x is not None]) * self.alpha
+
+            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel)
             loss.backward()
             # optimizer.step()
             losses += loss.item()
