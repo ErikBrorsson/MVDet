@@ -1107,16 +1107,16 @@ class UDATrainer(BaseTrainer):
                 else:                    
                     loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel)
             else:
-                raise Exception("Soft labels not implemented")
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher
                 imgs_pseudo_labels = [None]*len(self.target_cameras)
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
-                # if the target data includes less views than source data, we resort to duplicating some views.
-                B, N, C, H, W = data_student.shape
-                if N < self.model.num_cam:
-                    data_student, proj_mats_student = self.duplicate_images(data_student, proj_mats_student)
+                if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                    # if the target data includes less views than source data, we resort to duplicating some views.
+                    B, N, C, H, W = data_student.shape
+                    if N < self.model.num_cam:
+                        data_student, _, proj_mats_student = self.duplicate_images(data_student,None, proj_mats_student)
 
                 # student predict and compute loss
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)

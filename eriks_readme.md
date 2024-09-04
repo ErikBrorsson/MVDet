@@ -1455,7 +1455,13 @@ Restarting some baseline exps with the reimplemented dropview:
 | MVDet+avgpool+dropview            | 45.2   slurm-2690972_231 |
 | paper GMVD (with dropview)        | 58 (66)                  |
 | experimental GMVD (with dropview) | 36 (46)                  |
+| gmvd loaded model 134             | 53.7                     |
+| gmvd loaded model 256             | 42.6                     |
 | experimental GMVD supervised      | 59.5                     |
+
+python main.py -d multiviewx --avgpool --cam_set --train_cam 1 2 6 --test_cam 3 4 5 --resume Multiview_Detection_multiviewx_134.pth
+python main.py -d multiviewx --avgpool --cam_set --train_cam 1 2 6 --test_cam 3 4 5 --resume Multiview_Detection_multiviewx_256.pth
+
 
 
 **2,4,5,6 -> 1,3,5,7**  
@@ -1552,6 +1558,9 @@ The idea with the weighted cost was that this would be mitigated, but it seems l
 
 Perhaps if we use data augmentation (mvaug) together with the weighted loss, it would be more difficult for the model to overfit to the pseudo-labels.
 
+NOPE, mvaug doesn't seem to help either.
+Perhaps soft label is better? Or maybe a hard-soft label mix, where hard label is used for confident regions, and soft label is used for uncertain regions
 
 # TODO
-new uda exps with mvaug
+Perhaps soft label is better? Or maybe a hard-soft label mix, where hard label is used for confident regions, and soft label is used for uncertain regions
+
