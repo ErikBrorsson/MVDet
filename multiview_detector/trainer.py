@@ -1152,7 +1152,7 @@ class UDATrainer(BaseTrainer):
                     subplt1 = fig.add_subplot(512, title="label")
                     subplt2 = fig.add_subplot(513, title="teacher pseudo (or soft) label")
                     subplt3 = fig.add_subplot(514, title="teacher output")
-                    if self.weighted_mse:
+                    if self.weighted_mse and not self.soft_labels:
                         subplt4 = fig.add_subplot(515, title="pseudo-label weight")
                         subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
