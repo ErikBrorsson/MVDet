@@ -220,14 +220,14 @@ class Augmentation:
             proj_mats: output is MVDet standard (image->bev)
         """
         # TODO not using any augmentation for the teacher
-        # if False:
-        #     r = np.random.rand() # augment 50% of data with mvaug
-        #     if r >= 0.5:
-        #         imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
-        #     else:
-        #         proj_mats = [torch.linalg.inv(m) for m in proj_mats]
-        # else:
-        #     proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        if False:
+            r = np.random.rand() # augment 50% of data with mvaug
+            if r >= 0.5:
+                imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
+            else:
+                proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        else:
+            proj_mats = [torch.linalg.inv(m) for m in proj_mats]
 
         # if self.permutation:
         #     imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)

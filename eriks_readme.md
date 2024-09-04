@@ -1475,8 +1475,45 @@ max_moda: 42.2%, max_modp: 60.5%, max_precision: 90.5%, max_recall: 47.2%, epoch
 max_moda: 67.8%, max_modp: 69.2%, max_precision: 94.2%, max_recall: 72.2%, epoch: 9.0%
 
 
+### 3/9
+
+ONGOING Repeat the same baseline experiments but without perspective view supervision. Perhaps it is not beneficial in UDA setting.
+**2,4,5,6 -> 1,3,5,7**  
+max_moda: 72.3%, max_modp: 71.4%, max_precision: 93.8%, max_recall: 77.4%, epoch: 10.0%
+w/o persp sup, max_moda: 71.5%
+
+**1,3,5,7 -> 2,4,5,6**  
+max_moda: 57.5%, max_modp: 68.9%, max_precision: 92.9%, max_recall: 62.2%, epoch: 9.0%
+w/o persp sup, max_moda: 58.4%
+
+**1,3,5->2,4,6**
+max_moda: 43.1%, max_modp: 60.4%, max_precision: 90.5%, max_recall: 48.1%, epoch: 11.0%
+w/o persp sup, max_moda: 42.0%
+
+**2,4,6->1,3,5**
+max_moda: 68.6%, max_modp: 69.1%, max_precision: 92.3%, max_recall: 74.8%, epoch: 8.0%
+w/o persp sup, max_moda: 68.3%
+
+**Multiviewx cam adapt setting**
+max_moda: 45.3%, max_modp: 72.9%, max_precision: 91.2%, max_recall: 50.1%, epoch: 10.0%
+w/o persp sup, max_moda: 47.3%
+
+From above experiments, it seems like perspective supervision doesn't do any difference in UDA setting.
+Might as well NOT use persp supervision, for simplicity.
+
+
+Do uda experiments on all benchmarks with weighted_mse, without persp supervision
+configs+=(configs/gmvd_weighted_nopersp/uda_2,4,6-1,3,5.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_2,4,5,6-1,3,5,7.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_1,3,5-2,4,6.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_1,3,5,7-2,4,5,6.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_multiviewx.json)
+In all above experiments, precision went to 100% and recall to 0% as uda kicked in.
+
+repeating above exps now with persp supervision.
+same thing happened.
+When did this weird behaviour start? When I changed dropview/duplicate?
+
 
 # TODO
-
-Do the same baseline experiments but without perspective view supervision. Perhaps it is not beneficial in UDA setting.
 
