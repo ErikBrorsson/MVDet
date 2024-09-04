@@ -143,26 +143,29 @@ class Augmentation:
 
             # augment the image label
             # TODO assuming batch_size 1
-            img_gt_aug = torch.zeros_like(img_gt)
-            foot_gt = img_gt[0, 1]
-            foot_points = (foot_gt == 1).nonzero().float()
-            temp = torch.zeros_like(foot_points)
-            temp[:, 0] = foot_points[:, 1]
-            temp[:, 1] = foot_points[:, 0]
-            foot_points = temp
-            foot_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
-            for pos in foot_points_aug:
-                img_gt_aug[:,1,int(pos[1].item()), int(pos[0].item())] = 1
-            head_gt = img_gt[0, 0]
-            head_points = (head_gt == 1).nonzero().float()
-            temp = torch.zeros_like(head_points)
-            temp[:, 0] = head_points[:, 1]
-            temp[:, 1] = head_points[:, 0]
-            head_points = temp
-            head_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(head_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
-            for pos in head_points_aug:
-                img_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
-            img_gt_aug_list.append(img_gt_aug)
+            if img_gt is not None: # may be None in case of using pseudo-labels
+                img_gt_aug = torch.zeros_like(img_gt)
+                foot_gt = img_gt[0, 1]
+                foot_points = (foot_gt == 1).nonzero().float()
+                temp = torch.zeros_like(foot_points)
+                temp[:, 0] = foot_points[:, 1]
+                temp[:, 1] = foot_points[:, 0]
+                foot_points = temp
+                foot_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
+                for pos in foot_points_aug:
+                    img_gt_aug[:,1,int(pos[1].item()), int(pos[0].item())] = 1
+                head_gt = img_gt[0, 0]
+                head_points = (head_gt == 1).nonzero().float()
+                temp = torch.zeros_like(head_points)
+                temp[:, 0] = head_points[:, 1]
+                temp[:, 1] = head_points[:, 0]
+                head_points = temp
+                head_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(head_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
+                for pos in head_points_aug:
+                    img_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
+                img_gt_aug_list.append(img_gt_aug)
+            else:
+                img_gt_aug_list.append(None)
 
             # augment the projection matrix to account for persp aug
             temp = torch.tensor([int(x / self.img_reduce) for x in self.img_shape])

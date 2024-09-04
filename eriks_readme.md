@@ -1515,5 +1515,43 @@ same thing happened.
 When did this weird behaviour start? When I changed dropview/duplicate?
 
 
-# TODO
+### 4/9
+repeating uda exps
+configs+=(configs/gmvd_weighted_nopersp/uda_2,4,6-1,3,5.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_2,4,5,6-1,3,5,7.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_1,3,5-2,4,6.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_1,3,5,7-2,4,5,6.json)
+configs+=(configs/gmvd_weighted_nopersp/uda_multiviewx.json)
 
+after fixing proj mats.
+
+**1,3,5-2,4,6 poor results:**
+I note that the weight mask is reasonable before UDA kicks in. I.e., it has a few correct pseudo-labels and large regions of uncertainty.
+However, after some epochs of UDA, the number of pseudo-labels is roughly the same, but the regions of uncertainty has shrunk significantly, resulting in more false negative pseudo-labels.
+**The same phenomenon is observed for 1,3,5,7-2,4,5,6**.
+Seems like the student is overfitting to the pseudo-labels? Since it is never penalized when predicting negatives in the uncertain regions, it may learn to always do this, resulting in the "uncertain" regions turning into certain negative predictions eventually.
+
+Maybe this can be solved by data augmentation? MVaug?
+
+**2,4,6-1,3,5 Good results!**
+max_moda: 72.7%, this is closed to supervised performance and well above the baseline.
+
+Note that also in this exp, the student predictions becomes "less informative" over time. I.e., uncertain regions shrink.
+
+**2,4,5,6-1,3,5,7**
+max_moda: 74.9%, decent results.
+
+**multiviewx**
+poor results. Again, the student is overfitted to the pseudo-labels
+
+![](resources/images/multiviewx_overfit1_uda.jpg)
+![](resources/images/multiviewx_overfit_uda.jpg)
+
+From the above exps, I draw the conclusion that the student is more or less overfitting to the pseudo-labels available  in the beginning of UDA training.
+The idea with the weighted cost was that this would be mitigated, but it seems like it doesn't do the trick.
+
+Perhaps if we use data augmentation (mvaug) together with the weighted loss, it would be more difficult for the model to overfit to the pseudo-labels.
+
+
+# TODO
+new uda exps with mvaug
