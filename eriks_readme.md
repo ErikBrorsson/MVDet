@@ -1519,6 +1519,7 @@ In all above experiments, precision went to 100% and recall to 0% as uda kicked 
 repeating above exps now with persp supervision.
 same thing happened.
 When did this weird behaviour start? When I changed dropview/duplicate?
+The reason for this error was that I acceidently used the inv(proj_mat) instead of proj_mat for target data, resulting in completely incorrect bev projection. 
 
 
 ### 4/9
@@ -1561,6 +1562,54 @@ Perhaps if we use data augmentation (mvaug) together with the weighted loss, it 
 NOPE, mvaug doesn't seem to help either.
 Perhaps soft label is better? Or maybe a hard-soft label mix, where hard label is used for confident regions, and soft label is used for uncertain regions
 
-# TODO
+Soft labels with mvaug didnt work because I hadnt implemented mvaug for softlabels.
+Updated MVAug to work with soft map lab: 2710955_256 COmpare with previous exp to see if it works better
+
+
 Perhaps soft label is better? Or maybe a hard-soft label mix, where hard label is used for confident regions, and soft label is used for uncertain regions
 
+**ONGOING Updated MVAug to work with soft map lab: 2710955_256 COmpare with previous exp to see if it works better**
+2,4,5,6-1,3,5,7
+100%|██████████| 20/20 [1:36:32<00:00, 289.61s/it]
+moda: 63.9%, modp: 73.0%, precision: 98.7%, recall: 64.7%
+Test, Loss: 0.004538, Precision: 5.4%, Recall: 56.5, 	Time: 5.381
+max_moda: 72.1%, max_modp: 71.9%, max_precision: 96.0%, max_recall: 75.2%, epoch: 10.0%
+
+Similar preformance as baseline. Not as good as original UDA exps on mvdet+avgpool.
+
+
+**OGNOING UDA with soft labels without mvaug 2711051_x**
+2,4,5,6-1,3,5,7
+100%|██████████| 20/20 [1:07:40<00:00, 203.00s/it]
+moda: 39.3%, modp: 76.7%, precision: 99.5%, recall: 39.5%
+Test, Loss: 0.005540, Precision: 6.8%, Recall: 34.7, 	Time: 5.403
+max_moda: 64.9%, max_modp: 74.4%, max_precision: 98.6%, max_recall: 65.9%, epoch: 11.0%
+
+Didn't work well.
+In particular, compared to the exp above using mvaug+softlabels, this exp saw much worse performance at the end of traning.
+Perhaps strong data augmentation is essential in UDA.
+
+
+**ONGOING soft-hard label 2711469_256**
+Only on 2,4,5,6 -> 1,3,5,7 was max_moda reached AFTER UDA starting.
+On multiviewx, the label slowly but surely tends to some constant value (looks like a mist laying over the image). Although, somewhere in the middle, performance is 100% prescision.
+On 1,3,5,7->2,4,5,6, the labels tend to be more sparse after UDA training.E.g., larger regions with close to zeros.
+On 2,4,6->1,3,5, the labels also get sparse and performance reach almost 100% precision in the end.
+
+![](resources/images/labels_get_sparse.png)
+
+
+
+
+
+### 5/9
+Since I've been unsuccessful in the weighted mse experiments, I should go back to the basics now with MVDet + avgpool, to see if it works similarly as MVDet.
+- baseline exps MVDet + avgpool + dropview + mvaug - persp.sup
+- UDA with standard pseudo-labels. Search for good thresholds on one or two benchmarks to see if I can boost performance this way.
+
+
+
+
+# TODO
+
+- check slurm-2717199_x baseline exps MVDet + avgpool + dropview + mvaug - persp.sup
