@@ -105,19 +105,19 @@ class Augmentation:
 
         # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
         # augment the map_label
-        map_gt_aug_temp = scene_aug(torch.clone(map_gt))
+        map_gt_aug = scene_aug(torch.clone(map_gt))
 
         # TODO assuming batch_size 1
-        map_gt_aug = torch.zeros_like(map_gt)
-        foot_gt = map_gt[0, 0]
-        foot_points = (foot_gt == 1).nonzero().float()
-        temp = torch.zeros_like(foot_points)
-        temp[:, 0] = foot_points[:, 1]
-        temp[:, 1] = foot_points[:, 0]
-        foot_points = temp
-        foot_points_aug, pedestrian_ids = scene_aug.augment_gt_point_view_based(foot_points.detach().cpu(), gt_person_ids=None, filter_out_of_frame=True, frame_size=map_gt.shape[-2:])
-        for pos in foot_points_aug:
-            map_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
+        # map_gt_aug = torch.zeros_like(map_gt)
+        # foot_gt = map_gt[0, 0]
+        # foot_points = (foot_gt == 1).nonzero().float()
+        # temp = torch.zeros_like(foot_points)
+        # temp[:, 0] = foot_points[:, 1]
+        # temp[:, 1] = foot_points[:, 0]
+        # foot_points = temp
+        # foot_points_aug, pedestrian_ids = scene_aug.augment_gt_point_view_based(foot_points.detach().cpu(), gt_person_ids=None, filter_out_of_frame=True, frame_size=map_gt.shape[-2:])
+        # for pos in foot_points_aug:
+        #     map_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
 
         data_aug = torch.zeros_like(data)
         proj_mat_aug_list = []
@@ -1056,6 +1056,8 @@ class UDATrainer(BaseTrainer):
                     filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
                     map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
                     
+                    map_pseudo_label = map_pseudo_label_weight * filled_pseudo_label + (1 - map_pseudo_label_weight) * map_pred_teacher
+
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
                 # TODO self.pom doesn't work after mvaug, does it?
@@ -1103,7 +1105,7 @@ class UDATrainer(BaseTrainer):
                     loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
 
                 if self.weighted_mse:
-                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel, map_pseudo_label_weight)
+                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None)#data_loader_target.dataset.map_kernel, map_pseudo_label_weight)
                 else:                    
                     loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.map_kernel)
             else:
@@ -1162,7 +1164,7 @@ class UDATrainer(BaseTrainer):
                         subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
                                 .cpu().detach().numpy().squeeze())
                     else:
-                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
                                     .cpu().detach().numpy().squeeze())
                     subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
                     epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
