@@ -1,0 +1,16 @@
+{
+    "src_cams": "2,4,6",
+    "trg_cams": "1,3,5",
+    "dataset": "wildtrack",
+    "data_path": "/mimer/NOBACKUP/groups/naiss2023-23-214/data/Wildtrack_dataset",
+    "cam_adapt": true,
+    "train_viz": true,
+    "uda": true,
+    "mvaug": true,
+    "permutation": true,
+    "pretrained": true,
+    "dropview": true,
+    "target_epoch_start": 10,
+    "target_weight_start": 0.0,
+    "target_weight_end": 0.0
+}

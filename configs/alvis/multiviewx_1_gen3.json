@@ -1,0 +1,14 @@
+{
+    "src_cams": "1,2,6",
+    "trg_cams": "3,4,5",
+    "dataset": "multiviewx",
+    "data_path": "/mimer/NOBACKUP/groups/naiss2023-23-214/data/MultiviewX",
+    "cam_adapt": true,
+    "train_viz": true,
+    "uda": false,
+    "mvaug": true,
+    "permutation": false,
+    "pretrained": true,
+    "dropview": false,
+    "epochs": 20
+}
