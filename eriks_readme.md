@@ -1729,6 +1729,14 @@ PREVIOUS RESULTS: max_moda: 74.1%, max_modp: 62.3%, max_precision: 92.8%, max_re
 PREVIOUS RESULTS: max_moda: 75.6%, max_modp: 62.1%, max_precision: 93.8%, max_recall: 81.0%, epoch: 20.0% 
 
 
+**Stabalize evaluation metric by using a range of cls_thres**
+Rerunning this experiment (260) with and without cls_thres varying, to see if the large fluctuations in moda changes.
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5.json)
+max_moda: 66.3%, max_modp: 68.9%, max_precision: 90.1%, max_recall: 74.5%, epoch: 11.0%
+
+
+
+
 # TODO
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
