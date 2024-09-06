@@ -46,7 +46,7 @@ def draw_curve2(path, x_epoch, train_loss, test_loss, test_moda, test_modp, test
     ax5.legend()
 
     ax6 = fig.add_subplot(234, title="cls_thres")
-    ax6.plot(x_epoch, cls_threshold, 'ro-', label='test' + ': {:.1f}'.format(cls_threshold[-1]))
+    ax6.plot(x_epoch, cls_threshold, 'ro-', label='test' + ': {:.2f}'.format(cls_threshold[-1]))
     ax6.legend()
 
     fig.savefig(path)
