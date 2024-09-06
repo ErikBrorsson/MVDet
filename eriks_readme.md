@@ -1742,7 +1742,43 @@ configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5.json)
 max_moda: 66.3%, max_modp: 68.9%, max_precision: 90.1%, max_recall: 74.5%, epoch: 11.0%
 
 With the new metric (stabalized) in place, it would be interesting to see if the performance of previous baseline/uda experiments is significantly different.
-  
+TODO => redo mvdet-avgpool baseline and uda exps.
+
+ONGOING rerun of baseline
+PREVIOSU RESULTS:
+  configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5.json)
+  max_moda: 66.3%, max_modp: 68.9%, max_precision: 90.1%, max_recall: 74.5%, epoch: 11.0%
+  configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,5,6-1,3,5,7.json)
+  max_moda: 72.2%, max_modp: 71.1%, max_precision: 94.1%, max_recall: 77.0%, epoch: 13.0%
+  configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5-2,4,6.json)
+  max_moda: 48.7%, max_modp: 58.6%, max_precision: 80.5%, max_recall: 64.3%, epoch: 9.0%
+  configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5,7-2,4,5,6.json)
+  max_moda: 60.3%, max_modp: 65.4%, max_precision: 91.7%, max_recall: 66.3%, epoch: 11.0%
+  configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/multiviewx.json)
+  max_moda: 50.4%, max_modp: 72.9%, max_precision: 96.7%, max_recall: 52.2%, epoch: 19.0%
+
+with varying threshld:
+max_moda: 68.4%, max_modp: 66.5%, max_precision: 90.8%, max_recall: 76.1%, epoch: 12.0%
+
+max_moda: 49.8%, max_modp: 57.8%, max_precision: 84.0%, max_recall: 61.6%, epoch: 16.0%
+
+max_moda: 55.1%, max_modp: 68.1%, max_precision: 88.2%, max_recall: 63.6%, epoch: 18.0%
+
+
+
+ONGOING RERUn of uda **2,4,6 -> 1,3,5**
+previous results:
+  max_moda: 69.0%, max_modp: 65.6%, max_precision: 97.8%, max_recall: 70.6%, epoch: 11.0%
+  max_moda: 67.5%, max_modp: 63.4%, max_precision: 96.7%, max_recall: 70.0%, epoch: 10.0%
+
+with varying threshold:
+
+ONGOIGN RERUN of uda **2,4,5,6 -> 1,3,5,7**
+PREVIOSU RESULTS 
+  max_moda: 75.4%, max_modp: 65.1%, max_precision: 94.9%, max_recall: 79.7%, epoch: 13.0%
+  max_moda: 74.1%, max_modp: 70.0%, max_precision: 93.8%, max_recall: 79.3%, epoch: 14.0%
+
+with varying thresold:
 
 
 # TODO

@@ -1403,6 +1403,10 @@ class UDATrainer(BaseTrainer):
 
 
             moda = 0
+            moda_04 = 0
+            modp_04 = 0
+            precision_04 = 0
+            recall_04 = 0
             moda_list = []
             precision_list = []
             recall_list = []
@@ -1435,6 +1439,12 @@ class UDATrainer(BaseTrainer):
                     precision_list.append(precision)
                     recall_list.append(recall)
 
+                    if cls_thres == 0.4:
+                        moda_04 = moda
+                        modp_04 = modp
+                        precision_04 = precision
+                        recall_04 = recall
+
                 max_indx = np.argmax(moda_list)
                 moda = moda_list[max_indx]
                 modp = modp_list[max_indx]
@@ -1449,7 +1459,7 @@ class UDATrainer(BaseTrainer):
             print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
                 losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+            return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
 
         else:
             self.model.eval()
@@ -1537,7 +1547,7 @@ class UDATrainer(BaseTrainer):
             print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
                 losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+            return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
     
 
     @staticmethod
