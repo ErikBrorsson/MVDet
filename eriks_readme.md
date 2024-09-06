@@ -1741,7 +1741,8 @@ Rerunning this experiment (260) with and without cls_thres varying, to see if th
 configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5.json)
 max_moda: 66.3%, max_modp: 68.9%, max_precision: 90.1%, max_recall: 74.5%, epoch: 11.0%
 
-
+With the new metric (stabalized) in place, it would be interesting to see if the performance of previous baseline/uda experiments is significantly different.
+  
 
 
 # TODO

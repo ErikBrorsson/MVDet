@@ -290,8 +290,8 @@ def main(args):
             cls_thres_list_var.append(cls_thres_var)
             test_prec_s.append(precision)
             test_moda_s.append(moda)
-            test_modp_s.append(moda)
-            test_recall_s.append(moda)
+            test_modp_s.append(modp)
+            test_recall_s.append(recall)
 
             draw_curve2(os.path.join(logdir, 'learning_curve_varying_cls.jpg'), x_epoch, train_loss_s, test_loss_s,
                 test_moda_s, test_modp_s, test_prec_s, test_recall_s, cls_thres_list_var)
