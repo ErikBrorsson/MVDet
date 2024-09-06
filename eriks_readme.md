@@ -1723,10 +1723,17 @@ PREVIOUS RESULTS: max_moda: 74.9%, max_modp: 67.2,%, max_precision: 96.1%, max_r
 PREVIOUS RESULTS: max_moda: 75.8%, max_modp: 65.1,%, max_precision: 94.3%, max_recall: 80.7,%, epoch: 16.0% 
 ONGOING
 
+NEW RESULTS: max_moda: 74.4%, max_modp: 63.2%, max_precision: 96.7%, max_recall: 77.0%, epoch: 15.0%
+NEW RESULTS: max_moda: 70.2%, max_modp: 64.4%, max_precision: 98.0%, max_recall: 71.6%, epoch: 16.0%
+
+
 **1,3,5,7 -> 2,4,5,6**
 ONGOING
 PREVIOUS RESULTS: max_moda: 74.1%, max_modp: 62.3%, max_precision: 92.8%, max_recall: 80.3%, epoch: 15.0%  
 PREVIOUS RESULTS: max_moda: 75.6%, max_modp: 62.1%, max_precision: 93.8%, max_recall: 81.0%, epoch: 20.0% 
+
+NEW RESULTS: max_moda: 60.5%, max_modp: 63.6%, max_precision: 86.6%, max_recall: 71.5%, epoch: 8.0%
+NEW RESULTS: max_moda: 72.1%, max_modp: 62.6%, max_precision: 90.4%, max_recall: 80.7%, epoch: 14.0%
 
 
 **Stabalize evaluation metric by using a range of cls_thres**

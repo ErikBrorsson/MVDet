@@ -284,7 +284,7 @@ def main(args):
         test_modp_s_04.append(modp_04)
         test_recall_s_04.append(recall_04)
         draw_curve2(os.path.join(logdir, 'learning_curve_fixed_cls.jpg'), x_epoch, train_loss_s, test_loss_s,
-            test_moda_s, test_modp_s, test_prec_s, test_recall_s, cls_thres_list_fix)
+            test_moda_s_04, test_modp_s_04, test_prec_s_04, test_recall_s_04, cls_thres_list_fix)
 
         if args.varying_cls_thres:
             cls_thres_list_var.append(cls_thres_var)
