@@ -249,7 +249,7 @@ def main(args):
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
         test_loss, test_prec, moda, modp, precision, recall = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                    train_set.gt_fpath, True)
+                                                    train_set.gt_fpath, True, args.varying_cls_thres)
 
         if moda >= max_moda:
             max_modp, max_precision, max_recall = modp, precision, recall
@@ -317,6 +317,7 @@ if __name__ == '__main__':
     parser.add_argument('--avgpool', action="store_true")
     parser.add_argument('--weighted_mse', action="store_true")
     parser.add_argument('--uda_persp_sup', action="store_true")
+    parser.add_argument('--varying_cls_thres', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
     parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')

@@ -563,187 +563,324 @@ class PerspectiveTrainer(BaseTrainer):
 
         return losses / len(data_loader), precision_s.avg * 100
 
-    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False, test_time_aug=False):
-        # self.model.configure_model_for_dataset(data_loader.dataset)
-        self.model.eval()
-        losses = 0
-        precision_s, recall_s = AverageMeter(), AverageMeter()
-        all_res_list = []
-        t0 = time.time()
-        if res_fpath is not None:
-            assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
-            if test_time_aug:
-                data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, persp_map=False, test_time_aug=False, varying_cls_thres=False):
+        if varying_cls_thres:
+            cls_thres_array = np.arange(0.05, 0.95, 0.05)
+            all_res_list = {str(x): [] for x in cls_thres_array}
 
-            if not self.model.avgpool:
-                B, N, C, H, W = data.shape
-                if N < self.model.num_cam:
-                    data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
-
-            with torch.no_grad():
-                map_res, imgs_res = self.model(data, proj_mats, visualize=True)
+            self.model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = {str(x): [] for x in cls_thres_array}
+            t0 = time.time()
             if res_fpath is not None:
-                map_grid_res = map_res.detach().cpu().squeeze()
-                v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
-                grid_ij = (map_grid_res > self.cls_thres).nonzero()
-                if data_loader.dataset.base.indexing == 'xy':
-                    grid_xy = grid_ij[:, [1, 0]]
-                else:
-                    grid_xy = grid_ij
-                all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                               data_loader.dataset.grid_reduce, v_s], dim=1))
-                
-                # do NMS and create actual preditions (post nms)
-                temp = map_grid_res
-                scores = temp[temp > self.cls_thres]
-                positions = (temp > self.cls_thres).nonzero().float()
-                # if data_loader.dataset.base.indexing == 'xy':
-                #     positions = positions[:, [1, 0]]
-                # else:
-                #     positions = positions
-                if not torch.numel(positions) == 0:
-                    ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
-                    positions = positions[ids[:count], :]
-                    scores = scores[ids[:count]]
-                map_pseudo_label = torch.zeros_like(map_res)
-                for pos in positions:
-                    map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+                with torch.no_grad():
+                    map_res, imgs_res = self.model(data, proj_mats)
+                if res_fpath is not None:
+                    for cls_thres in cls_thres_array:
+                        map_grid_res = map_res.detach().cpu().squeeze()
+                        v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
+                        grid_ij = (map_grid_res > cls_thres).nonzero()
+                        if data_loader.dataset.base.indexing == 'xy':
+                            grid_xy = grid_ij[:, [1, 0]]
+                        else:
+                            grid_xy = grid_ij
+                        all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                        data_loader.dataset.grid_reduce, v_s], dim=1))
 
-            loss = 0
-            for img_res, img_gt in zip(imgs_res, imgs_gt):
-                if img_gt is not None:
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
                     loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-            loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
-                   loss / len(imgs_gt) * self.alpha
-            losses += loss.item()
-            pred = (map_res > self.cls_thres).int().to(map_gt.device)
-            true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
-            false_positive = pred.sum().item() - true_positive
-            false_negative = map_gt.sum().item() - true_positive
-            precision = true_positive / (true_positive + false_positive + 1e-4)
-            recall = true_positive / (true_positive + false_negative + 1e-4)
-            precision_s.update(precision)
-            recall_s.update(recall)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                        loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
 
             if visualize:
-                if persp_map:
-                    # initialize perspective view bev predictions
-                    map_res_from_perspective = torch.zeros_like(map_res).detach().cpu()
-                    map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="output")
+                subplt1 = fig.add_subplot(212, title="target")
+                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                            .cpu().detach().numpy().squeeze())
+                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
+                plt.close(fig)
 
-                for cam_indx, _ in enumerate(imgs_res):
-                    # cam_number = data_loader.dataset.cameras[cam_indx]
-                    cam_number = cam_indx
-
-                    pred_view1 = imgs_res[cam_indx]
-                    heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
-                    heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
-
-                    if persp_map: # TODO doesn't work if n_views_train > n_views_test, since we don't have the projection matrices for the duplicate views
-                        foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
-                        foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
-                        if not foot_coords[0].size == 0:
-                            # temp = np.zeros((2, len(foot_coords[0])))
-                            temp = np.ones((3, len(foot_coords[0])))
-                            temp[0,:] = foot_coords[1]
-                            temp[1,:] = foot_coords[0]
-
-                            world_grid = self.model.proj_mats[cam_number] @ temp  
-                            world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
-                            # temp = temp * data_loader.dataset.img_reduce
-
-                            # print("using projmat ", cam_number)
-                            # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number])
-                            # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
-                            for coord_indx, p in enumerate(world_grid.transpose()):
-                                if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
-                                    map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1
-
-                                    prev_val = map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])]
-                                    map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])] = max(float(foot_scores[coord_indx]), prev_val.item())
-                                    # print(p)
-                        else:
-                            print("No preds from perspective view: ", cam_number+1)
-
-                    img0 = self.denormalize(data[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                    # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                    # head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_head_{batch_idx}.jpg'))
-                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                    foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_foot_{batch_idx}.jpg'))
+                # visualizing the heatmap for per-view estimation
+                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
 
+            moda = 0
+            moda_list = []
+            precision_list = []
+            recall_list = []
+            modp_list = []
+            if res_fpath is not None:
+                for i, cls_thres in enumerate(cls_thres_array):
+                    all_res_list_thres = all_res_list[str(cls_thres)]
+                    all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
+                    np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+                    res_list = []
+                    for frame in np.unique(all_res_list_thres[:, 0]):
+                        res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
+                        positions, scores = res[:, 1:3], res[:, 3]
+                        ids, count = nms(positions, scores, 20, np.inf)
+                        res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                    res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                    np.savetxt(res_fpath, res_list, '%d')
 
-                if persp_map:
-                    # do NMS and create actual preditions (post nms)
-                    perspective_all_res_list = []
-                    temp = map_res_from_perspective_scores.squeeze()
-                    scores = temp[temp > self.cls_thres].unsqueeze(1)
-                    positions = (temp > self.cls_thres).nonzero().float()
+                    recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                                data_loader.dataset.base.__name__)
+
+                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                    #                                             data_loader.dataset.base.__name__)
+                    # print("cls_thres: ", cls_thres)
+                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    #         format(moda, modp, precision, recall))
+                    moda_list.append(moda)
+                    modp_list.append(modp)
+                    precision_list.append(precision)
+                    recall_list.append(recall)
+
+                max_indx = np.argmax(moda_list)
+                moda = moda_list[max_indx]
+                modp = modp_list[max_indx]
+                precision = precision_list[max_indx]
+                recall = recall_list[max_indx]
+                max_cls_thres = cls_thres_array[max_indx]
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
+                        format(moda, modp, precision, recall, max_cls_thres))
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+
+
+        else:
+            # self.model.configure_model_for_dataset(data_loader.dataset)
+            self.model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = []
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+                if test_time_aug:
+                    data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
+
+                if not self.model.avgpool:
+                    B, N, C, H, W = data.shape
+                    if N < self.model.num_cam:
+                        data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
+
+                with torch.no_grad():
+                    map_res, imgs_res = self.model(data, proj_mats, visualize=True)
+                if res_fpath is not None:
+                    map_grid_res = map_res.detach().cpu().squeeze()
+                    v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
+                    grid_ij = (map_grid_res > self.cls_thres).nonzero()
                     if data_loader.dataset.base.indexing == 'xy':
-                        positions = positions[:, [1, 0]]
+                        grid_xy = grid_ij[:, [1, 0]]
                     else:
-                        positions = positions
-
-                    perspective_all_res_list.append(torch.cat([torch.ones_like(scores) * frame, positions.float() *
-                                                data_loader.dataset.grid_reduce, scores], dim=1))
-
-                    scores = scores.squeeze()
+                        grid_xy = grid_ij
+                    all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                data_loader.dataset.grid_reduce, v_s], dim=1))
+                    
+                    # do NMS and create actual preditions (post nms)
+                    temp = map_grid_res
+                    scores = temp[temp > self.cls_thres]
+                    positions = (temp > self.cls_thres).nonzero().float()
+                    # if data_loader.dataset.base.indexing == 'xy':
+                    #     positions = positions[:, [1, 0]]
+                    # else:
+                    #     positions = positions
                     if not torch.numel(positions) == 0:
                         ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
                         positions = positions[ids[:count], :]
                         scores = scores[ids[:count]]
-                    map_perspective_pseudo_label = torch.zeros_like(map_res)
+                    map_pseudo_label = torch.zeros_like(map_res)
                     for pos in positions:
-                        map_perspective_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                        map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    if img_gt is not None:
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                    loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > self.cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+                if visualize:
+                    if persp_map:
+                        # initialize perspective view bev predictions
+                        map_res_from_perspective = torch.zeros_like(map_res).detach().cpu()
+                        map_res_from_perspective_scores = -1e8*torch.ones_like(map_res).detach().cpu()
+
+                    for cam_indx, _ in enumerate(imgs_res):
+                        # cam_number = data_loader.dataset.cameras[cam_indx]
+                        cam_number = cam_indx
+
+                        pred_view1 = imgs_res[cam_indx]
+                        heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
+                        heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
+
+                        if persp_map: # TODO doesn't work if n_views_train > n_views_test, since we don't have the projection matrices for the duplicate views
+                            foot_coords = (heatmap0_foot > self.cls_thres).nonzero()
+                            foot_scores = heatmap0_foot[heatmap0_foot > self.cls_thres]
+                            if not foot_coords[0].size == 0:
+                                # temp = np.zeros((2, len(foot_coords[0])))
+                                temp = np.ones((3, len(foot_coords[0])))
+                                temp[0,:] = foot_coords[1]
+                                temp[1,:] = foot_coords[0]
+
+                                world_grid = self.model.proj_mats[cam_number] @ temp  
+                                world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
+                                # temp = temp * data_loader.dataset.img_reduce
+
+                                # print("using projmat ", cam_number)
+                                # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number])
+                                # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
+                                for coord_indx, p in enumerate(world_grid.transpose()):
+                                    if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
+                                        map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1
+
+                                        prev_val = map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])]
+                                        map_res_from_perspective_scores[0, 0, int(p[1]), int(p[0])] = max(float(foot_scores[coord_indx]), prev_val.item())
+                                        # print(p)
+                            else:
+                                print("No preds from perspective view: ", cam_number+1)
+
+                        img0 = self.denormalize(data[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                        img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                        # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                        # head_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_head_{batch_idx}.jpg'))
+                        foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                        foot_cam_result.save(os.path.join(self.logdir, f'output_cam{cam_number+ 1}_foot_{batch_idx}.jpg'))
 
 
-                    fig = plt.figure()
-                    subplt0 = fig.add_subplot(321, title="scores")
-                    subplt1 = fig.add_subplot(322, title="prediction")
-                    subplt2 = fig.add_subplot(323, title="persp. scores")
-                    subplt3 = fig.add_subplot(324, title="persp. prediction")
-                    subplt4 = fig.add_subplot(325, title="label")
-                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    subplt2.imshow(self.criterion._traget_transform(map_res, map_res_from_perspective, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    subplt3.imshow(self.criterion._traget_transform(map_res, map_perspective_pseudo_label, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
-                    plt.close(fig)
 
-                else:
-                    fig = plt.figure()
-                    subplt0 = fig.add_subplot(321, title="scores")
-                    subplt1 = fig.add_subplot(322, title="prediction")
-                    subplt4 = fig.add_subplot(323, title="label")
+                    if persp_map:
+                        # do NMS and create actual preditions (post nms)
+                        perspective_all_res_list = []
+                        temp = map_res_from_perspective_scores.squeeze()
+                        scores = temp[temp > self.cls_thres].unsqueeze(1)
+                        positions = (temp > self.cls_thres).nonzero().float()
+                        if data_loader.dataset.base.indexing == 'xy':
+                            positions = positions[:, [1, 0]]
+                        else:
+                            positions = positions
 
-                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
-                    plt.close(fig)
+                        perspective_all_res_list.append(torch.cat([torch.ones_like(scores) * frame, positions.float() *
+                                                    data_loader.dataset.grid_reduce, scores], dim=1))
+
+                        scores = scores.squeeze()
+                        if not torch.numel(positions) == 0:
+                            ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
+                            positions = positions[ids[:count], :]
+                            scores = scores[ids[:count]]
+                        map_perspective_pseudo_label = torch.zeros_like(map_res)
+                        for pos in positions:
+                            map_perspective_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
 
 
+                        fig = plt.figure()
+                        subplt0 = fig.add_subplot(321, title="scores")
+                        subplt1 = fig.add_subplot(322, title="prediction")
+                        subplt2 = fig.add_subplot(323, title="persp. scores")
+                        subplt3 = fig.add_subplot(324, title="persp. prediction")
+                        subplt4 = fig.add_subplot(325, title="label")
+                        subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        subplt2.imshow(self.criterion._traget_transform(map_res, map_res_from_perspective, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        subplt3.imshow(self.criterion._traget_transform(map_res, map_perspective_pseudo_label, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                        plt.close(fig)
+
+                    else:
+                        fig = plt.figure()
+                        subplt0 = fig.add_subplot(321, title="scores")
+                        subplt1 = fig.add_subplot(322, title="prediction")
+                        subplt4 = fig.add_subplot(323, title="label")
+
+                        subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                                    .cpu().detach().numpy().squeeze())
+                        plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                        plt.close(fig)
 
 
-        t1 = time.time()
-        t_epoch = t1 - t0
 
-        # evaluate perspective view preds
-        if persp_map:
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+
+            # evaluate perspective view preds
+            if persp_map:
+                moda = 0
+                if res_fpath is not None:
+                    res_fpath = os.path.abspath(os.path.dirname(res_fpath)) + '/test_perspective.txt'
+                    all_res_list = torch.cat(perspective_all_res_list, dim=0)
+                    np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res_perspective.txt', all_res_list.numpy(), '%.8f')
+                    res_list = []
+                    for frame in np.unique(all_res_list[:, 0]):
+                        res = all_res_list[all_res_list[:, 0] == frame, :]
+                        positions, scores = res[:, 1:3], res[:, 3]
+                        ids, count = nms(positions, scores, 20, np.inf)
+                        res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                    res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                    np.savetxt(res_fpath, res_list, '%d')
+
+                    recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                            data_loader.dataset.base.__name__)
+
+                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                    #                                             data_loader.dataset.base.__name__)
+                    print("########### perspective results ####################")
+                    print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                        format(moda, modp, precision, recall))
+                    
+
             moda = 0
             if res_fpath is not None:
-                res_fpath = os.path.abspath(os.path.dirname(res_fpath)) + '/test_perspective.txt'
-                all_res_list = torch.cat(perspective_all_res_list, dim=0)
-                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res_perspective.txt', all_res_list.numpy(), '%.8f')
+                all_res_list = torch.cat(all_res_list, dim=0)
+                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
                 res_list = []
                 for frame in np.unique(all_res_list[:, 0]):
                     res = all_res_list[all_res_list[:, 0] == frame, :]
@@ -759,38 +896,14 @@ class PerspectiveTrainer(BaseTrainer):
                 # If you want to use the unofiicial python evaluation tool for convenient purposes.
                 # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                 #                                             data_loader.dataset.base.__name__)
-                print("########### perspective results ####################")
+
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
-                
 
-        moda = 0
-        if res_fpath is not None:
-            all_res_list = torch.cat(all_res_list, dim=0)
-            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
-            res_list = []
-            for frame in np.unique(all_res_list[:, 0]):
-                res = all_res_list[all_res_list[:, 0] == frame, :]
-                positions, scores = res[:, 1:3], res[:, 3]
-                ids, count = nms(positions, scores, 20, np.inf)
-                res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
-            res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
-            np.savetxt(res_fpath, res_list, '%d')
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                     data_loader.dataset.base.__name__)
-
-            # If you want to use the unofiicial python evaluation tool for convenient purposes.
-            # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-            #                                             data_loader.dataset.base.__name__)
-
-            print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                  format(moda, modp, precision, recall))
-
-        print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
-            losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
-
-        return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
 
 
 class BBOXTrainer(BaseTrainer):
@@ -1058,7 +1171,6 @@ class UDATrainer(BaseTrainer):
                     
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                # TODO self.pom doesn't work after mvaug, does it?
                 if data_loader.dataset.base.indexing == 'xy':
                     positions = positions[:, [1, 0]]
                 else:
@@ -1216,93 +1328,205 @@ class UDATrainer(BaseTrainer):
 
         return losses / len(data_loader), precision_s.avg * 100
 
-    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False):
-        self.model.eval()
-        losses = 0
-        precision_s, recall_s = AverageMeter(), AverageMeter()
-        all_res_list = []
-        t0 = time.time()
-        if res_fpath is not None:
-            assert gt_fpath is not None
-        for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
-            with torch.no_grad():
-                map_res, imgs_res = self.model(data, proj_mats)
+    def test(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, varying_cls_thres=False):
+        if varying_cls_thres:
+            cls_thres_array = np.arange(0.05, 0.95, 0.05)
+            all_res_list = {str(x): [] for x in cls_thres_array}
+
+            self.model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = {str(x): [] for x in cls_thres_array}
+            t0 = time.time()
             if res_fpath is not None:
-                map_grid_res = map_res.detach().cpu().squeeze()
-                v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
-                grid_ij = (map_grid_res > self.cls_thres).nonzero()
-                if data_loader.dataset.base.indexing == 'xy':
-                    grid_xy = grid_ij[:, [1, 0]]
-                else:
-                    grid_xy = grid_ij
-                all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                               data_loader.dataset.grid_reduce, v_s], dim=1))
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+                with torch.no_grad():
+                    map_res, imgs_res = self.model(data, proj_mats)
+                if res_fpath is not None:
+                    for cls_thres in cls_thres_array:
+                        map_grid_res = map_res.detach().cpu().squeeze()
+                        v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
+                        grid_ij = (map_grid_res > cls_thres).nonzero()
+                        if data_loader.dataset.base.indexing == 'xy':
+                            grid_xy = grid_ij[:, [1, 0]]
+                        else:
+                            grid_xy = grid_ij
+                        all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                        data_loader.dataset.grid_reduce, v_s], dim=1))
 
-            loss = 0
-            for img_res, img_gt in zip(imgs_res, imgs_gt):
-                loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-            loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
-                   loss / len(imgs_gt) * self.alpha
-            losses += loss.item()
-            pred = (map_res > self.cls_thres).int().to(map_gt.device)
-            true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
-            false_positive = pred.sum().item() - true_positive
-            false_negative = map_gt.sum().item() - true_positive
-            precision = true_positive / (true_positive + false_positive + 1e-4)
-            recall = true_positive / (true_positive + false_negative + 1e-4)
-            precision_s.update(precision)
-            recall_s.update(recall)
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                        loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
 
-        t1 = time.time()
-        t_epoch = t1 - t0
+            if visualize:
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="output")
+                subplt1 = fig.add_subplot(212, title="target")
+                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                            .cpu().detach().numpy().squeeze())
+                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
+                plt.close(fig)
 
-        if visualize:
-            fig = plt.figure()
-            subplt0 = fig.add_subplot(211, title="output")
-            subplt1 = fig.add_subplot(212, title="target")
-            subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-            subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
-                           .cpu().detach().numpy().squeeze())
-            plt.savefig(os.path.join(self.logdir, 'map.jpg'))
-            plt.close(fig)
+                # visualizing the heatmap for per-view estimation
+                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
-            # visualizing the heatmap for per-view estimation
-            # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-            heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-            img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-            img0 = Image.fromarray((img0 * 255).astype('uint8'))
-            # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-            # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
-            foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-            foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
-        moda = 0
-        if res_fpath is not None:
-            all_res_list = torch.cat(all_res_list, dim=0)
-            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
-            res_list = []
-            for frame in np.unique(all_res_list[:, 0]):
-                res = all_res_list[all_res_list[:, 0] == frame, :]
-                positions, scores = res[:, 1:3], res[:, 3]
-                ids, count = nms(positions, scores, 20, np.inf)
-                res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
-            res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
-            np.savetxt(res_fpath, res_list, '%d')
+            moda = 0
+            moda_list = []
+            precision_list = []
+            recall_list = []
+            modp_list = []
+            if res_fpath is not None:
+                for i, cls_thres in enumerate(cls_thres_array):
+                    all_res_list_thres = all_res_list[str(cls_thres)]
+                    all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
+                    np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+                    res_list = []
+                    for frame in np.unique(all_res_list_thres[:, 0]):
+                        res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
+                        positions, scores = res[:, 1:3], res[:, 3]
+                        ids, count = nms(positions, scores, 20, np.inf)
+                        res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                    res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                    np.savetxt(res_fpath, res_list, '%d')
 
-            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                     data_loader.dataset.base.__name__)
+                    recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                                data_loader.dataset.base.__name__)
 
-            # If you want to use the unofiicial python evaluation tool for convenient purposes.
-            # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-            #                                             data_loader.dataset.base.__name__)
+                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                    #                                             data_loader.dataset.base.__name__)
+                    # print("cls_thres: ", cls_thres)
+                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    #         format(moda, modp, precision, recall))
+                    moda_list.append(moda)
+                    modp_list.append(modp)
+                    precision_list.append(precision)
+                    recall_list.append(recall)
 
-            print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                  format(moda, modp, precision, recall))
+                max_indx = np.argmax(moda_list)
+                moda = moda_list[max_indx]
+                modp = modp_list[max_indx]
+                precision = precision_list[max_indx]
+                recall = recall_list[max_indx]
+                max_cls_thres = cls_thres_array[max_indx]
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
+                        format(moda, modp, precision, recall, max_cls_thres))
 
-        print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
-            losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+            t1 = time.time()
+            t_epoch = t1 - t0
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-        return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+
+        else:
+            self.model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = []
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+                with torch.no_grad():
+                    map_res, imgs_res = self.model(data, proj_mats)
+                if res_fpath is not None:
+                    map_grid_res = map_res.detach().cpu().squeeze()
+                    v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
+                    grid_ij = (map_grid_res > self.cls_thres).nonzero()
+                    if data_loader.dataset.base.indexing == 'xy':
+                        grid_xy = grid_ij[:, [1, 0]]
+                    else:
+                        grid_xy = grid_ij
+                    all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                data_loader.dataset.grid_reduce, v_s], dim=1))
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                    loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > self.cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+
+            if visualize:
+                fig = plt.figure()
+                subplt0 = fig.add_subplot(211, title="output")
+                subplt1 = fig.add_subplot(212, title="target")
+                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                            .cpu().detach().numpy().squeeze())
+                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
+                plt.close(fig)
+
+                # visualizing the heatmap for per-view estimation
+                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
+
+            moda = 0
+            if res_fpath is not None:
+                all_res_list = torch.cat(all_res_list, dim=0)
+                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
+                res_list = []
+                for frame in np.unique(all_res_list[:, 0]):
+                    res = all_res_list[all_res_list[:, 0] == frame, :]
+                    positions, scores = res[:, 1:3], res[:, 3]
+                    ids, count = nms(positions, scores, 20, np.inf)
+                    res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                np.savetxt(res_fpath, res_list, '%d')
+
+                recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                        data_loader.dataset.base.__name__)
+
+                # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                #                                             data_loader.dataset.base.__name__)
+
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    format(moda, modp, precision, recall))
+
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
     
 
     @staticmethod

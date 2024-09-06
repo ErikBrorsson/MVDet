@@ -1604,12 +1604,140 @@ On 2,4,6->1,3,5, the labels also get sparse and performance reach almost 100% pr
 
 ### 5/9
 Since I've been unsuccessful in the weighted mse experiments, I should go back to the basics now with MVDet + avgpool, to see if it works similarly as MVDet.
-- baseline exps MVDet + avgpool + dropview + mvaug - persp.sup
+- ONGOING baseline exps MVDet + avgpool + dropview + mvaug - persp.sup (CAUTION, this exps used the version of MVaug that is compatible with softlabels.) starting another 260 to check for any difference. It doesn't make any significant difference. Seems like EITHER VERSION of MVAUG is okay.
+- ONGOING supervised baseline
 - UDA with standard pseudo-labels. Search for good thresholds on one or two benchmarks to see if I can boost performance this way.
 
+**generalization baseline**
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5.json)
+max_moda: 66.3%, max_modp: 68.9%, max_precision: 90.1%, max_recall: 74.5%, epoch: 11.0%
 
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,5,6-1,3,5,7.json)
+max_moda: 72.2%, max_modp: 71.1%, max_precision: 94.1%, max_recall: 77.0%, epoch: 13.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5-2,4,6.json)
+max_moda: 48.7%, max_modp: 58.6%, max_precision: 80.5%, max_recall: 64.3%, epoch: 9.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5,7-2,4,5,6.json)
+max_moda: 60.3%, max_modp: 65.4%, max_precision: 91.7%, max_recall: 66.3%, epoch: 11.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/multiviewx.json)
+max_moda: 50.4%, max_modp: 72.9%, max_precision: 96.7%, max_recall: 52.2%, epoch: 19.0%
+
+
+
+**supervised results**
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,6-1,3,5_supervised.json)
+max_moda: 79.5%, max_modp: 69.1%, max_precision: 96.0%, max_recall: 83.0%, epoch: 16.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/2,4,5,6-1,3,5,7_supervised.json)
+max_moda: 80.9%, max_modp: 72.9%, max_precision: 94.3%, max_recall: 86.1%, epoch: 17.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5-2,4,6_supervised.json)
+max_moda: 79.9%, max_modp: 69.2%, max_precision: 94.6%, max_recall: 84.8%, epoch: 16.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/1,3,5,7-2,4,5,6_supervised.json)
+max_moda: 85.1%, max_modp: 69.2%, max_precision: 94.6%, max_recall: 90.2%, epoch: 14.0%
+
+configs+=(configs/mvdet_avgpool_dropview_mvaug_nopersp/multiviewx_supervised.json)
+max_moda: 72.0%, max_modp: 70.6%, max_precision: 96.6%, max_recall: 74.6%, epoch: 19.0%
+
+
+Both the generalization baseline and the supervised baseline seems fine!
+
+
+
+Starting basic pseudo-label UDA exps
+
+**2,4,5,6 -> 1,3,5,7**
+from before avgpool, I had the below results  
+uda 20 epochs (all valid since UDA always started no later than epoch 10)
+max_moda: 78.7%, max_modp: 71.3%, max_precision: 96.1%, max_recall: 82.0%, epoch: 17.0%
+max_moda: 77.7%, max_modp: 71.7%, max_precision: 96.4%, max_recall: 80.8%, epoch: 13.0%
+max_moda: 79.6%, max_modp: 70.6%, max_precision: 95.8%, max_recall: 83.3%, epoch: 16.0%
+max_moda: 77.3%, max_modp: 70.6%, max_precision: 96.7%, max_recall: 80.0%, epoch: 18.0%
+max_moda: 78.5%, max_modp: 69.9%, max_precision: 95.9%, max_recall: 81.9%, epoch: 15.0%
+
+Now starting similar experiments with avgpool:
+slurm-2717646_x
+max_moda: 73.7%, max_modp: 64.6%, max_precision: 95.9%, max_recall: 77.0%, epoch: 13.0%
+max_moda: 73.6%, max_modp: 70.3%, max_precision: 97.0%, max_recall: 75.9%, epoch: 18.0%
+
+uda_persp_sup=True
+persp_sup = False
+max_moda: 73.3%, max_modp: 64.7%, max_precision: 95.9%, max_recall: 76.6%, epoch: 13.0%
+max_moda: 75.2%, max_modp: 71.4%, max_precision: 97.4%, max_recall: 77.3%, epoch: 18.0%
+
+uda_persp_sup=True
+persp_sup = True
+max_moda: 75.4%, max_modp: 65.1%, max_precision: 94.9%, max_recall: 79.7%, epoch: 13.0%
+max_moda: 74.1%, max_modp: 70.0%, max_precision: 93.8%, max_recall: 79.3%, epoch: 14.0%
+
+
+**2,4,6 -> 1,3,5**
+from before avgpool, I had the below results  
+max_moda: 74.9%, max_modp: 67.2,%, max_precision: 96.1%, max_recall: 78.0,%, epoch: 18.0% (2024-07-19_15-34-49-648126)    
+max_moda: 75.8%, max_modp: 65.1,%, max_precision: 94.3%, max_recall: 80.7,%, epoch: 16.0%  
+max_moda: 72.8%, max_modp: 66.3,%, max_precision: 97.1%, max_recall: 75.0,%, epoch: 15.0%  
+max_moda: 72.4%, max_modp: 59.8,%, max_precision: 95.0%, max_recall: 76.4,%, epoch: 19.0%  
+max_moda: 74.5%, max_modp: 60.7,%, max_precision: 95.7%, max_recall: 77.9,%, epoch: 13.0%  
+
+Now starting similar experiments with avgpool:
+slurm-2717650_x
+max_moda: 68.9%, max_modp: 66.5%, max_precision: 97.5%, max_recall: 70.7%, epoch: 12.0%
+max_moda: 68.0%, max_modp: 62.2%, max_precision: 97.0%, max_recall: 70.2%, epoch: 10.0%
+
+uda_persp_sup=True
+persp_sup = False
+max_moda: 69.9%, max_modp: 66.7%, max_precision: 97.6%, max_recall: 71.6%, epoch: 12.0%
+max_moda: 67.3%, max_modp: 63.0%, max_precision: 97.1%, max_recall: 69.4%, epoch: 10.0%
+
+uda_persp_sup=True
+persp_sup = True
+max_moda: 69.0%, max_modp: 65.6%, max_precision: 97.8%, max_recall: 70.6%, epoch: 11.0%
+max_moda: 67.5%, max_modp: 63.4%, max_precision: 96.7%, max_recall: 70.0%, epoch: 10.0%
+
+
+Above results are not near as good as I got with MVDet+UDA.
+How come?
+- persp supervision with pseudo-labels is critical? In above experiments, persp supervision doesnt make a huge difference
+- the dropview/permutation augmentation I did previously was better than the current one of some reason
+
+
+
+### 6/9
+Testing with MVDet + uda (old implementation before avgpool)  
+One difference from before is that I do "proper" dropview now, rather then setting values to zero.
+
+**2,4,5,6 -> 1,3,5,7**
+PREVIOUS RESULTS: max_moda: 78.7%, max_modp: 71.3%, max_precision: 96.1%, max_recall: 82.0%, epoch: 17.0%
+PREVIOUS RESULTS: max_moda: 77.7%, max_modp: 71.7%, max_precision: 96.4%, max_recall: 80.8%, epoch: 13.0%
+
+NEW RESULTS: max_moda: 77.6%, max_modp: 67.3%, max_precision: 95.7%, max_recall: 81.3%, epoch: 16.0%
+NEW RESULTS: max_moda: 78.2%, max_modp: 69.3%, max_precision: 97.1%, max_recall: 80.6%, epoch: 18.0%
+
+Simioar performance as before avgpool
+
+**2,4,6 -> 1,3,5**
+PREVIOUS RESULTS: max_moda: 74.9%, max_modp: 67.2,%, max_precision: 96.1%, max_recall: 78.0,%, epoch: 18.0% (2024-07-19_15-34-49-648126)    
+PREVIOUS RESULTS: max_moda: 75.8%, max_modp: 65.1,%, max_precision: 94.3%, max_recall: 80.7,%, epoch: 16.0% 
+ONGOING
+
+**1,3,5,7 -> 2,4,5,6**
+ONGOING
+PREVIOUS RESULTS: max_moda: 74.1%, max_modp: 62.3%, max_precision: 92.8%, max_recall: 80.3%, epoch: 15.0%  
+PREVIOUS RESULTS: max_moda: 75.6%, max_modp: 62.1%, max_precision: 93.8%, max_recall: 81.0%, epoch: 20.0% 
 
 
 # TODO
+Reasons why MVDet is more suited for UDA than GMVD is?
+- duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
+- gmvd mean makes self-training less effective
+To test the above, I could enable duplicate views also for GMVD. This would basically make it such that the mean becomes a weighted mean, with extra focus on different cameras. Sounds pretty good?
+I could also implement some of the following to extend GMVD's representation capabilities:
+GMVD min, max channels. Implement weighted fusion.Another channel that tells how many cameras contribute to the feature of that pixel?
+E.g., [mean, min, max, sum(indicators)]
 
-- check slurm-2717199_x baseline exps MVDet + avgpool + dropview + mvaug - persp.sup
+I should also start a larger hyperparameter search for gmvd. Could be that the ps-label threshold etc is just a bit off.
+
+Before the above, however, I would like to implement a evaluation script over different thresholds, such that the performance doesnt fluctuate as much during training, and gives a more reliable metric. 
