@@ -18,7 +18,7 @@ from multiview_detector.models.image_proj_variant import ImageProjVariant
 from multiview_detector.models.res_proj_variant import ResProjVariant
 from multiview_detector.models.no_joint_conv_variant import NoJointConvVariant
 from multiview_detector.utils.logger import Logger
-from multiview_detector.utils.draw_curve import draw_curve
+from multiview_detector.utils.draw_curve import draw_curve2
 from multiview_detector.utils.image_utils import img_color_denormalize
 from multiview_detector.trainer import PerspectiveTrainer, UDATrainer, Augmentation
 
@@ -177,10 +177,19 @@ def main(args):
     # draw curve
     x_epoch = []
     train_loss_s = []
-    train_prec_s = []
+    # train_prec_s = []
     test_loss_s = []
     test_prec_s = []
     test_moda_s = []
+    test_modp_s = []
+    test_recall_s = []
+
+    test_prec_s_04 = []
+    test_moda_s_04 = []
+    test_modp_s_04 = []
+    test_recall_s_04 = []
+    cls_thres_list_var= []
+    cls_thres_list_fix = []
 
     augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
 
@@ -248,7 +257,7 @@ def main(args):
         else:
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
-        test_loss, test_prec, moda, modp, precision, recall = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+        test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
                                                     train_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
 
         if moda >= max_moda:
@@ -267,12 +276,26 @@ def main(args):
 
         x_epoch.append(epoch)
         train_loss_s.append(train_loss)
-        train_prec_s.append(train_prec)
         test_loss_s.append(test_loss)
-        test_prec_s.append(test_prec)
-        test_moda_s.append(moda)
-        draw_curve(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, train_loss_s, train_prec_s,
-                    test_loss_s, test_prec_s, test_moda_s)
+
+        cls_thres_list_fix.append(cls_thres_fix)
+        test_prec_s_04.append(precision_04)
+        test_moda_s_04.append(moda_04)
+        test_modp_s_04.append(modp_04)
+        test_recall_s_04.append(recall_04)
+        draw_curve2(os.path.join(logdir, 'learning_curve_fixed_cls.jpg'), x_epoch, train_loss_s, test_loss_s,
+            test_moda_s, test_modp_s, test_prec_s, test_recall_s, cls_thres_list_fix)
+
+        if args.varying_cls_thres:
+            cls_thres_list_var.append(cls_thres_var)
+            test_prec_s.append(precision)
+            test_moda_s.append(moda)
+            test_modp_s.append(moda)
+            test_recall_s.append(moda)
+
+            draw_curve2(os.path.join(logdir, 'learning_curve_varying_cls.jpg'), x_epoch, train_loss_s, test_loss_s,
+                test_moda_s, test_modp_s, test_prec_s, test_recall_s, cls_thres_list_var)
+        
         
         print('max_moda: {:.1f}%, max_modp: {:.1f}%, max_precision: {:.1f}%, max_recall: {:.1f}%, epoch: {:.1f}%'.
                 format(max_moda, max_modp, max_precision, max_recall, best_epoch))

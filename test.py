@@ -18,7 +18,7 @@ from multiview_detector.models.image_proj_variant import ImageProjVariant
 from multiview_detector.models.res_proj_variant import ResProjVariant
 from multiview_detector.models.no_joint_conv_variant import NoJointConvVariant
 from multiview_detector.utils.logger import Logger
-from multiview_detector.utils.draw_curve import draw_curve
+from multiview_detector.utils.draw_curve import draw_curve2
 from multiview_detector.utils.image_utils import img_color_denormalize
 from multiview_detector.trainer import PerspectiveTrainer, Augmentation
 from multiview_detector.utils.meters import AverageMeter
@@ -69,6 +69,10 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
     precision_list = []
     recall_list = []
     modp_list = []
+    moda_04 = 0
+    modp_04 = 0
+    precision_04 = 0
+    recall_04 = 0
     if res_fpath is not None:
         for i, cls_thres in enumerate(cls_thres_array):
             all_res_list_thres = all_res_list[str(cls_thres)]
@@ -89,13 +93,19 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
             # If you want to use the unofiicial python evaluation tool for convenient purposes.
             # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
             #                                             data_loader.dataset.base.__name__)
-            # print("cls_thres: ", cls_thres)
-            # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-            #         format(moda, modp, precision, recall))
+            print("cls_thres: ", cls_thres)
+            print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    format(moda, modp, precision, recall))
             moda_list.append(moda)
             modp_list.append(modp)
             precision_list.append(precision)
             recall_list.append(recall)
+
+            if cls_thres == 0.4:
+                moda_04 = moda
+                modp_04 = modp
+                precision_04 = precision
+                recall_04 = recall
 
         max_indx = np.argmax(moda_list)
         moda = moda_list[max_indx]
@@ -105,13 +115,18 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         max_cls_thres = cls_thres_array[max_indx]
         print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
                 format(moda, modp, precision, recall, max_cls_thres))
+        
+        print("0.4 ##################")
+        print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
+                format(moda_04, modp_04, precision_04, recall_04, 0.4))
+        
 
     t1 = time.time()
     t_epoch = t1 - t0
     print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
         losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
-    return losses / len(data_loader), precision_s.avg * 100, moda, modp, precision, recall
+    return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
 
 
 
@@ -255,7 +270,31 @@ def main(args):
     #     trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     # else:
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
-    test(model, test_loader, np.arange(0.05, 0.95, 0.05), criterion, args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
+    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = test(model, test_loader, np.arange(0.05, 0.95, 0.05), criterion,
+                                                               args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
+
+
+    x_epoch = []
+    cls_thres_list = []
+    test_loss_s = []
+    test_prec_s = []
+    test_moda_s = []
+    test_modp_s = []
+    test_recall_s = []
+    for i in range(1, 4):
+        x_epoch.append(i)
+        test_loss_s.append(test_loss)
+        test_prec_s.append(precision)
+        test_moda_s.append(moda)
+        test_modp_s.append(modp)
+        test_recall_s.append(recall)
+        cls_thres_list.append(cls_thres_var)
+
+    draw_curve2(os.path.join(logdir, 'learning_curve.jpg'), x_epoch, test_loss_s, test_loss_s,
+                test_moda_s, test_modp_s, test_prec_s, test_recall_s, cls_thres_list)
+    
+
+
     # test(model, test_loader, [0.4], criterion, args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
 
 if __name__ == '__main__':
