@@ -1759,9 +1759,9 @@ PREVIOSU RESULTS:
 
 with varying threshld:
 max_moda: 68.4%, max_modp: 66.5%, max_precision: 90.8%, max_recall: 76.1%, epoch: 12.0%
-
+max_moda: 72.8%, max_modp: 69.2%, max_precision: 93.2%, max_recall: 78.6%, epoch: 20.0%
 max_moda: 49.8%, max_modp: 57.8%, max_precision: 84.0%, max_recall: 61.6%, epoch: 16.0%
-
+max_moda: 65.4%, max_modp: 64.7%, max_precision: 87.3%, max_recall: 76.6%, epoch: 7.0%
 max_moda: 55.1%, max_modp: 68.1%, max_precision: 88.2%, max_recall: 63.6%, epoch: 18.0%
 
 
@@ -1772,16 +1772,25 @@ previous results:
   max_moda: 67.5%, max_modp: 63.4%, max_precision: 96.7%, max_recall: 70.0%, epoch: 10.0%
 
 with varying threshold:
+max_moda: 71.3%, max_modp: 67.3%, max_precision: 94.7%, max_recall: 75.5%, epoch: 13.0%
+max_moda: 69.5%, max_modp: 63.4%, max_precision: 94.9%, max_recall: 73.5%, epoch: 10.0%
 
-ONGOIGN RERUN of uda **2,4,5,6 -> 1,3,5,7**
+
+ONGOIGN RERUN of uda **1,3,5,7 -> 2,4,5,6**
 PREVIOSU RESULTS 
-  max_moda: 75.4%, max_modp: 65.1%, max_precision: 94.9%, max_recall: 79.7%, epoch: 13.0%
-  max_moda: 74.1%, max_modp: 70.0%, max_precision: 93.8%, max_recall: 79.3%, epoch: 14.0%
-
+  max_moda: 60.5%, max_modp: 63.6%, max_precision: 86.6%, max_recall: 71.5%, epoch: 8.0%
+  max_moda: 72.1%, max_modp: 62.6%, max_precision: 90.4%, max_recall: 80.7%, epoch: 14.0%
 with varying thresold:
+max_moda: 62.5%, max_modp: 65.5%, max_precision: 87.8%, max_recall: 72.6%, epoch: 8.0%
+max_moda: 67.1%, max_modp: 64.6%, max_precision: 92.3%, max_recall: 73.2%, epoch: 8.0%
+
 
 
 # TODO
+1. Start uda exp more similar to what is done in previous uda OD. I.e., use high threshold (0.8) and plain pseudo-label supervision
+2. implement a "threshold-selector" that cheats and uses target gt to select the best pseudo-label threshold in each iteration.
+   1. This way, I can easily check whether uda results could be significantly improved if the correct threshold is used 
+
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
 - gmvd mean makes self-training less effective
@@ -1793,3 +1802,6 @@ E.g., [mean, min, max, sum(indicators)]
 I should also start a larger hyperparameter search for gmvd. Could be that the ps-label threshold etc is just a bit off.
 
 Before the above, however, I would like to implement a evaluation script over different thresholds, such that the performance doesnt fluctuate as much during training, and gives a more reliable metric. 
+
+
+
