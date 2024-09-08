@@ -1787,9 +1787,10 @@ max_moda: 67.1%, max_modp: 64.6%, max_precision: 92.3%, max_recall: 73.2%, epoch
 
 
 # TODO
-1. Start uda exp more similar to what is done in previous uda OD. I.e., use high threshold (0.8) and plain pseudo-label supervision
+1. ONGOING Start uda exp more similar to what is done in previous uda OD. I.e., use high threshold (0.8) and plain pseudo-label supervision
 2. implement a "threshold-selector" that cheats and uses target gt to select the best pseudo-label threshold in each iteration.
    1. This way, I can easily check whether uda results could be significantly improved if the correct threshold is used 
+3. implement "oracle UDA", where labels of source and target domain is available, but training is done like UDA (both src and trg in every batch)
 
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
