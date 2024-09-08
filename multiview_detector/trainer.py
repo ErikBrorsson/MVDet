@@ -1166,8 +1166,8 @@ class UDATrainer(BaseTrainer):
                 gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
                 gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
                 gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
-                gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy()
-                gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy()
+                gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.grid_reduce
+                gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.grid_reduce
 
                 # find the optimal (in moda sense) pseudo-label threshold for the current sample
                 best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
@@ -1185,9 +1185,9 @@ class UDATrainer(BaseTrainer):
                         continue
                     detAllMatrix = np.zeros((positions.shape[0], 4))
                     detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
-                    detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy()
-                    detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy()
-                    _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix)
+                    detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.grid_reduce
+                    detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.grid_reduce
+                    _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
                     if moda_i > best_moda:
                         best_moda = moda_i
                         best_th = varying_th
