@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, dataset, arch='resnet18', pretrained=False, avgpool=False):
+    def __init__(self, dataset, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False):
         super().__init__()
         self.num_cam = dataset.num_cam
         print("# cameras in model: ", self.num_cam)
@@ -19,6 +19,7 @@ class PerspTransDetector(nn.Module):
         self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
         self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
         self.avgpool = avgpool
+        self.avgpool_ext = avgpool_ext
 
         if arch == 'vgg11':
             base = vgg11().features
@@ -41,7 +42,10 @@ class PerspTransDetector(nn.Module):
                                             nn.Conv2d(64, 2, 1, bias=False)).to('cuda:0')
         
         if self.avgpool:
-            n_inputs_channels = out_channel + 2
+            if self.avgpool_ext:
+                n_inputs_channels = out_channel * 3 + 2
+            else:
+                n_inputs_channels = out_channel + 2
         else:
             n_inputs_channels = out_channel * self.num_cam + 2
 
@@ -130,8 +134,14 @@ class PerspTransDetector(nn.Module):
         if self.avgpool:
             world_features = [x.unsqueeze(0) for x in world_features]
             world_features = torch.cat(world_features, dim=1)
-            world_features = torch.mean(world_features, dim=1)    
-            world_features = torch.cat([world_features] + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            if self.avgpool_ext:
+                world_features_mean = torch.mean(world_features, dim=1)   
+                world_features_min = torch.min(world_features, dim=1)[0]   
+                world_features_max = torch.max(world_features, dim=1)[0]
+                world_features = torch.cat([world_features_mean] + [world_features_min] + [world_features_max]  + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            else: 
+                world_features = torch.mean(world_features, dim=1)    
+                world_features = torch.cat([world_features] + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
         else:
             world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
 

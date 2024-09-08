@@ -1785,11 +1785,38 @@ max_moda: 62.5%, max_modp: 65.5%, max_precision: 87.8%, max_recall: 72.6%, epoch
 max_moda: 67.1%, max_modp: 64.6%, max_precision: 92.3%, max_recall: 73.2%, epoch: 8.0%
 
 
+### 8/9
+- [x] Start uda exp more similar to what is done in previous uda OD. I.e., use high threshold (0.8) and plain pseudo-label supervision.
+  -  As expected, the preicision goes to ~100% while recall goes to 0%
+- [x] implement cheating "threshold-selector" and evaluate UDA with th-selector on different benchmarks
+  - 2,4,6->1,3,5
+    - ~77 moda GOOD
+  - 2,4,5,6->1,3,5,7
+    - 78.8 moda GOOD
+  - 1,3,5->2,4,6
+    - ~50 moda NOT GOOD
+  - 1,3,5,7->2,4,5,6
+    - ~76.3 GOOD
+  - multivewx
+    - 51 NOT GOOD
+- [x] implement uda oracle (using uda pipeline but with target domain labels instead of pseudo-labels)
+  - 2,4,6->1,3,5
+    - ongoing
+  - 2,4,5,6->1,3,5,7
+    - ongoing
+  - 1,3,5->2,4,6
+    - ongoing
+  - 1,3,5,7->2,4,5,6
+    - ongoing
+  - multivewx
+    - ongoing
+- [ ] implement gmvd min, max, mean
+  
+Even with ideal threhsold-selector, the results from 1,3,5->2,4,6 and wildtrack are unsatisfactory. 
+
+
 
 # TODO
-1. Start uda exp more similar to what is done in previous uda OD. I.e., use high threshold (0.8) and plain pseudo-label supervision
-2. implement a "threshold-selector" that cheats and uses target gt to select the best pseudo-label threshold in each iteration.
-   1. This way, I can easily check whether uda results could be significantly improved if the correct threshold is used 
 
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
@@ -1802,6 +1829,5 @@ E.g., [mean, min, max, sum(indicators)]
 I should also start a larger hyperparameter search for gmvd. Could be that the ps-label threshold etc is just a bit off.
 
 Before the above, however, I would like to implement a evaluation script over different thresholds, such that the performance doesnt fluctuate as much during training, and gives a more reliable metric. 
-
 
 

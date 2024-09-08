@@ -45,6 +45,7 @@
                 "2.0",
                 "--pseudo_label_th",
                 "0.5",
+                "--avgpool_ext"
                 // "--resume_model",
                 // "/mnt/default/2024-07-16_15-16-37-676024/MultiviewDetector.pth"
             ]

@@ -123,11 +123,11 @@ def main(args):
 
     # model
     if args.variant == 'default':
-        model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
+        model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
 
         if args.uda:
             # init ema model
-            ema_model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
+            ema_model = PerspTransDetector(train_set, args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
             for param in ema_model.parameters():
                 param.detach_()
             mp = list(model.parameters())
@@ -338,6 +338,7 @@ if __name__ == '__main__':
     parser.add_argument('--trg_cams', type=str, default=None)
     parser.add_argument('--alpha_teacher', type=float, default=0.99)
     parser.add_argument('--avgpool', action="store_true")
+    parser.add_argument('--avgpool_ext', action="store_true")
     parser.add_argument('--weighted_mse', action="store_true")
     parser.add_argument('--uda_persp_sup', action="store_true")
     parser.add_argument('--varying_cls_thres', action="store_true")
