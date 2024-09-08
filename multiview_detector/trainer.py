@@ -1175,14 +1175,14 @@ class UDATrainer(BaseTrainer):
                 moda_04 = 0
                 for varying_th in np.arange(0.05, 0.95, 0.05):
 
+                    scores = temp[temp > varying_th]
                     positions = (temp > varying_th).nonzero().float()
-                    if positions.shape[0] == 0: # continue if no detections
-                        continue
-                    if data_loader.dataset.base.indexing == 'xy':
-                        positions = positions[:, [1, 0]]
+                    if not torch.numel(positions) == 0:
+                        ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.grid_reduce, np.inf)
+                        positions = positions[ids[:count], :]
+                        scores = scores[ids[:count]]
                     else:
-                        positions = positions
-
+                        continue
                     detAllMatrix = np.zeros((positions.shape[0], 4))
                     detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
                     detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy()
@@ -1197,12 +1197,8 @@ class UDATrainer(BaseTrainer):
                 pseudo_label_th = best_th
                 scores = temp[temp > pseudo_label_th]
                 positions = (temp > pseudo_label_th).nonzero().float()
-                # if data_loader.dataset.base.indexing == 'xy':
-                #     positions = positions[:, [1, 0]]
-                # else:
-                #     positions = positions
                 if not torch.numel(positions) == 0:
-                    ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
+                    ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.grid_reduce, np.inf)
                     positions = positions[ids[:count], :]
                     scores = scores[ids[:count]]
                 map_pseudo_label = torch.zeros_like(map_pred_teacher)
@@ -1215,7 +1211,7 @@ class UDATrainer(BaseTrainer):
                     
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                if data_loader.dataset.base.indexing == 'xy':
+                if data_loader_target.dataset.base.indexing == 'xy':
                     positions = positions[:, [1, 0]]
                 else:
                     positions = positions
