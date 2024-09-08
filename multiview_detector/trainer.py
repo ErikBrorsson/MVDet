@@ -1162,50 +1162,52 @@ class UDATrainer(BaseTrainer):
             temp = map_pred_teacher.detach().cpu().squeeze()
 
             if not self.soft_labels:
-                scores = temp[temp > pseudo_label_th]
-                positions = (temp > pseudo_label_th).nonzero().float()
+                # scores = temp[temp > pseudo_label_th]
+                # positions = (temp > pseudo_label_th).nonzero().float()
+                # # if data_loader.dataset.base.indexing == 'xy':
+                # #     positions = positions[:, [1, 0]]
+                # # else:
+                # #     positions = positions
+                # if not torch.numel(positions) == 0:
+                #     ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
+                #     positions = positions[ids[:count], :]
+                #     scores = scores[ids[:count]]
+                # map_pseudo_label = torch.zeros_like(map_pred_teacher)
+                # for pos in positions:
+                #     map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                
+                # if self.weighted_mse:
+                #     filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                #     map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
+                    
+
+                # # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
                 # if data_loader.dataset.base.indexing == 'xy':
                 #     positions = positions[:, [1, 0]]
                 # else:
                 #     positions = positions
-                if not torch.numel(positions) == 0:
-                    ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.grid_reduce, np.inf)
-                    positions = positions[ids[:count], :]
-                    scores = scores[ids[:count]]
-                map_pseudo_label = torch.zeros_like(map_pred_teacher)
-                for pos in positions:
-                    map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
-                
-                if self.weighted_mse:
-                    filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
-                    map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
-                    
+                # imgs_pseudo_labels = []
+                # if self.uda_persp_sup:
+                #     for cam in self.target_cameras:
+                #         img_pseudo_label = torch.zeros(img_gt_shape)
 
-                # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                if data_loader.dataset.base.indexing == 'xy':
-                    positions = positions[:, [1, 0]]
-                else:
-                    positions = positions
-                imgs_pseudo_labels = []
-                if self.uda_persp_sup:
-                    for cam in self.target_cameras:
-                        img_pseudo_label = torch.zeros(img_gt_shape)
+                #         for grid_pos in positions:
+                #             pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
+                #             bbox = self.pom[pos.item()][cam]
+                #             if bbox is None:
+                #                 continue                    
+                #             foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                #             head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                #             img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                #             img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
 
-                        for grid_pos in positions:
-                            pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
-                            bbox = self.pom[pos.item()][cam]
-                            if bbox is None:
-                                continue                    
-                            foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
-                            head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                            img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
-                            img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
+                #         imgs_pseudo_labels.append(img_pseudo_label)
+                # else:
+                #     for cam in self.target_cameras:
+                #         imgs_pseudo_labels.append(None)
 
-                        imgs_pseudo_labels.append(img_pseudo_label)
-                else:
-                    for cam in self.target_cameras:
-                        imgs_pseudo_labels.append(None)
-
+                imgs_pseudo_labels = imgs_gt_target
+                map_pseudo_label = map_gt_target
                 # apply augmentation to target images and pseudo-labels prior to student training
                 data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)

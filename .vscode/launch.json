@@ -38,7 +38,7 @@
                 "0.5",
                 "--target_weight_end",
                 "0.9",
-                "--weighted_mse",
+                // "--weighted_mse",
                 "--low_th",
                 "0.05",
                 "--high_th",
