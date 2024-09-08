@@ -43,6 +43,7 @@ class PerspTransDetector(nn.Module):
         
         if self.avgpool:
             if self.avgpool_ext:
+                print("using GMVD with Mean, max, min")
                 n_inputs_channels = out_channel * 3 + 2
             else:
                 n_inputs_channels = out_channel + 2
