@@ -16,18 +16,19 @@ class frameDataset(VisionDataset):
 
         map_sigma, map_kernel_size = 20 / grid_reduce, 20
         img_sigma, img_kernel_size = 10 / img_reduce, 10
+        
         self.reID, self.grid_reduce, self.img_reduce = reID, grid_reduce, img_reduce
 
         self.base = base
-        self.root, self.num_cam, self.num_frame = base.root, base.num_cam, base.num_frame
+        self.root, self.num_cam, self.num_frames, self.indexing = base.root, base.num_cam, base.num_frames, base.indexing
         self.cameras = base.cameras
-        self.img_shape, self.worldgrid_shape = base.img_shape, base.worldgrid_shape  # H,W; N_row,N_col
-        self.reducedgrid_shape = list(map(lambda x: int(x / self.grid_reduce), self.worldgrid_shape))
+        self.img_shape, self.world_grid_shape = base.img_shape, base.world_grid_shape  # H,W; N_row,N_col
+        self.reducedgrid_shape = list(map(lambda x: int(x / self.grid_reduce), self.world_grid_shape))
 
         if train:
-            frame_range = range(0, int(self.num_frame * train_ratio))
+            frame_range = range(0, int(self.num_frames * train_ratio))
         else:
-            frame_range = range(int(self.num_frame * train_ratio), self.num_frame)
+            frame_range = range(int(self.num_frames * train_ratio), self.num_frames)
 
         self.img_fpaths = self.base.get_image_fpaths(frame_range)
         self.map_gt = {}
@@ -254,15 +255,15 @@ def test():
         world_coords = get_worldcoord_from_imagecoord(image_coords.transpose(), dataset.base.intrinsic_matrices[cam],
                                                       dataset.base.extrinsic_matrices[cam])
         world_grids = dataset.base.get_worldgrid_from_worldcoord(world_coords).transpose().reshape([H, W, 2])
-        world_grid_map = np.zeros(dataset.worldgrid_shape)
+        world_grid_map = np.zeros(dataset.world_grid_shape)
         for i in range(H):
             for j in range(W):
                 x, y = world_grids[i, j]
                 if dataset.base.indexing == 'xy':
-                    if x in range(dataset.worldgrid_shape[1]) and y in range(dataset.worldgrid_shape[0]):
+                    if x in range(dataset.world_grid_shape[1]) and y in range(dataset.world_grid_shape[0]):
                         world_grid_map[int(y), int(x)] += 1
                 else:
-                    if x in range(dataset.worldgrid_shape[0]) and y in range(dataset.worldgrid_shape[1]):
+                    if x in range(dataset.world_grid_shape[0]) and y in range(dataset.world_grid_shape[1]):
                         world_grid_map[int(x), int(y)] += 1
         world_grid_map = world_grid_map != 0
         plt.imshow(world_grid_map)

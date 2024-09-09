@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import xml.etree.ElementTree as ET
 import re
+import json
 from torchvision.datasets import VisionDataset
 
 intrinsic_camera_matrix_filenames = ['intr_Camera1.xml', 'intr_Camera2.xml', 'intr_Camera3.xml', 'intr_Camera4.xml',
@@ -12,22 +13,41 @@ extrinsic_camera_matrix_filenames = ['extr_Camera1.xml', 'extr_Camera2.xml', 'ex
 
 
 class MultiviewX(VisionDataset):
-    def __init__(self, root, cameras=[1,2,3,4,5,6]):
+    def __init__(self, root, cameras=None):#[1,2,3,4,5,6]):
         super().__init__(root)
-        # MultiviewX has xy-indexing: H*W=640*1000, thus x is \in [0,1000), y \in [0,640)
-        # MultiviewX has consistent unit: meter (m) for calibration & pos annotation
+
+        self.root = root
+        self.gt_fname = os.path.join(self.root,'gt.txt')
         self.__name__ = 'MultiviewX'
-        self.img_shape, self.worldgrid_shape = [1080, 1920], [640, 1000]  # H,W; N_row,N_col
-        self.num_frame = 400
-        self.cameras = [x - 1 for x in cameras] # in the code, the camera index is sometimes used to reference the position in a list => need range 0-6 instead of 1-7
-        self.num_cam = len(self.cameras)
-        # x,y correspond to w,h
+        with open(os.path.join(self.root,'config.json'), 'r') as f:
+            config = json.load(f)
+        self.num_cam, self.num_frames = config['num_cam'], config['num_frames']
+        self.dataset_name = config['Dataset']
+        self.img_shape, self.world_grid_shape = config['img_shape'], config['grid_shape']
+        self.grid_cell, self.origin = config['grid_cell'], config['origin']
+        self.region_size = config['region_size'] 
         self.indexing = 'xy'
-        # convert x,y to i,j, then use i,j for world map indexing
-        self.worldgrid2worldcoord_mat = np.array([[0, 0.025, 0], [0.025, 0, 0], [0, 0, 1]])
+        self.worldgrid2worldcoord_mat = np.array([[0,self.grid_cell, self.origin[0]], [self.grid_cell, 0, self.origin[1]], [0, 0, 1]])
+
+        if cameras is not None:
+            self.cameras = [x - 1 for x in cameras] # in the code, the camera index is sometimes used to reference the position in a list => need range 0-6 instead of 1-7
+            self.num_cam = len(self.cameras)
+        else:
+            self.cameras = [x for x in range(self.num_cam)]
+
         self.intrinsic_matrices, self.extrinsic_matrices = {}, {}
         for cam in self.cameras:
             self.intrinsic_matrices[cam], self.extrinsic_matrices[cam] = self.get_intrinsic_extrinsic_matrix(cam)
+
+        print(self.root)
+        print(f'Dataset Name : {self.dataset_name}')
+        print(f'Cameras : {self.num_cam}, Frames : {self.num_frames}')
+        print(f'Image Shape(H,W) : {self.img_shape}')
+        print(f'Grid Shape(rows,cols) : {self.world_grid_shape}')
+        print(f'Grid Cell(in cm) : {self.grid_cell}cm i.e {self.grid_cell/100}m')
+        print(f'Grid Origin(x,y) : {self.origin}')
+        print(f'Area/Region size(in m) : {self.region_size[0]}m x {self.region_size[1]}m')
+        
         
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}

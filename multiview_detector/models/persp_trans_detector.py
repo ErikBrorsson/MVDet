@@ -11,13 +11,19 @@ import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, dataset, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False):
+    def __init__(self, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False, num_cam = None):
         super().__init__()
-        self.num_cam = dataset.num_cam
-        print("# cameras in model: ", self.num_cam)
-        self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
-        self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
-        self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
+        # self.num_cam = dataset.num_cam
+        # print("# cameras in model: ", self.num_cam)
+        # self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
+        # self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
+        # self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
+
+        if num_cam is None:
+            self.num_cam = 8
+        else:
+            self.num_cam = num_cam
+
         self.avgpool = avgpool
         self.avgpool_ext = avgpool_ext
 
@@ -57,9 +63,16 @@ class PerspTransDetector(nn.Module):
         pass
 
 
-    def forward(self, imgs, proj_mats, visualize=False):
+    def forward(self, imgs, proj_mats, config_dict, visualize=False):
         B, N, C, H, W = imgs.shape
         
+        # num_cam = config_dict['num_cam']
+        upsample_shape = config_dict['upsample_shape']
+        reducedgrid_shape = config_dict['reducedgrid_shape']
+        # img_reduce = config_dict['img_reduce']
+        # proj_mats = config_dict['proj_mats']
+        coord_map = config_dict['coord_map']
+
         if not self.avgpool:
             assert N == self.num_cam
         # assert N <= self.num_cam, "the number of input views to the model must be no more than the maximum number of views that the model is designed for"
@@ -105,14 +118,14 @@ class PerspTransDetector(nn.Module):
         for i in range(N):
             img_feature = self.base_pt1(imgs[:, i].to('cuda:0'))
             img_feature = self.base_pt2(img_feature.to('cuda:0'))
-            img_feature = F.interpolate(img_feature, self.upsample_shape, mode='bilinear')
+            img_feature = F.interpolate(img_feature, upsample_shape, mode='bilinear')
             img_res = self.img_classifier(img_feature.to('cuda:0'))
             imgs_result.append(img_res)
             proj_mat = proj_mats[i].repeat([B, 1, 1]).float().to('cuda:0')
 
             # here, the proj_mat has been constructed for a specific grid (output) and image (input) size.
             # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
-            world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, self.reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             if visualize:
                 fig = plt.figure(figsize=(16,9))
                 subplt0 = fig.add_subplot(211, title="img_features")
@@ -127,7 +140,7 @@ class PerspTransDetector(nn.Module):
                 # plt.show()
 
                 view_indicator = torch.ones_like(img_feature)
-                view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, self.reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+                view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
                 view_indicator_list.append(view_indicator.to('cuda:0'))
 
             world_features.append(world_feature.to('cuda:0'))
@@ -139,12 +152,12 @@ class PerspTransDetector(nn.Module):
                 world_features_mean = torch.mean(world_features, dim=1)   
                 world_features_min = torch.min(world_features, dim=1)[0]   
                 world_features_max = torch.max(world_features, dim=1)[0]
-                world_features = torch.cat([world_features_mean] + [world_features_min] + [world_features_max]  + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+                world_features = torch.cat([world_features_mean] + [world_features_min] + [world_features_max]  + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
             else: 
                 world_features = torch.mean(world_features, dim=1)    
-                world_features = torch.cat([world_features] + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+                world_features = torch.cat([world_features] + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
         else:
-            world_features = torch.cat(world_features + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            world_features = torch.cat(world_features + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
 
         if visualize:
             fig = plt.figure(figsize=(16,9))
@@ -153,7 +166,7 @@ class PerspTransDetector(nn.Module):
             plt.savefig(f"iall_bev_features.jpg")
             plt.close(fig)
 
-            view_indicators = torch.cat(view_indicator_list + [self.coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            view_indicators = torch.cat(view_indicator_list + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
 
             fig = plt.figure(
                 
@@ -168,7 +181,7 @@ class PerspTransDetector(nn.Module):
             plt.close(fig)
             
         map_result = self.map_classifier(world_features.to('cuda:0'))
-        map_result = F.interpolate(map_result, self.reducedgrid_shape, mode='bilinear')
+        map_result = F.interpolate(map_result, reducedgrid_shape, mode='bilinear')
 
         if visualize:
             fig = plt.figure(figsize=(16,9))

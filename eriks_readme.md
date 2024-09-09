@@ -1,7 +1,7 @@
 # commands
 docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -w /code mvdet
 
-docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/mnts/mnt0:/mnt -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -w /code mvdet
+docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/mnts/mnt0:/mnt -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -v /home/gpss1/remote/datasets/MultiviewX:/data/MultiviewX -w /code mvdet
 
 python main.py -d wildtrack --data_path /data/Wildtrack 
 python main.py -d multiviewx --data_path /data/MultiviewX 
@@ -1801,33 +1801,44 @@ max_moda: 67.1%, max_modp: 64.6%, max_precision: 92.3%, max_recall: 73.2%, epoch
     - 51 NOT GOOD
 - [x] implement uda oracle (using uda pipeline but with target domain labels instead of pseudo-labels)
   - 2,4,6->1,3,5
-    - ongoing
+    - 82.2
   - 2,4,5,6->1,3,5,7
-    - ongoing
+    - 82.2
   - 1,3,5->2,4,6
-    - ongoing
+    - 79.8
   - 1,3,5,7->2,4,5,6
-    - ongoing
+    - 85.2
   - multivewx
-    - ongoing
-- [ ] implement gmvd min, max, mean
+    - 67.0
+- [x] implement gmvd min, max, mean, ONGOING baseline exps on slurm 2743074. Compare with pervious baseline results above (with varying thresholds)
+  - 2,4,6->1,3,5
+    - 68.4% -> 71.5
+  - 2,4,5,6->1,3,5,7
+    - 72.8% -> 76.5
+  - 1,3,5->2,4,6
+    - 49.8% -> 47.4
+  - 1,3,5,7->2,4,5,6
+    - 65.4% -> 67.0
+  - multivewx
+    - 55.1% -> 55.7
   
-Even with ideal threhsold-selector, the results from 1,3,5->2,4,6 and wildtrack are unsatisfactory. 
+- Even with ideal threhsold-selector, the results from 1,3,5->2,4,6 and wildtrack are unsatisfactory. 
+- UDA oracle performs similarly as standard oracle (only using target data)
+- gmvd min,max,mean seems to perform slightly better than gmvd. Although, it didnt help on the two benchmarks that I'm struggling with (1,3,5->2,4,5 and multiviewx)
 
-
+Exps from threshold-selector suggests that impressive uda results can be achieved on 3/5 benchmarks if I manage to tune the ps-label-threshold reasonably.
+However, there will of course be a drop in performance when I create a real th-selector, since it will not be perfect.
+Considering that the cheat selector doesn't work on 2/5 benchmarks, I would like to do experiments on GMVD benchmark before digging in to this.
+Could be that my model works well on 6->6 camera adaptation, and then I may not need to do any more changes, but rather publish asap.
 
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
-- gmvd mean makes self-training less effective
 To test the above, I could enable duplicate views also for GMVD. This would basically make it such that the mean becomes a weighted mean, with extra focus on different cameras. Sounds pretty good?
-I could also implement some of the following to extend GMVD's representation capabilities:
-GMVD min, max channels. Implement weighted fusion.Another channel that tells how many cameras contribute to the feature of that pixel?
-E.g., [mean, min, max, sum(indicators)]
 
-I should also start a larger hyperparameter search for gmvd. Could be that the ps-label threshold etc is just a bit off.
 
-Before the above, however, I would like to implement a evaluation script over different thresholds, such that the performance doesnt fluctuate as much during training, and gives a more reliable metric. 
+- exps on GMVD dataset. GMVD scene 1 -> multiviewx, GMVD scene 1 -> scene 5, multiviewx -> GMVD scene 5
+
 
 
