@@ -76,6 +76,31 @@ def main(args):
         #     # path = os.path.expanduser(str(data_row[1]))
         #     path = os.path.join(data_root, str(data_row[1]))
         #     if data_row[1].split('/')[-1]!='Wildtrack':
+        #         base = MultiviewX(path, False, [], [])
+        #     else:
+        #         base = Wildtrack(path, False, [], [])
+        #     if data_row[0]=='train':
+        #         # Train data
+        #         dataset_obj = GetDataset(base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4, train_ratio=train_ratio, sample_require=sample_require)
+        #         train_dataset_list.append(dataset_obj)
+        # train_dataset = ConcatDataset(*train_dataset_list)
+
+        # # set gmvd train as source dataset
+        # print("\nTraining datasets source")
+        # data_root = args.data_path
+        # train_dataset_list = []
+        # print(os.path.join(data_root,'train_datapath.csv'))
+        # f = open(os.path.join(data_root,'train_datapath.csv'))
+        #     #data_path = f.readlines()
+        # data_path = csv.reader(f)
+        # #for i in range(len(data_path)):
+        # for i,data_row in enumerate(data_path):
+        #     #print(data_row[1])
+        #     train_ratio = float(data_row[2])
+        #     sample_require = int(data_row[3])
+        #     # path = os.path.expanduser(str(data_row[1]))
+        #     path = os.path.join(data_root, str(data_row[1]))
+        #     if data_row[1].split('/')[-1]!='Wildtrack':
         #         base = MultiviewX(path)
         #     else:
         #         base = Wildtrack(path)
