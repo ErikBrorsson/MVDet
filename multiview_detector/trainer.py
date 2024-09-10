@@ -1082,8 +1082,8 @@ class UDATrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, ((data, map_gt, imgs_gt, _, _, _, _, _, proj_mats_mvaug_features_src),
-                        (data_target, map_gt_target, imgs_gt_target, _, _, _, _, _, proj_mats_mvaug_features_trg)) in enumerate(zip(data_loader, data_loader_target)):
+        for batch_idx, ((data, map_gt, imgs_gt, _, _, _, _, _, proj_mats_mvaug_features_src, dataset_name),
+                        (data_target, map_gt_target, imgs_gt_target, _, _, _, _, _, proj_mats_mvaug_features_trg, dataset_name_trg)) in enumerate(zip(data_loader, data_loader_target)):
 
             img_gt_shape = imgs_gt[0].shape
 
@@ -1100,7 +1100,7 @@ class UDATrainer(BaseTrainer):
                     data, imgs_gt, proj_mats_source = self.duplicate_images(data, imgs_gt, proj_mats_source)
 
 
-            config_dict = data_loader.dataset.dicts["/data/MultiviewX"]
+            config_dict = data_loader.dataset.dicts[dataset_name[0]]
             map_res, imgs_res = self.model(data, proj_mats_source, config_dict)
             t_f = time.time()
             t_forward += t_f - t_b
@@ -1108,10 +1108,10 @@ class UDATrainer(BaseTrainer):
             if self.persp_sup:
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
                     if img_gt is not None: # may be none if using dropview augmentation
-                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].img_kernel)
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
                 loss = loss / len([x for x in imgs_gt if x is not None]) * self.alpha
 
-            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
             loss.backward()
             # optimizer.step()
             losses += loss.item()
@@ -1137,7 +1137,7 @@ class UDATrainer(BaseTrainer):
                     subplt0 = fig.add_subplot(311, title="student output")
                     subplt1 = fig.add_subplot(312, title="label")
                     subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+                    subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze())
                     plt.savefig(os.path.join(epoch_dir, f'train_source_map_{batch_idx}.jpg'))
                     plt.close(fig)
@@ -1159,7 +1159,7 @@ class UDATrainer(BaseTrainer):
                     if N < self.model.num_cam:
                         data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
-                config_dict = data_loader_target.dataset.dicts["/data/MultiviewX"]
+                config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
                 map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
             temp = map_pred_teacher.detach().cpu().squeeze()
 
@@ -1171,7 +1171,7 @@ class UDATrainer(BaseTrainer):
                 # else:
                 #     positions = positions
                 if not torch.numel(positions) == 0:
-                    ids, count = nms(positions.float(), scores, 20 / data_loader.dataset.dicts["/data/MultiviewX"]['base'].grid_reduce, np.inf)
+                    ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
                     positions = positions[ids[:count], :]
                     scores = scores[ids[:count]]
                 map_pseudo_label = torch.zeros_like(map_pred_teacher)
@@ -1184,7 +1184,7 @@ class UDATrainer(BaseTrainer):
                     
 
                 # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                if data_loader.dataset.dicts["/data/MultiviewX"]['base'].indexing == 'xy':
+                if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                     positions = positions[:, [1, 0]]
                 else:
                     positions = positions
@@ -1219,19 +1219,19 @@ class UDATrainer(BaseTrainer):
                         data_student, _, proj_mats_student = self.duplicate_images(data_student, None, proj_mats_student)
 
                 # student predict and compute loss
-                config_dict = data_loader_target.dataset.dicts["/data/MultiviewX"]
+                config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
                 map_res_target, imgs_res_target = self.model(data_student, proj_mats_student, config_dict)
                 loss = 0
                 for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                     if not img_pseudo_label is None:
-                        loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts["/data/MultiviewX"]["base"].img_kernel)
+                        loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].img_kernel)
                 if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
                     loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
 
                 if self.weighted_mse:
-                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts["/data/MultiviewX"]["base"].map_kernel, map_pseudo_label_weight)
+                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel, map_pseudo_label_weight)
                 else:                    
-                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts["/data/MultiviewX"]["base"].map_kernel)
+                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel)
             else:
                 # apply augmentation to target images and pseudo-labels prior to student training
                 map_pseudo_label = map_pred_teacher
@@ -1282,13 +1282,13 @@ class UDATrainer(BaseTrainer):
                         subplt4 = fig.add_subplot(515, title="pseudo-label weight")
                         subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
                     subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+                    subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze())
                     if self.soft_labels:
                         subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
                                 .cpu().detach().numpy().squeeze())
                     else:
-                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
                     subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
                     epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
@@ -1304,7 +1304,7 @@ class UDATrainer(BaseTrainer):
 
                         pseudo_view1 = img_pseudo_label
                         pred_view1 = imgs_res_target[cam_indx]
-                        pseudo_view1 = self.criterion._traget_transform(pred_view1, pseudo_view1, data_loader_target.dataset.dicts["/data/MultiviewX"]['base'].img_kernel).cpu().detach().numpy().squeeze()
+                        pseudo_view1 = self.criterion._traget_transform(pred_view1, pseudo_view1, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].img_kernel).cpu().detach().numpy().squeeze()
                         pseudo_view1_head = pseudo_view1[0]
                         pseudo_view1_foot = pseudo_view1[1]
 
@@ -1354,7 +1354,7 @@ class UDATrainer(BaseTrainer):
             t0 = time.time()
             if res_fpath is not None:
                 assert gt_fpath is not None
-            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 with torch.no_grad():
                     map_res, imgs_res = self.model(data, proj_mats)
                 if res_fpath is not None:
@@ -1362,17 +1362,17 @@ class UDATrainer(BaseTrainer):
                         map_grid_res = map_res.detach().cpu().squeeze()
                         v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
                         grid_ij = (map_grid_res > cls_thres).nonzero()
-                        if data_loader.dataset.dicts["/data/MultiviewX"]['base'].indexing == 'xy':
+                        if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                             grid_xy = grid_ij[:, [1, 0]]
                         else:
                             grid_xy = grid_ij
                         all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                                        data_loader.dataset.dicts["/data/MultiviewX"]['base'].grid_reduce, v_s], dim=1))
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
 
                 loss = 0
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
-                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].img_kernel)
-                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel) + \
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
                         loss / len(imgs_gt) * self.alpha
                 losses += loss.item()
                 pred = (map_res > cls_thres).int().to(map_gt.device)
@@ -1389,7 +1389,7 @@ class UDATrainer(BaseTrainer):
                 subplt0 = fig.add_subplot(211, title="output")
                 subplt1 = fig.add_subplot(212, title="target")
                 subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                             .cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(self.logdir, 'map.jpg'))
                 plt.close(fig)
@@ -1429,7 +1429,7 @@ class UDATrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                                data_loader.dataset.dicts["/data/MultiviewX"]['base'].__name__)
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -1479,17 +1479,17 @@ class UDATrainer(BaseTrainer):
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
                     grid_ij = (map_grid_res > self.cls_thres).nonzero()
-                    if data_loader.dataset.dicts["/data/MultiviewX"]['base'].indexing == 'xy':
+                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                         grid_xy = grid_ij[:, [1, 0]]
                     else:
                         grid_xy = grid_ij
                     all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                                data_loader.dataset.dicts["/data/MultiviewX"]['base'].grid_reduce, v_s], dim=1))
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
 
                 loss = 0
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
-                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].img_kernel)
-                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel) + \
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
                     loss / len(imgs_gt) * self.alpha
                 losses += loss.item()
                 pred = (map_res > self.cls_thres).int().to(map_gt.device)
@@ -1509,7 +1509,7 @@ class UDATrainer(BaseTrainer):
                 subplt0 = fig.add_subplot(211, title="output")
                 subplt1 = fig.add_subplot(212, title="target")
                 subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts["/data/MultiviewX"]['base'].map_kernel)
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                             .cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(self.logdir, 'map.jpg'))
                 plt.close(fig)
@@ -1538,7 +1538,7 @@ class UDATrainer(BaseTrainer):
                 np.savetxt(res_fpath, res_list, '%d')
 
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                        data_loader.dataset.dicts["/data/MultiviewX"]['base'].__name__)
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
 
                 # If you want to use the unofiicial python evaluation tool for convenient purposes.
                 # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),

@@ -212,7 +212,7 @@ class frameDataset(VisionDataset):
             
             
 
-        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features
+        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features, self.root
 
     def __len__(self):
         return len(self.map_gt.keys())
