@@ -1474,7 +1474,8 @@ class UDATrainer(BaseTrainer):
                 assert gt_fpath is not None
             for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 with torch.no_grad():
-                    map_res, imgs_res = self.model(data, proj_mats)
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
