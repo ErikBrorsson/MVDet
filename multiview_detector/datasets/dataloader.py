@@ -52,14 +52,23 @@ class GetDataset(VisionDataset):
         ############ Cam set Selection ############
         #frame_range = range(0,self.num_frames) 
         ###########################################
-        self.img_fpath = self.base.get_image_paths(frame_range)
+        self.img_fpath = self.base.get_image_fpaths(frame_range)
   
         # gt_map initialization 
         self.gt_map = {}
         self.download(frame_range)
 
 
-    def download(self, frame_range):
+        imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(self.base.intrinsic_matrices,
+                                                                           self.base.extrinsic_matrices,
+                                                                           self.base.worldgrid2worldcoord_mat)
+        map_zoom_mat = np.diag(np.append(np.ones([2]) / self.grid_reduce, [1]))
+        img_zoom_mat = np.diag(np.array([self.img_reduce, self.img_reduce, 1]))        
+        self.proj_mats_mvaug_features = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
+                          for cam in self.cameras}
+
+
+    def download_old(self, frame_range):
         for fname in sorted(os.listdir(os.path.join(self.root, 'annotations_positions'))):
             frame = int(fname.split('.')[0])
             if frame in frame_range:
@@ -80,6 +89,48 @@ class GetDataset(VisionDataset):
                 occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
                 self.gt_map[frame] = occupancy_map
 
+    def download(self, frame_range):
+        for fname in sorted(os.listdir(os.path.join(self.root, 'annotations_positions'))):
+            frame = int(fname.split('.')[0])
+            if frame in frame_range:
+                with open(os.path.join(self.root, 'annotations_positions', fname)) as json_file:
+                    all_pedestrians = json.load(json_file)
+                i_s, j_s, v_s = [], [], []
+                head_row_cam_s, head_col_cam_s = {cam:[] for cam in self.cameras}, \
+                                                 {cam:[] for cam in self.cameras}
+                foot_row_cam_s, foot_col_cam_s, v_cam_s = {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}
+                for single_pedestrian in all_pedestrians:
+                    x, y = self.base.get_worldgrid_from_pos(single_pedestrian['positionID'])
+                    if self.base.indexing == 'xy':
+                        i_s.append(int(y / self.grid_reduce))
+                        j_s.append(int(x / self.grid_reduce))
+                    else:
+                        i_s.append(int(x / self.grid_reduce))
+                        j_s.append(int(y / self.grid_reduce))
+                    v_s.append(single_pedestrian['personID'] + 1 if self.reID else 1)
+                    for cam in self.cameras:
+                        x = max(min(int((single_pedestrian['views'][cam]['xmin'] +
+                                         single_pedestrian['views'][cam]['xmax']) / 2), self.img_shape[1] - 1), 0)
+                        y_head = max(single_pedestrian['views'][cam]['ymin'], 0)
+                        y_foot = min(single_pedestrian['views'][cam]['ymax'], self.img_shape[0] - 1)
+                        if x > 0 and y > 0:
+                            head_row_cam_s[cam].append(y_head)
+                            head_col_cam_s[cam].append(x)
+                            foot_row_cam_s[cam].append(y_foot)
+                            foot_col_cam_s[cam].append(x)
+                            v_cam_s[cam].append(single_pedestrian['personID'] + 1 if self.reID else 1)
+                occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
+                self.map_gt[frame] = occupancy_map
+                self.imgs_head_foot_gt[frame] = {}
+                for cam in self.cameras:
+                    img_gt_head = coo_matrix((v_cam_s[cam], (head_row_cam_s[cam], head_col_cam_s[cam])),
+                                             shape=self.img_shape)
+                    img_gt_foot = coo_matrix((v_cam_s[cam], (foot_row_cam_s[cam], foot_col_cam_s[cam])),
+                                             shape=self.img_shape)
+                    self.imgs_head_foot_gt[frame][cam] = [img_gt_head, img_gt_foot]
+
     def __getitem__(self, index):
         frame = list(self.gt_map.keys())[index]
         imgs = []
@@ -97,8 +148,25 @@ class GetDataset(VisionDataset):
             map_gt = (map_gt > 0).int()
         if self.target_transform is not None:
             map_gt = self.target_transform(map_gt)
-        return imgs, map_gt.float(), frame, self.root
+
+        imgs_gt = []
+        for cam in self.cameras:
+            img_gt_head = self.imgs_head_foot_gt[frame][cam][0].toarray()
+            img_gt_foot = self.imgs_head_foot_gt[frame][cam][1].toarray()
+            img_gt = np.stack([img_gt_head, img_gt_foot], axis=2)
+            if self.reID:
+                img_gt = (img_gt > 0).int()
+            if self.target_transform is not None:
+                img_gt = self.target_transform(img_gt)
+            imgs_gt.append(img_gt.float())
+
+        proj_mats_mvaug = []
+        for cam in self.cameras:
+            proj_mats_mvaug.append(self.proj_mats_mvaug[cam])
+
+        return imgs, map_gt.float(), imgs_gt, frame, None, None, None, None, proj_mats_mvaug, self.root
     
+
     def __len__(self):
         # length of dataset
         return len(self.gt_map.keys())
