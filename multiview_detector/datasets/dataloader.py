@@ -102,6 +102,8 @@ class GetDataset(VisionDataset):
                                                           {cam:[] for cam in self.cameras}, \
                                                           {cam:[] for cam in self.cameras}
                 for single_pedestrian in all_pedestrians:
+                    if single_pedestrian is None:
+                        continue
                     x, y = self.base.get_worldgrid_from_pos(single_pedestrian['positionID'])
                     if self.base.indexing == 'xy':
                         i_s.append(int(y / self.grid_reduce))
