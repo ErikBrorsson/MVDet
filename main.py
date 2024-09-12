@@ -273,7 +273,7 @@ def main(args):
     augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
 
     if args.uda:
-        pom = train_set.base.read_pom() # TODO doesn't generalize to multiple target datasets
+        pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
         trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom,
                              args.train_viz, target_cameras=target_base.cameras,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
