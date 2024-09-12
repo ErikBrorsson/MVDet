@@ -102,6 +102,11 @@ class GetDataset(VisionDataset):
                             foot_row_cam_s[cam].append(y_foot)
                             foot_col_cam_s[cam].append(x)
                             v_cam_s[cam].append(single_pedestrian['personID'] + 1 if self.reID else 1)
+
+                print("v_s", v_s)
+                print("i_s", i_s)
+                print("j_s", j_s)
+                print("self.reducedgrid_shape", self.reducedgrid_shape)
                 occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
                 self.gt_map[frame] = occupancy_map
                 self.imgs_head_foot_gt[frame] = {}
