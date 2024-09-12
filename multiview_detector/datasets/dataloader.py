@@ -210,11 +210,11 @@ class GetDataset(VisionDataset):
                 img_gt = self.target_transform(img_gt)
             imgs_gt.append(img_gt.float())
 
-        proj_mats_mvaug = []
+        proj_mats_mvaug_features = []
         for cam in self.cameras:
-            proj_mats_mvaug.append(self.proj_mats_mvaug[cam])
-
-        return imgs, map_gt.float(), imgs_gt, frame, None, None, None, None, proj_mats_mvaug, self.root
+            proj_mats_mvaug_features.append(self.proj_mats_mvaug_features[cam])
+            
+        return imgs, map_gt.float(), imgs_gt, frame, None, None, None, None, proj_mats_mvaug_features, self.root
     
 
     def __len__(self):
