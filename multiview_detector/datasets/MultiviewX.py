@@ -50,9 +50,13 @@ class MultiviewX(VisionDataset):
         print(f'Grid Origin(x,y) : {self.origin}')
         print(f'Area/Region size(in m) : {self.region_size[0]}m x {self.region_size[1]}m')
         
-        self.bbox_by_pos_cam = self.read_pom()
-        # self.overlapping_pos = self.final_overlap_pos()
-        
+        # self.bbox_by_pos_cam = self.read_POM2()
+        # from PIL import Image
+        # temp = self.display_cam_layout([2])
+        # temp2 = self.draw_cameras(temp)
+        # img = Image.fromarray(temp2)
+        # img.save("cam_layout_contour.png")
+
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}
         for camera_folder in sorted(os.listdir(os.path.join(self.root, 'Image_subsets'))):
@@ -228,7 +232,44 @@ class MultiviewX(VisionDataset):
             
         mask = drawing == 255
         return mask
+    
+    def draw_cameras(self, tmap):
+        # tmap = tmap.astype(np.uint8)*255
+        # ret, thresh = cv2.threshold(tmap, 50, 255, cv2.THRESH_BINARY)
+        # contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(tmap.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        drawing = np.zeros((tmap.shape[0], tmap.shape[1], 3), np.uint8)
+        for i, contour in enumerate(contours):
+            print(contour)
+            drawing = cv2.drawContours(drawing, contour, -1, (0,255,0), 5)
 
+        return drawing
+
+    
+    def read_POM2(self):
+        filename = 'rectangles.pom'
+        bbox_by_pos_cam = {}
+        cam_pos_pattern = re.compile(r'(\d+) (\d+)')
+        cam_pos_bbox_pattern = re.compile(r'(\d+) (\d+) ([-\d]+) ([-\d]+) (\d+) (\d+)')
+        with open(os.path.join(self.root,filename),'r') as f:
+            for line in f:
+                if 'RECTANGLE' in line:
+                    cam, pos = map(int,cam_pos_pattern.search(line).groups())
+                    if cam != 9 :
+                        if pos not in bbox_by_pos_cam:
+                            bbox_by_pos_cam[pos] = {}
+                            #bbox_by_pos_cam[pos] = 0
+                        if 'notvisible' in line:
+                            bbox_by_pos_cam[pos][cam] = 0
+                            #pass
+                        else:
+                            bbox_by_pos_cam[pos][cam] = 1  
+                        #cam, pos, left, top, right, bottom = map(int, cam_pos_bbox_pattern.search(line).groups())
+                        #grid_x, grid_y = self.get_worldgrid_from_pos(pos)
+                        #bbox_by_pos_cam[pos][cam] = [max(left, 0), max(top, 0), min(right, 1920 - 1), min(bottom, 1080 - 1)]
+                        #bbox_by_pos_cam[pos][cam] = [grid_x, grid_y]
+                        
+        return bbox_by_pos_cam
 
 def test():
     from multiview_detector.utils.projection import get_imagecoord_from_worldcoord
