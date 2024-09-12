@@ -62,35 +62,38 @@ class MultiviewX(VisionDataset):
         return img_fpaths
 
     def get_worldgrid_from_pos(self, pos):
-        grid_x = pos % 1000
-        grid_y = pos // 1000
+        R,C = self.world_grid_shape
+        grid_x = pos % C
+        grid_y = pos // C
+        # [0,0]...[479,0],[0,1]..[479,1]...
         return np.array([grid_x, grid_y], dtype=int)
-
-    def get_pos_from_worldgrid(self, worldgrid):
-        grid_x, grid_y = worldgrid
-        return grid_x + grid_y * 1000
-
-    def get_worldgrid_from_worldcoord(self, world_coord):
-        # datasets default unit: centimeter & origin: (-300,-900)
-        coord_x, coord_y = world_coord
-        grid_x = coord_x * 40
-        grid_y = coord_y * 40
-        return np.array([grid_x, grid_y], dtype=int)
-
+    
     def get_worldcoord_from_worldgrid(self, worldgrid):
-        # datasets default unit: centimeter & origin: (-300,-900)
         grid_x, grid_y = worldgrid
-        coord_x = grid_x / 40
-        coord_y = grid_y / 40
+        coord_x = self.origin[0] + self.grid_cell * grid_x  # -300 + 2.5 * x
+        coord_y = self.origin[1] + self.grid_cell * grid_y  # -900 + 2.5 * x
         return np.array([coord_x, coord_y])
-
+    
     def get_worldcoord_from_pos(self, pos):
         grid = self.get_worldgrid_from_pos(pos)
         return self.get_worldcoord_from_worldgrid(grid)
-
-    def get_pos_from_worldcoord(self, world_coord):
-        grid = self.get_worldgrid_from_worldcoord(world_coord)
+    
+    def get_pos_from_worldgrid(self, worldgrid):
+        R,C = self.world_grid_shape
+        grid_x, grid_y = worldgrid
+        pos = grid_x + grid_y * C
+        return pos
+    
+    def get_worldgrid_from_worldcoord(self, worldcoord):
+        coord_x, coord_y = worldcoord
+        grid_x = (coord_x - self.origin[0]) / self.grid_cell  # (cx + 300) / 2.5 
+        grid_y = (coord_y - self.origin[1]) / self.grid_cell  # (cy + 900) / 2.5 
+        return np.array([grid_x, grid_y], dtype=int)
+    
+    def get_pos_from_worldcoord(self, worldcoord):
+        grid = self.get_worldgrid_from_worldcoord(worldcoord)
         return self.get_pos_from_worldgrid(grid)
+    
 
     def get_intrinsic_extrinsic_matrix(self, camera_i):
         intrinsic_camera_path = os.path.join(self.root, 'calibrations', 'intrinsic')
