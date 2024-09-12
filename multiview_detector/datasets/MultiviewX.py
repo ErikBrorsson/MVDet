@@ -55,10 +55,11 @@ class MultiviewX(VisionDataset):
             cam = int(camera_folder[-1]) - 1
             if cam not in self.cameras:
                 continue
-            for fname in sorted(os.listdir(os.path.join(self.root, 'Image_subsets', camera_folder))):
-                frame = int(fname.split('.')[0])
-                if frame in frame_range:
-                    img_fpaths[cam][frame] = os.path.join(self.root, 'Image_subsets', camera_folder, fname)
+            if os.path.isdir(os.path.join(self.root, 'Image_subsets', camera_folder)):
+                for fname in sorted(os.listdir(os.path.join(self.root, 'Image_subsets', camera_folder))):
+                    frame = int(fname.split('.')[0])
+                    if frame in frame_range:
+                        img_fpaths[cam][frame] = os.path.join(self.root, 'Image_subsets', camera_folder, fname)
         return img_fpaths
 
     def get_worldgrid_from_pos(self, pos):
