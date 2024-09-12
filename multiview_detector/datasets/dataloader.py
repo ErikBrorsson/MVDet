@@ -68,13 +68,18 @@ class GetDataset(VisionDataset):
                           for cam in self.cameras}
 
 
-    def download_old(self, frame_range):
+    def download(self, frame_range):
         for fname in sorted(os.listdir(os.path.join(self.root, 'annotations_positions'))):
             frame = int(fname.split('.')[0])
             if frame in frame_range:
                 with open(os.path.join(self.root, 'annotations_positions', fname)) as json_file:
                     all_pedestrians = json.load(json_file)
                 i_s, j_s, v_s = [], [], []
+                head_row_cam_s, head_col_cam_s = {cam:[] for cam in self.cameras}, \
+                                                 {cam:[] for cam in self.cameras}
+                foot_row_cam_s, foot_col_cam_s, v_cam_s = {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}, \
+                                                          {cam:[] for cam in self.cameras}
                 for single_pedestrian in all_pedestrians:
                     if single_pedestrian is None:
                         continue
@@ -86,10 +91,28 @@ class GetDataset(VisionDataset):
                         i_s.append(int(x / self.grid_reduce))
                         j_s.append(int(y / self.grid_reduce))
                     v_s.append(single_pedestrian['personID'] + 1 if self.reID else 1)
+                    for cam in self.cameras:
+                        x = max(min(int((single_pedestrian['views'][cam]['xmin'] +
+                                         single_pedestrian['views'][cam]['xmax']) / 2), self.img_shape[1] - 1), 0)
+                        y_head = max(single_pedestrian['views'][cam]['ymin'], 0)
+                        y_foot = min(single_pedestrian['views'][cam]['ymax'], self.img_shape[0] - 1)
+                        if x > 0 and y > 0:
+                            head_row_cam_s[cam].append(y_head)
+                            head_col_cam_s[cam].append(x)
+                            foot_row_cam_s[cam].append(y_foot)
+                            foot_col_cam_s[cam].append(x)
+                            v_cam_s[cam].append(single_pedestrian['personID'] + 1 if self.reID else 1)
                 occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
                 self.gt_map[frame] = occupancy_map
+                self.imgs_head_foot_gt[frame] = {}
+                for cam in self.cameras:
+                    img_gt_head = coo_matrix((v_cam_s[cam], (head_row_cam_s[cam], head_col_cam_s[cam])),
+                                             shape=self.img_shape)
+                    img_gt_foot = coo_matrix((v_cam_s[cam], (foot_row_cam_s[cam], foot_col_cam_s[cam])),
+                                             shape=self.img_shape)
+                    self.imgs_head_foot_gt[frame][cam] = [img_gt_head, img_gt_foot]
 
-    def download(self, frame_range):
+    def download_old(self, frame_range):
         for fname in sorted(os.listdir(os.path.join(self.root, 'annotations_positions'))):
             frame = int(fname.split('.')[0])
             if frame in frame_range:
