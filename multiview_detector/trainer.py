@@ -1229,7 +1229,7 @@ class UDATrainer(BaseTrainer):
                         img_pseudo_label = torch.zeros(img_gt_shape)
 
                         for grid_pos in positions:
-                            pos = data_loader_target.dataset.base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.grid_reduce)
+                            pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
                             bbox = self.pom[pos.item()][cam]
                             if bbox is None:
                                 continue                    
