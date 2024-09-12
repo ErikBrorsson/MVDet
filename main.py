@@ -117,6 +117,10 @@ def main(args):
                                                 num_workers=args.num_workers, pin_memory=True)
         test_loader = torch.utils.data.DataLoader(test_dataset_, batch_size=args.batch_size, shuffle=False,
                                                 num_workers=args.num_workers, pin_memory=True)
+        
+        print("images in source training set: ", len(train_loader))
+        print("images in target training set: ", len(train_loader_target))
+        print("images in target test set: ", len(test_loader))
 
     else:
 
