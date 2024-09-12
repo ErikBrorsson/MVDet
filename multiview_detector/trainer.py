@@ -335,7 +335,7 @@ class PerspectiveTrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, (data, map_gt, imgs_gt, _, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features) in enumerate(data_loader):
+        for batch_idx, (data, map_gt, imgs_gt, _, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features, dataset_name) in enumerate(data_loader):
             optimizer.zero_grad()
 
             mv_aug_viz = False
@@ -513,7 +513,8 @@ class PerspectiveTrainer(BaseTrainer):
                 if N < self.model.num_cam:
                     data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
-            map_res, imgs_res = self.model(data, proj_mats)
+            config_dict = data_loader.dataset.dicts[dataset_name[0]]
+            map_res, imgs_res = self.model(data, proj_mats, config_dict)
             
             t_f = time.time()
             t_forward += t_f - t_b
@@ -521,10 +522,10 @@ class PerspectiveTrainer(BaseTrainer):
             if self.persp_sup:
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
                     if not img_gt is None: # may be none after data augmentation
-                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
                 loss = loss / len([x for x in imgs_gt if x is not None]) * self.alpha
 
-            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel)
+            loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
             loss.backward()
             optimizer.step()
             losses += loss.item()
@@ -575,25 +576,27 @@ class PerspectiveTrainer(BaseTrainer):
             t0 = time.time()
             if res_fpath is not None:
                 assert gt_fpath is not None
-            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 with torch.no_grad():
-                    map_res, imgs_res = self.model(data, proj_mats)
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+
+                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     for cls_thres in cls_thres_array:
                         map_grid_res = map_res.detach().cpu().squeeze()
                         v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
                         grid_ij = (map_grid_res > cls_thres).nonzero()
-                        if data_loader.dataset.base.indexing == 'xy':
+                        if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                             grid_xy = grid_ij[:, [1, 0]]
                         else:
                             grid_xy = grid_ij
                         all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                                        data_loader.dataset.grid_reduce, v_s], dim=1))
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
 
                 loss = 0
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
-                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
                         loss / len(imgs_gt) * self.alpha
                 losses += loss.item()
                 pred = (map_res > cls_thres).int().to(map_gt.device)
@@ -610,7 +613,7 @@ class PerspectiveTrainer(BaseTrainer):
                 subplt0 = fig.add_subplot(211, title="output")
                 subplt1 = fig.add_subplot(212, title="target")
                 subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                             .cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(self.logdir, 'map.jpg'))
                 plt.close(fig)
@@ -650,7 +653,7 @@ class PerspectiveTrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                                data_loader.dataset.base.__name__)
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -696,7 +699,7 @@ class PerspectiveTrainer(BaseTrainer):
             t0 = time.time()
             if res_fpath is not None:
                 assert gt_fpath is not None
-            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 if test_time_aug:
                     data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
 
@@ -706,17 +709,18 @@ class PerspectiveTrainer(BaseTrainer):
                         data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
                 with torch.no_grad():
-                    map_res, imgs_res = self.model(data, proj_mats, visualize=True)
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+                    map_res, imgs_res = self.model(data, proj_mats, config_dict, visualize=True)
                 if res_fpath is not None:
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
                     grid_ij = (map_grid_res > self.cls_thres).nonzero()
-                    if data_loader.dataset.base.indexing == 'xy':
+                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                         grid_xy = grid_ij[:, [1, 0]]
                     else:
                         grid_xy = grid_ij
                     all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                                data_loader.dataset.grid_reduce, v_s], dim=1))
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
                     
                     # do NMS and create actual preditions (post nms)
                     temp = map_grid_res
@@ -727,7 +731,7 @@ class PerspectiveTrainer(BaseTrainer):
                     # else:
                     #     positions = positions
                     if not torch.numel(positions) == 0:
-                        ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
+                        ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, np.inf)
                         positions = positions[ids[:count], :]
                         scores = scores[ids[:count]]
                     map_pseudo_label = torch.zeros_like(map_res)
@@ -737,8 +741,8 @@ class PerspectiveTrainer(BaseTrainer):
                 loss = 0
                 for img_res, img_gt in zip(imgs_res, imgs_gt):
                     if img_gt is not None:
-                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+                        loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
                     loss / len(imgs_gt) * self.alpha
                 losses += loss.item()
                 pred = (map_res > self.cls_thres).int().to(map_gt.device)
@@ -805,17 +809,17 @@ class PerspectiveTrainer(BaseTrainer):
                         temp = map_res_from_perspective_scores.squeeze()
                         scores = temp[temp > self.cls_thres].unsqueeze(1)
                         positions = (temp > self.cls_thres).nonzero().float()
-                        if data_loader.dataset.base.indexing == 'xy':
+                        if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                             positions = positions[:, [1, 0]]
                         else:
                             positions = positions
 
                         perspective_all_res_list.append(torch.cat([torch.ones_like(scores) * frame, positions.float() *
-                                                    data_loader.dataset.grid_reduce, scores], dim=1))
+                                                    data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, scores], dim=1))
 
                         scores = scores.squeeze()
                         if not torch.numel(positions) == 0:
-                            ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.grid_reduce, np.inf)
+                            ids, count = nms(positions.float(), scores, 20 /  data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, np.inf)
                             positions = positions[ids[:count], :]
                             scores = scores[ids[:count]]
                         map_perspective_pseudo_label = torch.zeros_like(map_res)
@@ -830,13 +834,13 @@ class PerspectiveTrainer(BaseTrainer):
                         subplt3 = fig.add_subplot(324, title="persp. prediction")
                         subplt4 = fig.add_subplot(325, title="label")
                         subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                        subplt2.imshow(self.criterion._traget_transform(map_res, map_res_from_perspective, data_loader.dataset.map_kernel)
+                        subplt2.imshow(self.criterion._traget_transform(map_res, map_res_from_perspective, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                        subplt3.imshow(self.criterion._traget_transform(map_res, map_perspective_pseudo_label, data_loader.dataset.map_kernel)
+                        subplt3.imshow(self.criterion._traget_transform(map_res, map_perspective_pseudo_label, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
                         plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
                         plt.close(fig)
@@ -848,9 +852,9 @@ class PerspectiveTrainer(BaseTrainer):
                         subplt4 = fig.add_subplot(323, title="label")
 
                         subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.map_kernel)
+                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.map_kernel)
+                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
                         plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
                         plt.close(fig)
@@ -878,7 +882,7 @@ class PerspectiveTrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                            data_loader.dataset.base.__name__)
+                                                            data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -902,7 +906,7 @@ class PerspectiveTrainer(BaseTrainer):
                 np.savetxt(res_fpath, res_list, '%d')
 
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                        data_loader.dataset.base.__name__)
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
 
                 # If you want to use the unofiicial python evaluation tool for convenient purposes.
                 # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -1356,7 +1360,9 @@ class UDATrainer(BaseTrainer):
                 assert gt_fpath is not None
             for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 with torch.no_grad():
-                    map_res, imgs_res = self.model(data, proj_mats)
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+
+                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     for cls_thres in cls_thres_array:
                         map_grid_res = map_res.detach().cpu().squeeze()
