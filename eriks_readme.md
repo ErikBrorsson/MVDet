@@ -1831,6 +1831,15 @@ However, there will of course be a drop in performance when I create a real th-s
 Considering that the cheat selector doesn't work on 2/5 benchmarks, I would like to do experiments on GMVD benchmark before digging in to this.
 Could be that my model works well on 6->6 camera adaptation, and then I may not need to do any more changes, but rather publish asap.
 
+### 12/9
+Working on implementing gmvd->multiviewx in MVDet repo.
+multiviewx->multiviewx on gmvd branch gave 
+max_moda: 90.3%, max_modp: 82.7%, max_precision: 98.5%, max_recall: 91.7%, epoch: 16.0%
+
+
+
+
+
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?

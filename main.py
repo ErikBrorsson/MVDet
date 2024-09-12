@@ -44,7 +44,7 @@ def main(args):
 
     if args.gmvd2multiviewx:
         # set multiview x as target dataset and test dataset
-        data_path = args.data_path
+        data_path = args.data_path_src
         # test_base0 = MultiviewX(data_path, False, [x for x in np.arange(6)], [x for x in np.arange(6)])
         print("\nTraining datasets trg")
         target_base = MultiviewX(data_path)
@@ -63,7 +63,7 @@ def main(args):
 
         # set gmvd train as source dataset
         print("\nTraining datasets source")
-        data_root = args.data_path
+        data_root = args.data_path_trg
         train_dataset_list = []
         print(os.path.join(data_root,'train_datapath.csv'))
         f = open(os.path.join(data_root,'train_datapath.csv'))
@@ -391,6 +391,8 @@ if __name__ == '__main__':
     parser.add_argument('--arch', type=str, default='resnet18', choices=['vgg11', 'resnet18'])
     parser.add_argument('-d', '--dataset', type=str, default='wildtrack', choices=['wildtrack', 'multiviewx'])
     parser.add_argument("--data_path", type=str, default=None)
+    parser.add_argument("--data_path_src", type=str, default=None)
+    parser.add_argument("--data_path_trg", type=str, default=None)
     parser.add_argument('-j', '--num_workers', type=int, default=4)
     parser.add_argument('-b', '--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
