@@ -68,6 +68,25 @@ class GetDataset(VisionDataset):
         self.proj_mats_mvaug_features = {cam: torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
                           for cam in self.cameras}
 
+    def get_imgcoord2worldgrid_matrices(self, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
+        """
+        returns:
+            projection matrices between image pixels position and bev grid position.
+            Here, the image size is determined by the intrinsic_matrices. 
+            While the bev grid size is determined by  worldgrid2worldcoord_mat
+        """
+        projection_matrices = {}
+        for cam in self.cameras:
+            worldcoord2imgcoord_mat = intrinsic_matrices[cam] @ np.delete(extrinsic_matrices[cam], 2, 1)
+
+            worldgrid2imgcoord_mat = worldcoord2imgcoord_mat @ worldgrid2worldcoord_mat
+            imgcoord2worldgrid_mat = np.linalg.inv(worldgrid2imgcoord_mat)
+            # image of shape C,H,W (C,N_row,N_col); indexed as x,y,w,h (x,y,n_col,n_row)
+            # matrix of shape N_row, N_col; indexed as x,y,n_row,n_col
+            permutation_mat = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
+            projection_matrices[cam] = permutation_mat @ imgcoord2worldgrid_mat
+            pass
+        return projection_matrices
 
     def download(self, frame_range):
         for fname in sorted(os.listdir(os.path.join(self.root, 'annotations_positions'))):
@@ -104,10 +123,10 @@ class GetDataset(VisionDataset):
                             foot_col_cam_s[cam].append(x)
                             v_cam_s[cam].append(single_pedestrian['personID'] + 1 if self.reID else 1)
 
-                print("v_s", v_s)
-                print("i_s", i_s)
-                print("j_s", j_s)
-                print("self.reducedgrid_shape", self.reducedgrid_shape)
+                # print("v_s", v_s)
+                # print("i_s", i_s)
+                # print("j_s", j_s)
+                # print("self.reducedgrid_shape", self.reducedgrid_shape)
                 occupancy_map = coo_matrix((v_s, (i_s, j_s)), shape=self.reducedgrid_shape)
                 self.gt_map[frame] = occupancy_map
                 self.imgs_head_foot_gt[frame] = {}
