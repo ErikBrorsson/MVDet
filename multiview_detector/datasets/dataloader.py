@@ -42,6 +42,16 @@ class GetDataset(VisionDataset):
         kernel_size = map_kernel.shape[0]
         self.map_kernel = torch.zeros([1, 1, kernel_size, kernel_size], requires_grad=False)
         self.map_kernel[0, 0] = torch.from_numpy(map_kernel)
+
+        x, y = np.meshgrid(np.arange(-img_kernel_size, img_kernel_size + 1),
+                           np.arange(-img_kernel_size, img_kernel_size + 1))
+        pos = np.stack([x, y], axis=2)
+        img_kernel = multivariate_normal.pdf(pos, [0, 0], np.identity(2) * img_sigma)
+        img_kernel = img_kernel / img_kernel.max()
+        kernel_size = img_kernel.shape[0]
+        self.img_kernel = torch.zeros([2, 2, kernel_size, kernel_size], requires_grad=False)
+        self.img_kernel[0, 0] = torch.from_numpy(img_kernel)
+        self.img_kernel[1, 1] = torch.from_numpy(img_kernel)
         
         # Split train/test data
 
