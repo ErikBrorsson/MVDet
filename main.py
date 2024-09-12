@@ -258,7 +258,7 @@ def main(args):
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
         test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                    train_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+                                                    test_loader.dataset.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
 
         if moda >= max_moda:
             max_modp, max_precision, max_recall = modp, precision, recall
