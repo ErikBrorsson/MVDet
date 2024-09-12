@@ -1168,6 +1168,37 @@ class UDATrainer(BaseTrainer):
             temp = map_pred_teacher.detach().cpu().squeeze()
 
             if not self.soft_labels:
+                gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
+                gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
+                gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
+                gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+
+                # find the optimal (in moda sense) pseudo-label threshold for the current sample
+                best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
+                best_moda = 0
+                moda_04 = 0
+                for varying_th in np.arange(0.05, 0.95, 0.05):
+                    scores = temp[temp > varying_th]
+                    positions = (temp > varying_th).nonzero().float()
+                    if not torch.numel(positions) == 0:
+                        ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                        positions = positions[ids[:count], :]
+                        scores = scores[ids[:count]]
+                    else:
+                        continue
+                    detAllMatrix = np.zeros((positions.shape[0], 4))
+                    detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
+                    detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                    detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                    _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
+                    if moda_i > best_moda:
+                        best_moda = moda_i
+                        best_th = varying_th
+                    if varying_th == 0.4:
+                        moda_04 = moda_i
+                pseudo_label_th = best_th
+
                 scores = temp[temp > pseudo_label_th]
                 positions = (temp > pseudo_label_th).nonzero().float()
                 # if data_loader.dataset.base.indexing == 'xy':
@@ -1336,6 +1367,8 @@ class UDATrainer(BaseTrainer):
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
                     epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), target_weight, precision_s.avg * 100, recall_s.avg * 100,
                     t_epoch, t_forward / (batch_idx + 1), t_backward / (batch_idx + 1), map_res_max))
+                print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
+
                 pass
 
         t1 = time.time()
