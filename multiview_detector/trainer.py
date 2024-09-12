@@ -653,7 +653,7 @@ class PerspectiveTrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -882,7 +882,7 @@ class PerspectiveTrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                            data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
+                                                            data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -906,7 +906,7 @@ class PerspectiveTrainer(BaseTrainer):
                 np.savetxt(res_fpath, res_list, '%d')
 
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
                 # If you want to use the unofiicial python evaluation tool for convenient purposes.
                 # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -1435,7 +1435,7 @@ class UDATrainer(BaseTrainer):
                     np.savetxt(res_fpath, res_list, '%d')
 
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].__name__)
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
                     # If you want to use the unofiicial python evaluation tool for convenient purposes.
                     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),

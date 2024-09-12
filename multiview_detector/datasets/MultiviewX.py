@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 import re
 import json
 from torchvision.datasets import VisionDataset
+from scipy.sparse import coo_matrix
+
 
 intrinsic_camera_matrix_filenames = ['intr_Camera1.xml', 'intr_Camera2.xml', 'intr_Camera3.xml', 'intr_Camera4.xml',
                                      'intr_Camera5.xml', 'intr_Camera6.xml']
@@ -48,6 +50,8 @@ class MultiviewX(VisionDataset):
         print(f'Grid Origin(x,y) : {self.origin}')
         print(f'Area/Region size(in m) : {self.region_size[0]}m x {self.region_size[1]}m')
         
+        self.bbox_by_pos_cam = self.read_pom()
+        # self.overlapping_pos = self.final_overlap_pos()
         
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}
@@ -134,6 +138,96 @@ class MultiviewX(VisionDataset):
                         bbox_by_pos_cam[pos][cam] = [max(left, 0), max(top, 0),
                                                      min(right, 1920 - 1), min(bottom, 1080 - 1)]
         return bbox_by_pos_cam
+    
+    def final_overlap_pos(self):
+        train = self.display_cam_layout(self.train_cam)
+        mask_train = self.convex_hull(train)
+        
+        test = self.display_cam_layout(self.test_cam)
+        mask_test = self.convex_hull(test)
+        
+        final_mask = mask_train & mask_test
+        final_mask = final_mask.astype(np.uint8)*255.0
+        
+        coord = np.array(np.where(final_mask==255.0)).T[:,:2]
+        coord = np.unique(coord, axis=0)
+        print('overlap coord :', coord.shape)
+        pos = []
+        for p in coord:
+            pos.append(self.get_pos_from_worldgrid(p[[1,0]]))
+        pos = np.asarray(pos)
+        print('overlap pos :', pos.shape)
+        return pos
+        
+    def display_cam_layout(self, cam_selected):
+        tmap_final = np.zeros(self.world_grid_shape).astype(int)
+        for cam in cam_selected:
+            i_s, j_s, v_s = [],[],[]
+            for i in range(np.product(self.world_grid_shape)):
+                grid_x, grid_y = self.get_worldgrid_from_pos(i)
+                if i in self.bbox_by_pos_cam:
+                    if self.bbox_by_pos_cam[i][cam] > 0:
+                        i_s.append(grid_y)
+                        j_s.append(grid_x)
+                        v_s.append(1)
+            tmap = coo_matrix((v_s, (i_s, j_s)), shape=self.world_grid_shape).toarray()
+            
+            tmap_final+=tmap
+            
+            '''
+            plt.figure(figsize=(10,10))
+            plt.subplot(w.num_cam,1,cam+1)
+            plt.title('cam_'+str(cam))
+            plt.axis('off')
+            #plt.imshow(tmap)
+            plt.imshow(tmap)
+        
+        
+        plt.figure(figsize=(10,10))
+        plt.title('final')
+        plt.axis('off')
+        #plt.imshow(tmap)
+        plt.imshow(tmap_final, cmap='gray')
+        #plt.colorbar(tmap_final)
+        plt.show()
+        '''
+        return tmap_final
+    
+    def convex_hull(self, tmap):
+        tmap = tmap.astype(np.uint8)*255
+        '''
+        cv2.imshow('ConvexHull', tmap)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        '''
+        
+        #gray = cv2.cvtColor(tmap, cv2.COLOR_BGR2GRAY) # convert to grayscale
+        blur = cv2.blur(tmap, (3, 3)) # blur the image
+        ret, thresh = cv2.threshold(blur, 50, 255, cv2.THRESH_BINARY)
+        contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # create hull array for convex hull points
+        hull = []
+        
+        # calculate points for each contour
+        for i in range(len(contours)):
+            # creating convex hull object for each contour
+            hull.append(cv2.convexHull(contours[i], False))
+            
+        # create an empty black image
+        drawing = np.zeros((thresh.shape[0], thresh.shape[1], 3), np.uint8)
+        
+        # draw contours and hull points
+        for i in range(len(contours)):
+            color_contours = (0, 255, 0) # green - color for contours
+            color = (255, 0, 0) # blue - color for convex hull
+            # draw ith contour
+            #cv2.drawContours(drawing, contours, i, color_contours, 1, 8, hierarchy)
+            # draw ith convex hull object
+            #cv2.drawContours(drawing, hull, i, color, 1, 8)
+            cv2.fillPoly(drawing , contours, (255, 255, 255))
+            
+        mask = drawing == 255
+        return mask
 
 
 def test():
