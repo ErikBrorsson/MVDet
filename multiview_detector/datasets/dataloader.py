@@ -56,6 +56,7 @@ class GetDataset(VisionDataset):
   
         # gt_map initialization 
         self.gt_map = {}
+        self.imgs_head_foot_gt = {}
         self.download(frame_range)
 
 
@@ -107,7 +108,7 @@ class GetDataset(VisionDataset):
                 print("i_s", i_s)
                 print("j_s", j_s)
                 print("self.reducedgrid_shape", self.reducedgrid_shape)
-                occupancy_map = coo_matrix((v_s, (j_s, i_s)), shape=self.reducedgrid_shape)
+                occupancy_map = coo_matrix((v_s, (j_s, i_s)), shape=self.reducedgrid_shape) # TODO changed from i_s, j_s to j_s, i_s... somewhere I got the indexing messed up
                 self.gt_map[frame] = occupancy_map
                 self.imgs_head_foot_gt[frame] = {}
                 for cam in self.cameras:
