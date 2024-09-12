@@ -31,6 +31,8 @@ class GetDataset(VisionDataset):
         
         # Map kernel size = 41*41
         map_sigma, map_kernel_size = 20 / grid_reduce, 20
+        img_sigma, img_kernel_size = 10 / img_reduce, 10
+
         x, y = np.meshgrid(np.arange(-map_kernel_size, map_kernel_size + 1),
                            np.arange(-map_kernel_size, map_kernel_size + 1))
         pos = np.stack([x, y], axis=2)
