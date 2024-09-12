@@ -53,8 +53,8 @@ def main(args):
 
         print("\nTest datasets trg")
         test_base0 = MultiviewX(data_path)
-        test_dataset_ = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
-        test_dataset = ConcatDataset(test_dataset_)
+        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_dataset_ = ConcatDataset(test_set)
 
         # print("\nTraining datasets src")
         # source_base0 = MultiviewX(data_path)
@@ -115,7 +115,7 @@ def main(args):
                                                 num_workers=args.num_workers, pin_memory=True)
         train_loader_target = torch.utils.data.DataLoader(train_dataset_trg, batch_size=args.batch_size, shuffle=True,
                                                 num_workers=args.num_workers, pin_memory=True)
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
+        test_loader = torch.utils.data.DataLoader(test_dataset_, batch_size=args.batch_size, shuffle=False,
                                                 num_workers=args.num_workers, pin_memory=True)
 
     else:
@@ -337,7 +337,7 @@ def main(args):
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
         test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                    train_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+                                                    test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
 
         if moda >= max_moda:
             max_modp, max_precision, max_recall = modp, precision, recall
