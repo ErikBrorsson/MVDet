@@ -1288,7 +1288,6 @@ class UDATrainer(BaseTrainer):
                 # update student
                 loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
                 loss.backward()
-                optimizer.step()
                 losses_target += loss.item()
 
             # update ema model
@@ -1297,6 +1296,7 @@ class UDATrainer(BaseTrainer):
             self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
 
 
+            optimizer.step()
             # update learning rate
             if cyclic_scheduler is not None:
                 if isinstance(cyclic_scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts):
