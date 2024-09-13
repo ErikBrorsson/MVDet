@@ -65,8 +65,8 @@ def main(args):
         print("\nTraining datasets source")
         data_root = args.data_path_trg
         train_dataset_list = []
-        print(os.path.join(data_root,'train_datapath.csv'))
-        f = open(os.path.join(data_root,'train_datapath.csv'))
+        print(os.path.join(data_root,args.gmvd_csv))
+        f = open(os.path.join(data_root,args.gmvd_csv))
             #data_path = f.readlines()
         data_path = csv.reader(f)
         #for i in range(len(data_path)):
@@ -397,6 +397,7 @@ if __name__ == '__main__':
     parser.add_argument("--data_path", type=str, default=None)
     parser.add_argument("--data_path_src", type=str, default=None)
     parser.add_argument("--data_path_trg", type=str, default=None)
+    parser.add_argument("--gmvd_csv", type=str, default="train_datapath.csv")
     parser.add_argument('-j', '--num_workers', type=int, default=4)
     parser.add_argument('-b', '--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
