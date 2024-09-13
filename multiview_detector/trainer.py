@@ -1308,8 +1308,8 @@ class UDATrainer(BaseTrainer):
             t_b = time.time()
             t_backward += t_b - t_f
             if (batch_idx + 1) % log_interval == 0:
-                if self.visualize_train:
-                    if target_weight != 0:
+                if target_weight != 0:
+                    if self.visualize_train:
                         fig = plt.figure()
                         subplt0 = fig.add_subplot(511, title="student output")
                         subplt1 = fig.add_subplot(512, title="label")
@@ -1360,6 +1360,7 @@ class UDATrainer(BaseTrainer):
                             # head_cam_result.save(os.path.join(epoch_dir, f'output_cam{cam_num+1}_head_{batch_idx}.jpg'))
                             foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
                             foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
+                    print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
 
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
@@ -1369,7 +1370,6 @@ class UDATrainer(BaseTrainer):
                       'prec: {:.1f}%, recall: {:.1f}%, Time: {:.1f} (f{:.3f}+b{:.3f}), maxima: {:.3f}'.format(
                     epoch, (batch_idx + 1), losses / (batch_idx + 1), losses_target / (batch_idx + 1), target_weight, precision_s.avg * 100, recall_s.avg * 100,
                     t_epoch, t_forward / (batch_idx + 1), t_backward / (batch_idx + 1), map_res_max))
-                print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
 
                 pass
 
