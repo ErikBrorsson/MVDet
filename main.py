@@ -191,12 +191,14 @@ def main(args):
                 test_base = base
 
                 train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
+                train_dataset = ConcatDataset(train_set)
                 test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+                test_dataset = ConcatDataset(test_set)
 
-                train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
                 
-                test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
                                                         num_workers=args.num_workers, pin_memory=True)
 
         else:
@@ -327,9 +329,11 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    # print('Testing...')
+    print('Testing...')
     # test_loss, test_prec, moda, modp, precision, recall  = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
     #                                             test_set.gt_fpath)
+    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+                                                test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
     best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
