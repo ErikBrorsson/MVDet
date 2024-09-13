@@ -300,7 +300,7 @@ def main(args):
             # randomize the target weight schedule
             # target_epoch_start = np.random.choice(10) + 1
             target_epoch_start = np.random.choice(7) + 5
-            target_weight_start = np.random.rand()
+            target_weight_start = np.random.rand() + 0.5
             target_weight_end = target_weight_start + (1- target_weight_start)*np.random.rand()
         else:
             target_epoch_start = args.target_epoch_start
