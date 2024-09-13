@@ -1153,142 +1153,143 @@ class UDATrainer(BaseTrainer):
             # optimizer.zero_grad()
 
             # create bev pseudo-labels
-            with torch.no_grad():
-                # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
-                data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
-                
-                if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                    # if the target data includes less views than source data, we resort to duplicating some views.
-                    B, N, C, H, W = data_teacher.shape
-                    if N < self.model.num_cam:
-                        data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
+            if target_weight != 0:
+                with torch.no_grad():
+                    # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
+                    data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                    
+                    if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                        # if the target data includes less views than source data, we resort to duplicating some views.
+                        B, N, C, H, W = data_teacher.shape
+                        if N < self.model.num_cam:
+                            data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
-                config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
-            temp = map_pred_teacher.detach().cpu().squeeze()
+                    config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
+                    map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
+                temp = map_pred_teacher.detach().cpu().squeeze()
 
-            if not self.soft_labels:
-                gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
-                gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
-                gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
-                gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                if not self.soft_labels:
+                    gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
+                    gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
+                    gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
+                    gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                    gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
 
-                # find the optimal (in moda sense) pseudo-label threshold for the current sample
-                best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
-                best_moda = 0
-                moda_04 = 0
-                for varying_th in np.arange(0.05, 0.95, 0.05):
-                    scores = temp[temp > varying_th]
-                    positions = (temp > varying_th).nonzero().float()
+                    # find the optimal (in moda sense) pseudo-label threshold for the current sample
+                    best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
+                    best_moda = 0
+                    moda_04 = 0
+                    for varying_th in np.arange(0.05, 0.95, 0.05):
+                        scores = temp[temp > varying_th]
+                        positions = (temp > varying_th).nonzero().float()
+                        if not torch.numel(positions) == 0:
+                            ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                            positions = positions[ids[:count], :]
+                            scores = scores[ids[:count]]
+                        else:
+                            continue
+                        detAllMatrix = np.zeros((positions.shape[0], 4))
+                        detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
+                        detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                        detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                        _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
+                        if moda_i > best_moda:
+                            best_moda = moda_i
+                            best_th = varying_th
+                        if varying_th == 0.4:
+                            moda_04 = moda_i
+                    pseudo_label_th = best_th
+
+                    scores = temp[temp > pseudo_label_th]
+                    positions = (temp > pseudo_label_th).nonzero().float()
+                    # if data_loader.dataset.base.indexing == 'xy':
+                    #     positions = positions[:, [1, 0]]
+                    # else:
+                    #     positions = positions
                     if not torch.numel(positions) == 0:
                         ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
                         positions = positions[ids[:count], :]
                         scores = scores[ids[:count]]
-                    else:
-                        continue
-                    detAllMatrix = np.zeros((positions.shape[0], 4))
-                    detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
-                    detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                    detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                    _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
-                    if moda_i > best_moda:
-                        best_moda = moda_i
-                        best_th = varying_th
-                    if varying_th == 0.4:
-                        moda_04 = moda_i
-                pseudo_label_th = best_th
-
-                scores = temp[temp > pseudo_label_th]
-                positions = (temp > pseudo_label_th).nonzero().float()
-                # if data_loader.dataset.base.indexing == 'xy':
-                #     positions = positions[:, [1, 0]]
-                # else:
-                #     positions = positions
-                if not torch.numel(positions) == 0:
-                    ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
-                    positions = positions[ids[:count], :]
-                    scores = scores[ids[:count]]
-                map_pseudo_label = torch.zeros_like(map_pred_teacher)
-                for pos in positions:
-                    map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
-                
-                if self.weighted_mse:
-                    filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
-                    map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
+                    map_pseudo_label = torch.zeros_like(map_pred_teacher)
+                    for pos in positions:
+                        map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
                     
+                    if self.weighted_mse:
+                        filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
+                        map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
+                        
 
-                # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
-                    positions = positions[:, [1, 0]]
+                    # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
+                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                        positions = positions[:, [1, 0]]
+                    else:
+                        positions = positions
+                    imgs_pseudo_labels = []
+                    if self.uda_persp_sup:
+                        for cam in self.target_cameras:
+                            img_pseudo_label = torch.zeros(img_gt_shape)
+
+                            for grid_pos in positions:
+                                pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
+                                bbox = self.pom[pos.item()][cam]
+                                if bbox is None:
+                                    continue                    
+                                foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                                head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                                img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                                img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
+
+                            imgs_pseudo_labels.append(img_pseudo_label)
+                    else:
+                        for cam in self.target_cameras:
+                            imgs_pseudo_labels.append(None)
+
+                    # apply augmentation to target images and pseudo-labels prior to student training
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
+                    
+                    if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                        # if the target data includes less views than source data, we resort to duplicating some views.
+                        B, N, C, H, W = data_student.shape
+                        if N < self.model.num_cam:
+                            data_student, _, proj_mats_student = self.duplicate_images(data_student, None, proj_mats_student)
+
+                    # student predict and compute loss
+                    config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
+                    map_res_target, imgs_res_target = self.model(data_student, proj_mats_student, config_dict)
+                    loss = 0
+                    for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
+                        if not img_pseudo_label is None:
+                            loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].img_kernel)
+                    if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
+                        loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+
+                    if self.weighted_mse:
+                        loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel, map_pseudo_label_weight)
+                    else:                    
+                        loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel)
                 else:
-                    positions = positions
-                imgs_pseudo_labels = []
-                if self.uda_persp_sup:
-                    for cam in self.target_cameras:
-                        img_pseudo_label = torch.zeros(img_gt_shape)
+                    # apply augmentation to target images and pseudo-labels prior to student training
+                    map_pseudo_label = map_pred_teacher
+                    imgs_pseudo_labels = [None]*len(self.target_cameras)
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
+                    if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
+                        # if the target data includes less views than source data, we resort to duplicating some views.
+                        B, N, C, H, W = data_student.shape
+                        if N < self.model.num_cam:
+                            data_student, _, proj_mats_student = self.duplicate_images(data_student,None, proj_mats_student)
 
-                        for grid_pos in positions:
-                            pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
-                            bbox = self.pom[pos.item()][cam]
-                            if bbox is None:
-                                continue                    
-                            foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
-                            head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                            img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
-                            img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
+                    # student predict and compute loss
+                    map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
+                    loss = 0
+                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
 
-                        imgs_pseudo_labels.append(img_pseudo_label)
-                else:
-                    for cam in self.target_cameras:
-                        imgs_pseudo_labels.append(None)
-
-                # apply augmentation to target images and pseudo-labels prior to student training
-                data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
-                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
-                
-                if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                    # if the target data includes less views than source data, we resort to duplicating some views.
-                    B, N, C, H, W = data_student.shape
-                    if N < self.model.num_cam:
-                        data_student, _, proj_mats_student = self.duplicate_images(data_student, None, proj_mats_student)
-
-                # student predict and compute loss
-                config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                map_res_target, imgs_res_target = self.model(data_student, proj_mats_student, config_dict)
-                loss = 0
-                for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-                    if not img_pseudo_label is None:
-                        loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].img_kernel)
-                if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
-                    loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
-
-                if self.weighted_mse:
-                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel, map_pseudo_label_weight)
-                else:                    
-                    loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel)
-            else:
-                # apply augmentation to target images and pseudo-labels prior to student training
-                map_pseudo_label = map_pred_teacher
-                imgs_pseudo_labels = [None]*len(self.target_cameras)
-                data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
-                                                                                                               map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
-                if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                    # if the target data includes less views than source data, we resort to duplicating some views.
-                    B, N, C, H, W = data_student.shape
-                    if N < self.model.num_cam:
-                        data_student, _, proj_mats_student = self.duplicate_images(data_student,None, proj_mats_student)
-
-                # student predict and compute loss
-                map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
-                loss = 0
-                loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
-
-            # update student
-            loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
-            loss.backward()
-            optimizer.step()
-            losses_target += loss.item()
+                # update student
+                loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
+                loss.backward()
+                optimizer.step()
+                losses_target += loss.item()
 
             # update ema model
             alpha_teacher = self.alpha_teacher
@@ -1308,56 +1309,57 @@ class UDATrainer(BaseTrainer):
             t_backward += t_b - t_f
             if (batch_idx + 1) % log_interval == 0:
                 if self.visualize_train:
-                    fig = plt.figure()
-                    subplt0 = fig.add_subplot(511, title="student output")
-                    subplt1 = fig.add_subplot(512, title="label")
-                    subplt2 = fig.add_subplot(513, title="teacher pseudo (or soft) label")
-                    subplt3 = fig.add_subplot(514, title="teacher output")
-                    if self.weighted_mse and not self.soft_labels:
-                        subplt4 = fig.add_subplot(515, title="pseudo-label weight")
-                        subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
-                    subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
-                                .cpu().detach().numpy().squeeze())
-                    if self.soft_labels:
-                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
-                                .cpu().detach().numpy().squeeze())
-                    else:
-                        subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
+                    if target_weight != 0:
+                        fig = plt.figure()
+                        subplt0 = fig.add_subplot(511, title="student output")
+                        subplt1 = fig.add_subplot(512, title="label")
+                        subplt2 = fig.add_subplot(513, title="teacher pseudo (or soft) label")
+                        subplt3 = fig.add_subplot(514, title="teacher output")
+                        if self.weighted_mse and not self.soft_labels:
+                            subplt4 = fig.add_subplot(515, title="pseudo-label weight")
+                            subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
+                        subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
+                        subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze())
-                    subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
-                    epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
-                    if not os.path.exists(epoch_dir):
-                        os.mkdir(epoch_dir)
-                    plt.savefig(os.path.join(epoch_dir, f'train_target_map_{batch_idx}.jpg'))
-                    plt.close(fig)
+                        if self.soft_labels:
+                            subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
+                                    .cpu().detach().numpy().squeeze())
+                        else:
+                            subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
+                                        .cpu().detach().numpy().squeeze())
+                        subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
+                        epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
+                        if not os.path.exists(epoch_dir):
+                            os.mkdir(epoch_dir)
+                        plt.savefig(os.path.join(epoch_dir, f'train_target_map_{batch_idx}.jpg'))
+                        plt.close(fig)
 
-                    # visualize pseudo-label of perspective view
-                    for cam_indx, img_pseudo_label in enumerate(imgs_pseudo_labels):
-                        if img_pseudo_label is None:
-                            continue
+                        # visualize pseudo-label of perspective view
+                        for cam_indx, img_pseudo_label in enumerate(imgs_pseudo_labels):
+                            if img_pseudo_label is None:
+                                continue
 
-                        pseudo_view1 = img_pseudo_label
-                        pred_view1 = imgs_res_target[cam_indx]
-                        pseudo_view1 = self.criterion._traget_transform(pred_view1, pseudo_view1, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].img_kernel).cpu().detach().numpy().squeeze()
-                        pseudo_view1_head = pseudo_view1[0]
-                        pseudo_view1_foot = pseudo_view1[1]
+                            pseudo_view1 = img_pseudo_label
+                            pred_view1 = imgs_res_target[cam_indx]
+                            pseudo_view1 = self.criterion._traget_transform(pred_view1, pseudo_view1, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].img_kernel).cpu().detach().numpy().squeeze()
+                            pseudo_view1_head = pseudo_view1[0]
+                            pseudo_view1_foot = pseudo_view1[1]
 
-                        cam_num = self.target_cameras[cam_indx]
-                        img0 = self.denormalize(data_student[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                        img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                        # head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
-                        # head_cam_result.save(os.path.join(epoch_dir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
-                        foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
-                        foot_cam_result.save(os.path.join(epoch_dir, f'foot_pseudo_label_cam{cam_num+1}_{batch_idx}.jpg'))
+                            cam_num = self.target_cameras[cam_indx]
+                            img0 = self.denormalize(data_student[0, cam_indx]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                            img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                            # head_cam_result = add_heatmap_to_image(pseudo_view1_head, img0)
+                            # head_cam_result.save(os.path.join(epoch_dir, f'head_pseudo_label_cam{cam_num}_{batch_idx}.jpg'))
+                            foot_cam_result = add_heatmap_to_image(pseudo_view1_foot, img0)
+                            foot_cam_result.save(os.path.join(epoch_dir, f'foot_pseudo_label_cam{cam_num+1}_{batch_idx}.jpg'))
 
-                        # visualizing the heatmap for per-view estimation
-                        heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
-                        heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
-                        # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                        # head_cam_result.save(os.path.join(epoch_dir, f'output_cam{cam_num+1}_head_{batch_idx}.jpg'))
-                        foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                        foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
+                            # visualizing the heatmap for per-view estimation
+                            heatmap0_head = pred_view1[0, 0].detach().cpu().numpy().squeeze()
+                            heatmap0_foot = pred_view1[0, 1].detach().cpu().numpy().squeeze()
+                            # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                            # head_cam_result.save(os.path.join(epoch_dir, f'output_cam{cam_num+1}_head_{batch_idx}.jpg'))
+                            foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                            foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
 
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
