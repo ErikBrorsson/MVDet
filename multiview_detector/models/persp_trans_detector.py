@@ -66,55 +66,22 @@ class PerspTransDetector(nn.Module):
     def forward(self, imgs, proj_mats, config_dict, visualize=False):
         B, N, C, H, W = imgs.shape
         
-        # num_cam = config_dict['num_cam']
         upsample_shape = config_dict['upsample_shape']
         reducedgrid_shape = config_dict['reducedgrid_shape']
-        # img_reduce = config_dict['img_reduce']
-        # proj_mats = config_dict['proj_mats']
         coord_map = config_dict['coord_map']
 
         if not self.avgpool:
             assert N == self.num_cam
-        # assert N <= self.num_cam, "the number of input views to the model must be no more than the maximum number of views that the model is designed for"
-        # if N < self.num_cam:
-        #     # the number of input views is less than what the model expects.
-        #     # => we must extend the data with more views (either duplicate images or black images)
-        #     # imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
-        #     # proj_mats_extended = [None]*self.num_cam
-        #     # permutation = np.random.permutation(self.num_cam)
-        #     # for i in range(self.num_cam):
-        #     #     for batch in range(B):
-        #     #         if i < N:
-        #     #             imgs_extended[batch, permutation[i], :, :, :] = imgs[batch, i, :, :, :]
-        #     #             proj_mats_extended[permutation[i]] = proj_mats[i]
-        #     #         else:
-        #     #             imgs_extended[batch, permutation[i], :, :, :] = torch.zeros_like(imgs[batch, i, :, :, :])
-        #     #             proj_mats_extended[permutation[i]] = None
-
-
-        #     duplicate_indices = np.random.choice(N, self.num_cam - N, replace=True)
-        #     cam_ordering = [] # a list with indices with length==self.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
-        #     for i in range(N):
-        #         cam_ordering.append(i) # ensures that all views are added
-        #         n_duplicates = np.sum(duplicate_indices == i)
-        #         for j in range(n_duplicates):
-        #             cam_ordering.append(i) # add x copies of the current view if it is selected for duplication. 
-        #     assert len(cam_ordering) == self.num_cam
-        #     print("duplicates ordering: ", cam_ordering)
-
-        #     imgs_extended = torch.zeros((B, self.num_cam, C, H, W))
-        #     proj_mats_extended = [None]*self.num_cam
-        #     for i in range(self.num_cam):
-        #         for batch in range(B):
-        #             imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
-        #             proj_mats_extended[i] = proj_mats[cam_ordering[i]]
-        #     imgs = imgs_extended
-        #     proj_mats = proj_mats_extended
-        #     B, N, C, H, W = imgs.shape
 
         world_features = []
         imgs_result = []
-        view_indicator_list = []
+
+
+        view_indicator_viz = []
+        img_feature_viz = []
+        world_feature_viz = []
+
+
         for i in range(N):
             img_feature = self.base_pt1(imgs[:, i].to('cuda:0'))
             img_feature = self.base_pt2(img_feature.to('cuda:0'))
@@ -139,9 +106,11 @@ class PerspTransDetector(nn.Module):
                 # plt.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
                 # plt.show()
 
-                view_indicator = torch.ones_like(img_feature)
-                view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
-                view_indicator_list.append(view_indicator.to('cuda:0'))
+            view_indicator = torch.ones_like(img_feature)
+            view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            view_indicator_viz.append(view_indicator.detach().cpu())
+            img_feature_viz.append(img_feature.detach().cpu())
+            world_feature_viz.append(world_feature.detach().cpu())
 
             world_features.append(world_feature.to('cuda:0'))
 
@@ -166,7 +135,7 @@ class PerspTransDetector(nn.Module):
             plt.savefig(f"iall_bev_features.jpg")
             plt.close(fig)
 
-            view_indicators = torch.cat(view_indicator_list + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            view_indicators = torch.cat(view_indicator_viz + [coord_map.repeat([B, 1, 1, 1]).cpu()], dim=1)
 
             fig = plt.figure(
                 
@@ -189,7 +158,7 @@ class PerspTransDetector(nn.Module):
             subplt0.imshow(torch.norm(map_result[0].detach(), dim=0).cpu().numpy())
             plt.savefig(f"imap_res{i}.jpg")
             plt.close(fig)
-        return map_result, imgs_result
+        return map_result, imgs_result, (world_feature_viz, img_feature_viz, view_indicator_viz)
 
     def create_coord_map(self, img_size, with_r=False):
         H, W, C = img_size

@@ -50,7 +50,12 @@ class MultiviewX(VisionDataset):
         print(f'Grid Origin(x,y) : {self.origin}')
         print(f'Area/Region size(in m) : {self.region_size[0]}m x {self.region_size[1]}m')
         
-        self.bbox_by_pos_cam = self.read_POM2()
+        # self.bbox_by_pos_cam = self.read_POM2()
+        # self.cam_layout_list = []
+        # for cam in self.cameras:
+        #     cam_i = self.display_cam_layout([cam])
+        #     self.cam_layout_list.append(cam_i)
+        # self.pom = self.read_pom()
         # from PIL import Image
         # temp = self.display_cam_layout([2])
         # temp2 = self.draw_cameras(temp)

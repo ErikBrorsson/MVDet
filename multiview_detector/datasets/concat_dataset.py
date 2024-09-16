@@ -31,18 +31,18 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
             map_zoom_mat = np.diag(np.append(np.ones([2]) / d.grid_reduce, [1]))
             self.config_dict['map_zoom_mat'] = map_zoom_mat
             
-            imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(d.num_cam, d.base.intrinsic_matrices,
+            imgcoord2worldgrid_matrices = self.get_imgcoord2worldgrid_matrices(d.cameras, d.base.intrinsic_matrices,
                                                                            d.base.extrinsic_matrices,
                                                                            d.base.worldgrid2worldcoord_mat)
             self.config_dict['imgcoord2worldgrid_matrices'] = imgcoord2worldgrid_matrices
             
             # Projection matrix
             self.config_dict['proj_mats'] = [torch.from_numpy(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat)
-                              for cam in range(d.num_cam)]
+                              for cam in d.cameras]
             
             img_zoom_mat = np.diag(np.array([d.img_reduce, d.img_reduce, 1]))        
             self.config_dict["proj_mats_mvaug"] = [torch.from_numpy(np.linalg.inv(map_zoom_mat @ imgcoord2worldgrid_matrices[cam] @ img_zoom_mat))
-                            for cam in range(d.num_cam)]
+                            for cam in d.cameras]
             
             # Coordinate Map
             self.config_dict['coord_map'] = self.get_coord_map(d.reducedgrid_shape + [1])
@@ -59,9 +59,9 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
     def __len__(self):
         return sum(len(d) for d in self.datasets)
     
-    def get_imgcoord2worldgrid_matrices(self, num_cam, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
+    def get_imgcoord2worldgrid_matrices(self, cameras, intrinsic_matrices, extrinsic_matrices, worldgrid2worldcoord_mat):
         projection_matrices = {}
-        for cam in range(num_cam):
+        for cam in cameras:
             # removing third column(z=0) from extrinsic matrix of size 3x4 
             worldcoord2imgcoord_mat = intrinsic_matrices[cam] @ np.delete(extrinsic_matrices[cam], 2, 1)
             worldgrid2imgcoord_mat = worldcoord2imgcoord_mat @ worldgrid2worldcoord_mat

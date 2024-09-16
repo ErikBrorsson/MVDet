@@ -13,20 +13,24 @@
             // "args": "${command:pickArgs}"
             "args": [
                 "--dataset",
-                "multiviewx",
+                "wildtrack",
                 // "--cam_adapt",
                 "--train_viz",
                 "--data_path",
-                "/data/MultiviewX",
+                "/data/Wildtrack",
                 "--log_interval",
                 "1",
                 // "--src_cams",
-                // "2,4,6",
+                // "1,2,3,4,5,6,7",
                 // "--trg_cams",
-                // "1,3,5",
+                // "1,2,3,4,5,6,7",
+                // "--src_cams",
+                // "1,2,3",
+                // "--trg_cams",
+                // "4,5,6",
                 // "--uda",
                 // "--mvaug",
-                "--dropview",
+                // "--dropview",
                 "--avgpool",
                 // "--permutation",
                 // "--pretrained",
@@ -45,8 +49,8 @@
                 "0.5",
                 // "--avgpool_ext",
                 // "--gmvd2multiviewx",
-                "--resume_model",
-                "/mnt/2024-09-13_08-54-23-114946/MultiviewDetector.pth"
+                // "--resume_model",
+                // "/mnt/2024-09-13_08-54-23-114946/MultiviewDetector.pth"
             ]
             // "args": [
             //     "--log_dir",

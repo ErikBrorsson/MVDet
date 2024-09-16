@@ -23,6 +23,30 @@ from multiview_detector.evaluation.pyeval.CLEAR_MOD_HUN import CLEAR_MOD_HUN
 import kornia
 
 
+def display_cam_layout(img, view_indicator_list):
+    temp = 255*img
+    temp = np.maximum(temp, 0)
+    temp = np.minimum(255, temp)
+    temp = temp.astype(np.uint8)
+    drawing = np.repeat(np.expand_dims(temp, axis=2), 3, axis=2)
+
+    color_list = [
+        (255,0,0),
+        (0,255,0),
+        (0,0,255),
+        (127,127,0),
+        (0,127,127),
+        (127,0,127),
+        (255,255,0)
+    ]
+
+    for view_index, view in enumerate(view_indicator_list):
+        temp = (255*view[0][0,:,:].detach().cpu().numpy()).astype(np.uint8)
+        contours, hierarchy = cv2.findContours(temp, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        drawing=cv2.drawContours(drawing, contours, -1, color_list[view_index], 1)
+    return drawing
+
 class Augmentation:
     def __init__(self, dropview=False, permutation=False, mvaug=False,
                  grid_reduce=4, img_reduce=4, img_shape=[1080, 1920] , worldgrid_shape = [480, 1440]  # H,W; N_row,N_col
@@ -514,7 +538,7 @@ class PerspectiveTrainer(BaseTrainer):
                     data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
-            map_res, imgs_res = self.model(data, proj_mats, config_dict)
+            map_res, imgs_res, _ = self.model(data, proj_mats, config_dict)
             
             t_f = time.time()
             t_forward += t_f - t_b
@@ -710,7 +734,7 @@ class PerspectiveTrainer(BaseTrainer):
 
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
-                    map_res, imgs_res = self.model(data, proj_mats, config_dict, visualize=True)
+                    map_res, imgs_res, _ = self.model(data, proj_mats, config_dict, visualize=True)
                 if res_fpath is not None:
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
@@ -1013,7 +1037,7 @@ class BBOXTrainer(BaseTrainer):
     
 
 class UDATrainer(BaseTrainer):
-    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, pom=None,
+    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
                  weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False):
@@ -1027,7 +1051,6 @@ class UDATrainer(BaseTrainer):
         self.alpha = alpha
 
         # self.pseudo_threshold = 0.7
-        self.pom = pom
         self.visualize_train = visualize_train
         self.ema_model = ema_model
 
@@ -1105,7 +1128,7 @@ class UDATrainer(BaseTrainer):
 
 
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
-            map_res, imgs_res = self.model(data, proj_mats_source, config_dict)
+            map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats_source, config_dict)
             t_f = time.time()
             t_forward += t_f - t_b
             loss = 0
@@ -1140,9 +1163,14 @@ class UDATrainer(BaseTrainer):
                     fig = plt.figure()
                     subplt0 = fig.add_subplot(311, title="student output")
                     subplt1 = fig.add_subplot(312, title="label")
-                    subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                    subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                                .cpu().detach().numpy().squeeze())
+                    subplt2 = fig.add_subplot(313, title="view indicators")
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
                     plt.savefig(os.path.join(epoch_dir, f'train_source_map_{batch_idx}.jpg'))
                     plt.close(fig)
 
@@ -1231,7 +1259,7 @@ class UDATrainer(BaseTrainer):
 
                             for grid_pos in positions:
                                 pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
-                                bbox = self.pom[pos.item()][cam]
+                                bbox = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.pom[pos.item()][cam]
                                 if bbox is None:
                                     continue                    
                                 foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]

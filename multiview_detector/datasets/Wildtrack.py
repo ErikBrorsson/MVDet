@@ -46,6 +46,8 @@ class Wildtrack(VisionDataset):
         print(f'Grid Cell(in cm) : {self.grid_cell}cm i.e {self.grid_cell/100}m')
         print(f'Grid Origin(x,y) : {self.origin}')
         print(f'Area/Region size(in m) : {self.region_size[0]}m x {self.region_size[1]}m')
+
+        # self.pom = self.read_pom()
         
     def get_image_fpaths(self, frame_range):
         img_fpaths = {cam: {} for cam in self.cameras}

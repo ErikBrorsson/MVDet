@@ -43,9 +43,9 @@ def main(args):
 
 
     if args.gmvd2multiviewx:
+
         # set multiview x as target dataset and test dataset
-        data_path = args.data_path_src
-        # test_base0 = MultiviewX(data_path, False, [x for x in np.arange(6)], [x for x in np.arange(6)])
+        data_path = args.data_path_trg
         print("\nTraining datasets trg")
         target_base = MultiviewX(data_path)
         train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
@@ -56,25 +56,16 @@ def main(args):
         test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
         test_dataset_ = ConcatDataset(test_set)
 
-        # print("\nTraining datasets src")
-        # source_base0 = MultiviewX(data_path)
-        # train_set = frameDataset(source_base0, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
-        # train_set_ = ConcatDataset(train_set)
-
         # set gmvd train as source dataset
         print("\nTraining datasets source")
-        data_root = args.data_path_trg
+        data_root = args.data_path_src
         train_dataset_list = []
         print(os.path.join(data_root,args.gmvd_csv))
         f = open(os.path.join(data_root,args.gmvd_csv))
-            #data_path = f.readlines()
         data_path = csv.reader(f)
-        #for i in range(len(data_path)):
         for i,data_row in enumerate(data_path):
-            #print(data_row[1])
             train_ratio = float(data_row[2])
             sample_require = int(data_row[3])
-            # path = os.path.expanduser(str(data_row[1]))
             path = os.path.join(data_root, str(data_row[1]))
             if data_row[1].split('/')[-1]!='Wildtrack':
                 base = MultiviewX(path)
@@ -85,31 +76,6 @@ def main(args):
                 dataset_obj = GetDataset(base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4, train_ratio=train_ratio, sample_require=sample_require)
                 train_dataset_list.append(dataset_obj)
         train_set_ = ConcatDataset(*train_dataset_list)
-
-        # # set gmvd train as source dataset
-        # print("\nTraining datasets source")
-        # data_root = args.data_path
-        # train_dataset_list = []
-        # print(os.path.join(data_root,'train_datapath.csv'))
-        # f = open(os.path.join(data_root,'train_datapath.csv'))
-        #     #data_path = f.readlines()
-        # data_path = csv.reader(f)
-        # #for i in range(len(data_path)):
-        # for i,data_row in enumerate(data_path):
-        #     #print(data_row[1])
-        #     train_ratio = float(data_row[2])
-        #     sample_require = int(data_row[3])
-        #     # path = os.path.expanduser(str(data_row[1]))
-        #     path = os.path.join(data_root, str(data_row[1]))
-        #     if data_row[1].split('/')[-1]!='Wildtrack':
-        #         base = MultiviewX(path)
-        #     else:
-        #         base = Wildtrack(path)
-        #     if data_row[0]=='train':
-        #         # Train data
-        #         dataset_obj = frameDataset(base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4, train_ratio=train_ratio)
-        #         train_dataset_list.append(dataset_obj)
-        # train_dataset = ConcatDataset(*train_dataset_list)
 
         train_loader = torch.utils.data.DataLoader(train_set_, batch_size=args.batch_size, shuffle=True,
                                                 num_workers=args.num_workers, pin_memory=True)
@@ -137,17 +103,21 @@ def main(args):
 
                 source_base = Wildtrack(data_path, cameras=src_cams)
                 target_base = Wildtrack(data_path, cameras=trg_cams)
-                test_base = Wildtrack(data_path, cameras=trg_cams)
 
                 train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
                 train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
-                test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+                test_set = frameDataset(target_base, train=False, transform=train_trans, grid_reduce=4)
+
+                train_set = ConcatDataset(train_set)
+                train_set_target = ConcatDataset(train_set_target)
+                test_dataset = ConcatDataset(test_set)
+
 
                 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
                 train_loader_target = torch.utils.data.DataLoader(train_set_target, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
-                test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
                                                         num_workers=args.num_workers, pin_memory=True)
             else:
                 base = Wildtrack(data_path)
@@ -156,10 +126,13 @@ def main(args):
                 train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
                 test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
 
+                train_set = ConcatDataset(train_set)
+                test_dataset = ConcatDataset(test_set)
+
                 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
                 
-                test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
                                                         num_workers=args.num_workers, pin_memory=True)
 
         elif 'multiviewx' in args.dataset:
@@ -174,17 +147,20 @@ def main(args):
 
                 source_base = MultiviewX(data_path, cameras=src_cams)
                 target_base = MultiviewX(data_path, cameras=trg_cams)
-                test_base = MultiviewX(data_path, cameras=trg_cams)
 
                 train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
                 train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
-                test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+                test_set = frameDataset(target_base, train=False, transform=train_trans, grid_reduce=4)
+
+                train_set = ConcatDataset(train_set)
+                train_set_target = ConcatDataset(train_set_target)
+                test_dataset = ConcatDataset(test_set)
 
                 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
                 train_loader_target = torch.utils.data.DataLoader(train_set_target, batch_size=args.batch_size, shuffle=True,
                                                         num_workers=args.num_workers, pin_memory=True)
-                test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
                                                         num_workers=args.num_workers, pin_memory=True)
             else:
                 base = MultiviewX(data_path)
@@ -279,8 +255,8 @@ def main(args):
     augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
 
     if args.uda:
-        pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
-        trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, pom,
+        # pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
+        trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha,
                              args.train_viz, target_cameras=target_base.cameras,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
                              augmentation_module=augmentation, weighted_mse=args.weighted_mse,
@@ -330,8 +306,6 @@ def main(args):
         print("pseudo_label_th: ", pseudo_label_th)
 
     print('Testing...')
-    # test_loss, test_prec, moda, modp, precision, recall  = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-    #                                             test_set.gt_fpath)
     test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
                                                 test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
