@@ -25,6 +25,7 @@ from multiview_detector.utils.meters import AverageMeter
 import time
 from multiview_detector.evaluation.evaluate import evaluate
 from multiview_detector.utils.nms import nms
+from multiview_detector.datasets.concat_dataset import ConcatDataset
 
 def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, gt_fpath=None):
     model.eval()
@@ -34,25 +35,26 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
     t0 = time.time()
     if res_fpath is not None:
         assert gt_fpath is not None
-    for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _) in enumerate(data_loader):
+    for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
         with torch.no_grad():
-            map_res, imgs_res = model(data, proj_mats)
+            config_dict = data_loader.dataset.dicts[dataset_name[0]]
+            map_res, imgs_res, _ = model(data, proj_mats, config_dict)
         if res_fpath is not None:
             for cls_thres in cls_thres_array:
                 map_grid_res = map_res.detach().cpu().squeeze()
                 v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
                 grid_ij = (map_grid_res > cls_thres).nonzero()
-                if data_loader.dataset.base.indexing == 'xy':
+                if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
                     grid_xy = grid_ij[:, [1, 0]]
                 else:
                     grid_xy = grid_ij
                 all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-                                                data_loader.dataset.grid_reduce, v_s], dim=1))
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
 
         loss = 0
         for img_res, img_gt in zip(imgs_res, imgs_gt):
-            loss += criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.img_kernel)
-        loss = criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.map_kernel) + \
+            loss += criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+        loss = criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
                 loss / len(imgs_gt) * alpha
         losses += loss.item()
         pred = (map_res > cls_thres).int().to(map_gt.device)
@@ -77,7 +79,7 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         for i, cls_thres in enumerate(cls_thres_array):
             all_res_list_thres = all_res_list[str(cls_thres)]
             all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
-            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+            # np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + f'/all_res.txt', all_res_list_thres.numpy(), '%.8f')
             res_list = []
             for frame in np.unique(all_res_list_thres[:, 0]):
                 res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
@@ -85,10 +87,12 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
                 ids, count = nms(positions, scores, 20, np.inf)
                 res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
             res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
-            np.savetxt(res_fpath, res_list, '%d')
 
-            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                                                        data_loader.dataset.base.__name__)
+            res_fpath_i = res_fpath.replace(".txt", "_{:.2f}.txt".format(cls_thres))
+            np.savetxt(res_fpath_i, res_list, '%d')
+
+            recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath_i), os.path.abspath(gt_fpath),
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
             # If you want to use the unofiicial python evaluation tool for convenient purposes.
             # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
@@ -113,10 +117,11 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         precision = precision_list[max_indx]
         recall = recall_list[max_indx]
         max_cls_thres = cls_thres_array[max_indx]
+        print("\nBest results ############")
         print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
                 format(moda, modp, precision, recall, max_cls_thres))
         
-        print("0.4 ##################")
+        print("\n cls_thres=0.4 results ##################")
         print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
                 format(moda_04, modp_04, precision_04, recall_04, 0.4))
         
@@ -128,6 +133,73 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
 
     return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
 
+    # model.eval()
+    # losses = 0
+    # precision_s, recall_s = AverageMeter(), AverageMeter()
+    # all_res_list = []
+    # t0 = time.time()
+    # if res_fpath is not None:
+    #     assert gt_fpath is not None
+    # for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+    #     with torch.no_grad():
+    #         config_dict = data_loader.dataset.dicts[dataset_name[0]]
+    #         map_res, imgs_res, (world_features, img_features, view_indicator_list) = model(data, proj_mats, config_dict)
+    #     if res_fpath is not None:
+    #         map_grid_res = map_res.detach().cpu().squeeze()
+    #         v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
+    #         grid_ij = (map_grid_res > cls_thres).nonzero()
+    #         if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+    #             grid_xy = grid_ij[:, [1, 0]]
+    #         else:
+    #             grid_xy = grid_ij
+    #         all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+    #                                     data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
+
+    #     loss = 0
+    #     for img_res, img_gt in zip(imgs_res, imgs_gt):
+    #         loss += criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+    #     loss = criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
+    #         loss / len(imgs_gt) * alpha
+    #     losses += loss.item()
+    #     pred = (map_res > cls_thres).int().to(map_gt.device)
+    #     true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+    #     false_positive = pred.sum().item() - true_positive
+    #     false_negative = map_gt.sum().item() - true_positive
+    #     precision = true_positive / (true_positive + false_positive + 1e-4)
+    #     recall = true_positive / (true_positive + false_negative + 1e-4)
+    #     precision_s.update(precision)
+    #     recall_s.update(recall)
+
+    # t1 = time.time()
+    # t_epoch = t1 - t0
+
+    # moda = 0
+    # if res_fpath is not None:
+    #     all_res_list = torch.cat(all_res_list, dim=0)
+    #     np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
+    #     res_list = []
+    #     for frame in np.unique(all_res_list[:, 0]):
+    #         res = all_res_list[all_res_list[:, 0] == frame, :]
+    #         positions, scores = res[:, 1:3], res[:, 3]
+    #         ids, count = nms(positions, scores, 20, np.inf)
+    #         res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+    #     res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+    #     np.savetxt(res_fpath, res_list, '%d')
+
+    #     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+    #                                             data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
+
+    #     # If you want to use the unofiicial python evaluation tool for convenient purposes.
+    #     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+    #     #                                             data_loader.dataset.base.__name__)
+
+    #     print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+    #         format(moda, modp, precision, recall))
+
+    # print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+    #     losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+    # return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
 
 
 
@@ -195,12 +267,12 @@ def main(args):
             print("trg_cams: ", trg_cams)
             test_base = MultiviewX(data_path, cameras=trg_cams)
             test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
-            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+            test_loader = torch.utils.data.DataLoader(ConcatDataset(test_set), batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
             
             train_base = MultiviewX(data_path, cameras=trg_cams)
             train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
-            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
+            train_loader = torch.utils.data.DataLoader(ConcatDataset(train_set), batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
             
             if args.src_cams is not None:
@@ -213,12 +285,12 @@ def main(args):
         else:
             test_base = MultiviewX(data_path)
             test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)            
-            test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+            test_loader = torch.utils.data.DataLoader(ConcatDataset(test_set), batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
             
             train_base = MultiviewX(data_path)
             train_set = frameDataset(train_base, train=True, transform=train_trans, grid_reduce=4)
-            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=False,
+            train_loader = torch.utils.data.DataLoader(ConcatDataset(train_set), batch_size=args.batch_size, shuffle=False,
                                                     num_workers=args.num_workers, pin_memory=True)
     else:
         raise Exception('must choose from [wildtrack, multiviewx]')
@@ -228,9 +300,9 @@ def main(args):
     # model
     if args.variant == 'default':
         if args.src_cams is not None:
-            model = PerspTransDetector(train_set_src, args.arch)
+            model = PerspTransDetector(args.arch, avgpool=args.avgpool)
         else:
-            model = PerspTransDetector(test_set, args.arch)
+            model = PerspTransDetector(args.arch, avgpool=args.avgpool)
     elif args.variant == 'img_proj':
         model = ImageProjVariant(test_set, args.arch)
     elif args.variant == 'res_proj':
@@ -270,9 +342,11 @@ def main(args):
     #     trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     # else:
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
-    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = test(model, test_loader, np.arange(0.05, 0.95, 0.05), criterion,
+    print("test_set.gt_fpath: ", test_set.gt_fpath)
+    test_loss, metrics, metrics_04 = test(model, test_loader, np.arange(0.05, 0.95, 0.05), criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
-
+    (moda, modp, precision, recall, cls_thres_var) = metrics
+    (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = metrics_04
 
     x_epoch = []
     cls_thres_list = []
@@ -322,6 +396,7 @@ if __name__ == '__main__':
     parser.add_argument("--data_path", type=str, default=None)
     parser.add_argument("--persp_map", action="store_true")
     parser.add_argument("--test_aug", action="store_true")
+    parser.add_argument("--avgpool", action="store_true")
     parser.add_argument("--dropview", action="store_true")
     parser.add_argument("--permutation", action="store_true")
 
