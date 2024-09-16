@@ -604,7 +604,7 @@ class PerspectiveTrainer(BaseTrainer):
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
 
-                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     for cls_thres in cls_thres_array:
                         map_grid_res = map_res.detach().cpu().squeeze()
@@ -632,25 +632,32 @@ class PerspectiveTrainer(BaseTrainer):
                 precision_s.update(precision)
                 recall_s.update(recall)
 
-            if visualize:
-                fig = plt.figure()
-                subplt0 = fig.add_subplot(211, title="output")
-                subplt1 = fig.add_subplot(212, title="target")
-                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                            .cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
-                plt.close(fig)
+                if visualize:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
 
-                # visualizing the heatmap for per-view estimation
-                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
-                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
 
 
             moda = 0
@@ -734,7 +741,7 @@ class PerspectiveTrainer(BaseTrainer):
 
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
-                    map_res, imgs_res, _ = self.model(data, proj_mats, config_dict, visualize=True)
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict, visualize=True)
                 if res_fpath is not None:
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
@@ -871,18 +878,24 @@ class PerspectiveTrainer(BaseTrainer):
 
                     else:
                         fig = plt.figure()
-                        subplt0 = fig.add_subplot(321, title="scores")
-                        subplt1 = fig.add_subplot(322, title="prediction")
-                        subplt4 = fig.add_subplot(323, title="label")
+                        subplt0 = fig.add_subplot(411, title="output")
+                        subplt1 = fig.add_subplot(412, title="target")
+                        subplt2 = fig.add_subplot(413, title="view indicators")
+                        subplt3 = fig.add_subplot(414, title="world features")
 
-                        subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                        subplt1.imshow(self.criterion._traget_transform(map_res, map_pseudo_label, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                                    .cpu().detach().numpy().squeeze())
-                        subplt4.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                                    .cpu().detach().numpy().squeeze())
+                        map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                        label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                    .cpu().detach().numpy().squeeze(), view_indicator_list)
+                        all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                        all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+
+                        subplt0.imshow(map_res_view)
+                        subplt1.imshow(label_view)
+                        subplt2.imshow(all_views)
+                        subplt3.imshow(all_world_features)
+
                         plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
                         plt.close(fig)
-
 
 
 
@@ -1160,20 +1173,100 @@ class UDATrainer(BaseTrainer):
                     if not os.path.exists(epoch_dir):
                         os.mkdir(epoch_dir)
 
-                    fig = plt.figure()
-                    subplt0 = fig.add_subplot(311, title="student output")
-                    subplt1 = fig.add_subplot(312, title="label")
-                    subplt2 = fig.add_subplot(313, title="view indicators")
+                    fig = plt.figure(dpi=800)
+                    n_col = 5
+                    subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                    subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                    subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="view indicators")
+                    subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="world_features")
+
+                    subplt4 = fig.add_subplot(4, n_col,  2, title="img_feature_i")
+                    subplt5 = fig.add_subplot(4, n_col, n_col + 2, title="world_feature_i")
+                    subplt6 = fig.add_subplot(4, n_col,  n_col*2 + 2, title="img_feature_i")
+                    subplt7 = fig.add_subplot(4, n_col, n_col*3 + 2, title="world_feature_i")
+
+                    subplt8 = fig.add_subplot(4, n_col,  3, title="img_feature_i")
+                    subplt9 = fig.add_subplot(4, n_col, n_col + 3, title="world_feature_i")
+                    subplt10 = fig.add_subplot(4, n_col,  n_col*2 + 3, title="img_feature_i")
+                    subplt11 = fig.add_subplot(4, n_col, n_col*3 + 3, title="world_feature_i")
+
+                    subplt12 = fig.add_subplot(4, n_col,  4, title="img_feature_i")
+                    subplt13 = fig.add_subplot(4, n_col, n_col + 4, title="world_feature_i")
+                    subplt14 = fig.add_subplot(4, n_col,  n_col*2 + 4, title="img_feature_i")
+                    subplt15 = fig.add_subplot(4, n_col, n_col*3 + 4, title="world_feature_i")
+
+                    subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
+                    subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
+
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
                     all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)
                     subplt2.imshow(all_views)
-                    plt.savefig(os.path.join(epoch_dir, f'train_source_map_{batch_idx}.jpg'))
+                    subplt3.imshow(all_world_features)
+
+                    if len(world_features) >= 1:
+                        img_feature_i = torch.norm(img_features[0][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[0][0].detach(), dim=0).cpu().numpy()
+                        subplt4.imshow(img_feature_i)
+                        subplt5.imshow(w_feature_i)
+
+                    if len(world_features) >= 2:
+                        img_feature_i = torch.norm(img_features[1][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[1][0].detach(), dim=0).cpu().numpy()
+                        subplt6.imshow(img_feature_i)
+                        subplt7.imshow(w_feature_i)
+
+                    if len(world_features) >= 3:
+                        img_feature_i = torch.norm(img_features[2][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[2][0].detach(), dim=0).cpu().numpy()
+                        subplt8.imshow(img_feature_i)
+                        subplt9.imshow(w_feature_i)
+
+                    if len(world_features) >= 4:
+                        img_feature_i = torch.norm(img_features[3][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[3][0].detach(), dim=0).cpu().numpy()
+                        subplt10.imshow(img_feature_i)
+                        subplt11.imshow(w_feature_i)
+
+                    if len(world_features) >= 5:
+                        img_feature_i = torch.norm(img_features[4][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[4][0].detach(), dim=0).cpu().numpy()
+                        subplt12.imshow(img_feature_i)
+                        subplt13.imshow(w_feature_i)
+
+                    if len(world_features) >= 6:
+                        img_feature_i = torch.norm(img_features[5][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[5][0].detach(), dim=0).cpu().numpy()
+                        subplt14.imshow(img_feature_i)
+                        subplt15.imshow(w_feature_i)
+
+                    if len(world_features) >= 7:
+                        img_feature_i = torch.norm(img_features[6][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[6][0].detach(), dim=0).cpu().numpy()
+                        subplt16.imshow(img_feature_i)
+                        subplt17.imshow(w_feature_i)
+
+                    plt.savefig(os.path.join(epoch_dir, f'train_source_features_{batch_idx}.jpg'))
                     plt.close(fig)
 
+                    fig = plt.figure()
+                    n_col = 1
+                    subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                    subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                    subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="view indicators")
+                    subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="world_features")
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+                    plt.savefig(os.path.join(epoch_dir, f'train_source_{batch_idx}.jpg'))
+                    plt.close(fig)
 
             del imgs_res, imgs_gt, map_res, map_gt, data
 
@@ -1193,7 +1286,7 @@ class UDATrainer(BaseTrainer):
                             data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                    map_pred_teacher, imgs_teacher_pred = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
+                    map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
                 temp = map_pred_teacher.detach().cpu().squeeze()
 
                 if not self.soft_labels:
@@ -1284,7 +1377,7 @@ class UDATrainer(BaseTrainer):
 
                     # student predict and compute loss
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                    map_res_target, imgs_res_target = self.model(data_student, proj_mats_student, config_dict)
+                    map_res_target, imgs_res_target, (world_features, img_features, view_indicator_list)  = self.model(data_student, proj_mats_student, config_dict)
                     loss = 0
                     for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
                         if not img_pseudo_label is None:
@@ -1309,7 +1402,7 @@ class UDATrainer(BaseTrainer):
                             data_student, _, proj_mats_student = self.duplicate_images(data_student,None, proj_mats_student)
 
                     # student predict and compute loss
-                    map_res_target, imgs_res_target = self.model(data_student, proj_mats_student)
+                    map_res_target, imgs_res_target, (world_features, img_features, view_indicator_list)  = self.model(data_student, proj_mats_student)
                     loss = 0
                     loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
 
@@ -1338,28 +1431,118 @@ class UDATrainer(BaseTrainer):
             if (batch_idx + 1) % log_interval == 0:
                 if target_weight != 0:
                     if self.visualize_train:
-                        fig = plt.figure()
-                        subplt0 = fig.add_subplot(511, title="student output")
-                        subplt1 = fig.add_subplot(512, title="label")
-                        subplt2 = fig.add_subplot(513, title="teacher pseudo (or soft) label")
-                        subplt3 = fig.add_subplot(514, title="teacher output")
-                        if self.weighted_mse and not self.soft_labels:
-                            subplt4 = fig.add_subplot(515, title="pseudo-label weight")
-                            subplt4.imshow(map_pseudo_label_weight.cpu().detach().numpy().squeeze())
-                        subplt0.imshow(map_res_target.cpu().detach().numpy().squeeze())
-                        subplt1.imshow(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
-                                    .cpu().detach().numpy().squeeze())
+
+                        fig = plt.figure(dpi=800)
+                        n_col = 5
+                        subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                        subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                        subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="pseudo-label")
+                        subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="teacher output")
+
+                        subplt4 = fig.add_subplot(4, n_col,  2, title="img_feature_i")
+                        subplt5 = fig.add_subplot(4, n_col, n_col + 2, title="world_feature_i")
+                        subplt6 = fig.add_subplot(4, n_col,  n_col*2 + 2, title="img_feature_i")
+                        subplt7 = fig.add_subplot(4, n_col, n_col*3 + 2, title="world_feature_i")
+
+                        subplt8 = fig.add_subplot(4, n_col,  3, title="img_feature_i")
+                        subplt9 = fig.add_subplot(4, n_col, n_col + 3, title="world_feature_i")
+                        subplt10 = fig.add_subplot(4, n_col,  n_col*2 + 3, title="img_feature_i")
+                        subplt11 = fig.add_subplot(4, n_col, n_col*3 + 3, title="world_feature_i")
+
+                        subplt12 = fig.add_subplot(4, n_col,  4, title="img_feature_i")
+                        subplt13 = fig.add_subplot(4, n_col, n_col + 4, title="world_feature_i")
+                        subplt14 = fig.add_subplot(4, n_col,  n_col*2 + 4, title="img_feature_i")
+                        subplt15 = fig.add_subplot(4, n_col, n_col*3 + 4, title="world_feature_i")
+
+                        subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
+                        subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
+                        subplt18 = fig.add_subplot(4, n_col,  n_col*2 + 5, title="view indicator")
+                        subplt19 = fig.add_subplot(4, n_col, n_col*3 + 5, title="all world features")
+
+                        student_res_view = display_cam_layout(map_res_target.cpu().detach().numpy().squeeze(), view_indicator_list)
+                        label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                    .cpu().detach().numpy().squeeze(), view_indicator_list)
                         if self.soft_labels:
-                            subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, None)
-                                    .cpu().detach().numpy().squeeze())
+                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label, None).cpu().detach().numpy().squeeze(), view_indicator_list)
                         else:
-                            subplt2.imshow(self.criterion._traget_transform(map_res_target, map_pseudo_label, data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel)
-                                        .cpu().detach().numpy().squeeze())
-                        subplt3.imshow(map_pred_teacher.cpu().detach().numpy().squeeze())
+                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label,
+                                                                                 data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list)
+                        teacher_res_view = display_cam_layout(map_pred_teacher.cpu().detach().numpy().squeeze(), view_indicator_list)
+
+                        subplt0.imshow(student_res_view)
+                        subplt1.imshow(label_view)
+                        subplt2.imshow(pseudo_label_view)
+                        subplt3.imshow(teacher_res_view)
+
+                        if len(world_features) >= 1:
+                            img_feature_i = torch.norm(img_features[0][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[0][0].detach(), dim=0).cpu().numpy()
+                            subplt4.imshow(img_feature_i)
+                            subplt5.imshow(w_feature_i)
+
+                        if len(world_features) >= 2:
+                            img_feature_i = torch.norm(img_features[1][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[1][0].detach(), dim=0).cpu().numpy()
+                            subplt6.imshow(img_feature_i)
+                            subplt7.imshow(w_feature_i)
+
+                        if len(world_features) >= 3:
+                            img_feature_i = torch.norm(img_features[2][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[2][0].detach(), dim=0).cpu().numpy()
+                            subplt8.imshow(img_feature_i)
+                            subplt9.imshow(w_feature_i)
+
+                        if len(world_features) >= 4:
+                            img_feature_i = torch.norm(img_features[3][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[3][0].detach(), dim=0).cpu().numpy()
+                            subplt10.imshow(img_feature_i)
+                            subplt11.imshow(w_feature_i)
+
+                        if len(world_features) >= 5:
+                            img_feature_i = torch.norm(img_features[4][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[4][0].detach(), dim=0).cpu().numpy()
+                            subplt12.imshow(img_feature_i)
+                            subplt13.imshow(w_feature_i)
+
+                        if len(world_features) >= 6:
+                            img_feature_i = torch.norm(img_features[5][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[5][0].detach(), dim=0).cpu().numpy()
+                            subplt14.imshow(img_feature_i)
+                            subplt15.imshow(w_feature_i)
+
+                        if len(world_features) >= 7:
+                            img_feature_i = torch.norm(img_features[6][0].detach(), dim=0).cpu().numpy()
+                            w_feature_i = torch.norm(world_features[6][0].detach(), dim=0).cpu().numpy()
+                            subplt16.imshow(img_feature_i)
+                            subplt17.imshow(w_feature_i)
+
+
+                        all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                        all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                        subplt18.imshow(all_views)
+                        subplt19.imshow(all_world_features)
+
                         epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
                         if not os.path.exists(epoch_dir):
                             os.mkdir(epoch_dir)
-                        plt.savefig(os.path.join(epoch_dir, f'train_target_map_{batch_idx}.jpg'))
+                        plt.savefig(os.path.join(epoch_dir, f'train_target_features_{batch_idx}.jpg'))
+                        plt.close(fig)
+
+                        fig = plt.figure()
+                        n_col = 2
+                        subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                        subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                        subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="pseudo-label")
+                        subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="teacher output")
+                        subplt4 = fig.add_subplot(4, n_col,  2, title="view indicator")
+                        subplt5 = fig.add_subplot(4, n_col, n_col + 2, title="all world features")
+                        subplt0.imshow(student_res_view)
+                        subplt1.imshow(label_view)
+                        subplt2.imshow(pseudo_label_view)
+                        subplt3.imshow(teacher_res_view)
+                        subplt4.imshow(all_views)
+                        subplt5.imshow(all_world_features)
+                        plt.savefig(os.path.join(epoch_dir, f'train_target_{batch_idx}.jpg'))
                         plt.close(fig)
 
                         # visualize pseudo-label of perspective view
@@ -1425,7 +1608,7 @@ class UDATrainer(BaseTrainer):
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
 
-                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     for cls_thres in cls_thres_array:
                         map_grid_res = map_res.detach().cpu().squeeze()
@@ -1453,26 +1636,32 @@ class UDATrainer(BaseTrainer):
                 precision_s.update(precision)
                 recall_s.update(recall)
 
-            if visualize:
-                fig = plt.figure()
-                subplt0 = fig.add_subplot(211, title="output")
-                subplt1 = fig.add_subplot(212, title="target")
-                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                            .cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
-                plt.close(fig)
+                if visualize:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
 
-                # visualizing the heatmap for per-view estimation
-                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
-                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
 
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
 
             moda = 0
             moda_04 = 0
@@ -1544,7 +1733,7 @@ class UDATrainer(BaseTrainer):
             for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
-                    map_res, imgs_res = self.model(data, proj_mats, config_dict)
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict)
                 if res_fpath is not None:
                     map_grid_res = map_res.detach().cpu().squeeze()
                     v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
@@ -1571,28 +1760,39 @@ class UDATrainer(BaseTrainer):
                 precision_s.update(precision)
                 recall_s.update(recall)
 
+                if visualize:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    # visualizing the heatmap for per-view estimation
+                    # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
             t1 = time.time()
             t_epoch = t1 - t0
-
-            if visualize:
-                fig = plt.figure()
-                subplt0 = fig.add_subplot(211, title="output")
-                subplt1 = fig.add_subplot(212, title="target")
-                subplt0.imshow(map_res.cpu().detach().numpy().squeeze())
-                subplt1.imshow(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                            .cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(self.logdir, 'map.jpg'))
-                plt.close(fig)
-
-                # visualizing the heatmap for per-view estimation
-                # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
-                heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
-                img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
-                img0 = Image.fromarray((img0 * 255).astype('uint8'))
-                # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
-                # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
-                foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
-                foot_cam_result.save(os.path.join(self.logdir, 'cam1_foot.jpg'))
 
             moda = 0
             if res_fpath is not None:

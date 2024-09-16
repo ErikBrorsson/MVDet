@@ -26,7 +26,7 @@ class Wildtrack(VisionDataset):
         self.grid_cell, self.origin = config['grid_cell'], config['origin']
         self.region_size = config['region_size'] 
         self.indexing = 'ij'
-        self.worldgrid2worldcoord_mat = np.array([[0,self.grid_cell, self.origin[0]], [self.grid_cell, 0, self.origin[1]], [0, 0, 1]])
+        self.worldgrid2worldcoord_mat = np.array([[self.grid_cell, 0, self.origin[0]], [0, self.grid_cell, self.origin[1]], [0, 0, 1]])
 
         if cameras is not None:
             self.cameras = [x - 1 for x in cameras] # in the code, the camera index is sometimes used to reference the position in a list => need range 0-6 instead of 1-7
