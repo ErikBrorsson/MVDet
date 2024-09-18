@@ -88,6 +88,70 @@ def main(args):
         print("images in target training set: ", len(train_loader_target))
         print("images in target test set: ", len(test_loader))
 
+    elif args.multiviewx2wildtrack:
+        # set wildtrack as trg train and test
+        data_path = args.data_path_trg
+        print("\nTraining datasets trg")
+        target_base = Wildtrack(data_path)
+        train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_trg = ConcatDataset(train_dataset_trg_)
+
+        print("\nTest datasets trg")
+        test_base0 = Wildtrack(data_path)
+        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_dataset_ = ConcatDataset(test_set)
+
+        # set multiview x as source train set
+        data_path = args.data_path_src
+        print("\nTraining datasets src")
+        source_base = MultiviewX(data_path)
+        train_dataset_src_ = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_src = ConcatDataset(train_dataset_src_)
+
+        train_loader = torch.utils.data.DataLoader(train_dataset_src, batch_size=args.batch_size, shuffle=True,
+                                                num_workers=args.num_workers, pin_memory=True)
+        train_loader_target = torch.utils.data.DataLoader(train_dataset_trg, batch_size=args.batch_size, shuffle=True,
+                                                num_workers=args.num_workers, pin_memory=True)
+        test_loader = torch.utils.data.DataLoader(test_dataset_, batch_size=args.batch_size, shuffle=False,
+                                                num_workers=args.num_workers, pin_memory=True)
+        
+        print("images in source training set: ", len(train_loader))
+        print("images in target training set: ", len(train_loader_target))
+        print("images in target test set: ", len(test_loader))
+
+    elif args.wildtrack2multiviewx:
+        # set multiviewx as trg train and test
+        data_path = args.data_path_trg
+        print("\nTraining datasets trg")
+        target_base = MultiviewX(data_path)
+        train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_trg = ConcatDataset(train_dataset_trg_)
+
+        print("\nTest datasets trg")
+        test_base0 = MultiviewX(data_path)
+        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_dataset_ = ConcatDataset(test_set)
+
+        # set wildtrack as src train
+        data_path = args.data_path_src
+        print("\nTraining datasets src")
+        source_base = Wildtrack(data_path)
+        train_dataset_src_ = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_src = ConcatDataset(train_dataset_src_)
+
+
+        train_loader = torch.utils.data.DataLoader(train_dataset_src, batch_size=args.batch_size, shuffle=True,
+                                                num_workers=args.num_workers, pin_memory=True)
+        train_loader_target = torch.utils.data.DataLoader(train_dataset_trg, batch_size=args.batch_size, shuffle=True,
+                                                num_workers=args.num_workers, pin_memory=True)
+        test_loader = torch.utils.data.DataLoader(test_dataset_, batch_size=args.batch_size, shuffle=False,
+                                                num_workers=args.num_workers, pin_memory=True)
+        
+        print("images in source training set: ", len(train_loader))
+        print("images in target training set: ", len(train_loader_target))
+        print("images in target test set: ", len(test_loader))
+
+
     else:
 
         if 'wildtrack' in args.dataset:
@@ -407,6 +471,8 @@ if __name__ == '__main__':
     parser.add_argument('--uda_persp_sup', action="store_true")
     parser.add_argument('--varying_cls_thres', action="store_true")
     parser.add_argument('--gmvd2multiviewx', action="store_true")
+    parser.add_argument('--multiviewx2wildtrack', action="store_true")
+    parser.add_argument('--wildtrack2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
     parser.add_argument('--auto_th', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')

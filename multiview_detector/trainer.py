@@ -1255,7 +1255,7 @@ class UDATrainer(BaseTrainer):
                     plt.savefig(os.path.join(epoch_dir, f'train_source_features_{batch_idx}.jpg'))
                     plt.close(fig)
 
-                    fig = plt.figure()
+                    fig = plt.figure(dpi=500)
                     n_col = 1
                     subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
                     subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
