@@ -29,7 +29,7 @@
                 // "--trg_cams",
                 // "4,5,6",
                 // "--uda",
-                // "--mvaug",
+                "--mvaug",
                 // "--dropview",
                 "--avgpool",
                 // "--permutation",

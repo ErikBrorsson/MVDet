@@ -260,7 +260,7 @@ def main(args):
                              args.train_viz, target_cameras=target_base.cameras,
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
                              augmentation_module=augmentation, weighted_mse=args.weighted_mse,
-                             low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup, persp_sup=args.persp_sup)
+                             low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup, persp_sup=args.persp_sup, auto_th=args.auto_th)
     else:
         trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation_module=augmentation, persp_sup=args.persp_sup)
 
@@ -305,9 +305,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    print('Testing...')
-    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+    # print('Testing...')
+    # test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+    #                                             test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
     best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
@@ -408,6 +408,7 @@ if __name__ == '__main__':
     parser.add_argument('--varying_cls_thres', action="store_true")
     parser.add_argument('--gmvd2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
+    parser.add_argument('--auto_th', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
     parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')
 

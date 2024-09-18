@@ -386,19 +386,19 @@ class PerspectiveTrainer(BaseTrainer):
                 # assert torch.sum(map_label_aug) == torch.sum(map_gt), "some pedestrian label vanished in scene augmentation"
                 fig = plt.figure()
                 subplt0 = fig.add_subplot(111, title="map_label")
-                subplt0.imshow(self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.map_kernel).cpu().detach().numpy().squeeze())
+                subplt0.imshow(self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(f'imap_label.jpg'))
                 plt.close(fig)
 
                 fig = plt.figure()
                 subplt1 = fig.add_subplot(111, title="map_label_aug")
-                subplt1.imshow(self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.map_kernel).cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(f'imap_label_aug.jpg'))
                 plt.close(fig)
 
                 fig = plt.figure()
                 subplt1 = fig.add_subplot(111, title="map_label_aug2")
-                subplt1.imshow(self.criterion._traget_transform(map_gt_aug_temp, map_gt_aug_temp, data_loader.dataset.map_kernel).cpu().detach().numpy().squeeze())
+                subplt1.imshow(self.criterion._traget_transform(map_gt_aug_temp, map_gt_aug_temp, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
                 plt.savefig(os.path.join(f'imap_label_aug2.jpg'))
                 plt.close(fig)
 
@@ -443,11 +443,11 @@ class PerspectiveTrainer(BaseTrainer):
 
                     # augment the projection matrix to account for persp aug
                     # temp = torch.tensor([data.shape[-2] // data_loader.dataset.img_reduce, data.shape[-1] // data_loader.dataset.img_reduce])
-                    temp = torch.tensor([int(x / data_loader.dataset.img_reduce) for x in data_loader.dataset.img_shape])
+                    temp = torch.tensor([int(x / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce) for x in data_loader.dataset.dicts[dataset_name[0]]['base'].img_shape])
                     proj_mat_aug_f = persp_aug.augment_homography_view_based(proj_mats_mvaug_features[i].float(), (temp).float()) # bev-grid reduced -> warped image (720x1280)
                     proj_mat_aug_list_without_scene.append(torch.linalg.inv(proj_mat_aug_f))
 
-                    temp = torch.tensor(data_loader.dataset.reducedgrid_shape)
+                    temp = torch.tensor(data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
                     proj_mat_aug_f = scene_aug.augment_homography_scene_based(proj_mat_aug_f, [int(x) for x in temp])
 
                     proj_mat_aug_list.append(torch.linalg.inv(proj_mat_aug_f))
@@ -481,26 +481,26 @@ class PerspectiveTrainer(BaseTrainer):
                     #                             foot_points_aug * data.shape[-2] / img_gt.shape[-2]) # adjust foot_points for size difference between img and img_gt
 
                     # visualize augmneted "img features" and projection to bev
-                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.img_reduce), int(img_gt.shape[-1] / data_loader.dataset.img_reduce)))
+                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce), int(img_gt.shape[-1] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce)))
                     img_resized = resize(img_aug)
                     temp_mat =  proj_mat_aug_list_without_scene[i]
                     temp_mat_inv = torch.linalg.inv(temp_mat)
-                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.reducedgrid_shape)
+                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
                     self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
                                                 os.path.join(f'img_and_bev_aug_resized{i}.jpg'),
-                                                foot_points_aug / data_loader.dataset.img_reduce,
-                                                self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.map_kernel))
+                                                foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
+                                                self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
                     
                     # visualize augmneted "img features" and projection to bev, including sene augmentation
-                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.img_reduce), int(img_gt.shape[-1] / data_loader.dataset.img_reduce)))
+                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce), int(img_gt.shape[-1] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce)))
                     img_resized = resize(img_aug)
                     temp_mat = proj_mat_aug_list[i]
                     temp_mat_inv = torch.linalg.inv(temp_mat)
-                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.reducedgrid_shape)
+                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
                     self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
                                                 os.path.join(f'img_and_bev_aug_resized_sceneaug{i}.jpg'),
-                                                foot_points_aug / data_loader.dataset.img_reduce,
-                                                self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.map_kernel))
+                                                foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
+                                                self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
                     
 
                     # img_label_hm = self.criterion._traget_transform(img_gt, img_gt, data_loader.dataset.img_kernel).cpu().detach().numpy().squeeze()
@@ -642,8 +642,8 @@ class PerspectiveTrainer(BaseTrainer):
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
-                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)
@@ -886,8 +886,8 @@ class PerspectiveTrainer(BaseTrainer):
                         map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                         label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze(), view_indicator_list)
-                        all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                        all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                        all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                        all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
                         subplt0.imshow(map_res_view)
                         subplt1.imshow(label_view)
@@ -1053,7 +1053,7 @@ class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
-                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False):
+                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False, auto_th=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -1080,6 +1080,7 @@ class UDATrainer(BaseTrainer):
         self.high_th = high_th
         self.uda_persp_sup = uda_persp_sup
         self.persp_sup = persp_sup
+        self.auto_th = auto_th
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
         B, N, C, H, W = imgs.shape
@@ -1201,8 +1202,8 @@ class UDATrainer(BaseTrainer):
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
-                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)
@@ -1286,40 +1287,41 @@ class UDATrainer(BaseTrainer):
                             data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                    map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
+                    map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
                 temp = map_pred_teacher.detach().cpu().squeeze()
 
                 if not self.soft_labels:
-                    gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
-                    gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
-                    gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
-                    gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                    gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                    if self.auto_th:
+                        gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
+                        gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
+                        gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
+                        gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                        gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
 
-                    # find the optimal (in moda sense) pseudo-label threshold for the current sample
-                    best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
-                    best_moda = 0
-                    moda_04 = 0
-                    for varying_th in np.arange(0.05, 0.95, 0.05):
-                        scores = temp[temp > varying_th]
-                        positions = (temp > varying_th).nonzero().float()
-                        if not torch.numel(positions) == 0:
-                            ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
-                            positions = positions[ids[:count], :]
-                            scores = scores[ids[:count]]
-                        else:
-                            continue
-                        detAllMatrix = np.zeros((positions.shape[0], 4))
-                        detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
-                        detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                        detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                        _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
-                        if moda_i > best_moda:
-                            best_moda = moda_i
-                            best_th = varying_th
-                        if varying_th == 0.4:
-                            moda_04 = moda_i
-                    pseudo_label_th = best_th
+                        # find the optimal (in moda sense) pseudo-label threshold for the current sample
+                        best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
+                        best_moda = 0
+                        moda_04 = 0
+                        for varying_th in np.arange(0.05, 0.95, 0.05):
+                            scores = temp[temp > varying_th]
+                            positions = (temp > varying_th).nonzero().float()
+                            if not torch.numel(positions) == 0:
+                                ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                                positions = positions[ids[:count], :]
+                                scores = scores[ids[:count]]
+                            else:
+                                continue
+                            detAllMatrix = np.zeros((positions.shape[0], 4))
+                            detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
+                            detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                            detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                            _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
+                            if moda_i > best_moda:
+                                best_moda = moda_i
+                                best_th = varying_th
+                            if varying_th == 0.4:
+                                moda_04 = moda_i
+                        pseudo_label_th = best_th
 
                     scores = temp[temp > pseudo_label_th]
                     positions = (temp > pseudo_label_th).nonzero().float()
@@ -1366,6 +1368,7 @@ class UDATrainer(BaseTrainer):
                             imgs_pseudo_labels.append(None)
 
                     # apply augmentation to target images and pseudo-labels prior to student training
+                    map_pseudo_label_unaug = torch.clone(map_pseudo_label)
                     data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
                                                                                                                 map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                     
@@ -1461,13 +1464,18 @@ class UDATrainer(BaseTrainer):
 
                         student_res_view = display_cam_layout(map_res_target.cpu().detach().numpy().squeeze(), view_indicator_list)
                         label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
-                                    .cpu().detach().numpy().squeeze(), view_indicator_list)
+                                    .cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
                         if self.soft_labels:
-                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label, None).cpu().detach().numpy().squeeze(), view_indicator_list)
+                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label_unaug, None).cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
                         else:
-                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label,
+                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label_unaug,
+                                                                                 data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
+                        if self.soft_labels:
+                            pseudo_label_view_aug = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label, None).cpu().detach().numpy().squeeze(), view_indicator_list)
+                        else:
+                            pseudo_label_view_aug = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label,
                                                                                  data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list)
-                        teacher_res_view = display_cam_layout(map_pred_teacher.cpu().detach().numpy().squeeze(), view_indicator_list)
+                        teacher_res_view = display_cam_layout(map_pred_teacher.cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
 
                         subplt0.imshow(student_res_view)
                         subplt1.imshow(label_view)
@@ -1517,8 +1525,8 @@ class UDATrainer(BaseTrainer):
                             subplt17.imshow(w_feature_i)
 
 
-                        all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                        all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                        all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                        all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
                         subplt18.imshow(all_views)
                         subplt19.imshow(all_world_features)
 
@@ -1528,20 +1536,22 @@ class UDATrainer(BaseTrainer):
                         plt.savefig(os.path.join(epoch_dir, f'train_target_features_{batch_idx}.jpg'))
                         plt.close(fig)
 
-                        fig = plt.figure()
+                        fig = plt.figure(dpi=500)
                         n_col = 2
                         subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
                         subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
                         subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="pseudo-label")
                         subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="teacher output")
-                        subplt4 = fig.add_subplot(4, n_col,  2, title="view indicator")
-                        subplt5 = fig.add_subplot(4, n_col, n_col + 2, title="all world features")
+                        subplt4 = fig.add_subplot(4, n_col,  2, title="pseudo-label augmented")
+                        subplt5 = fig.add_subplot(4, n_col,  n_col + 2, title="view indicator")
+                        subplt6 = fig.add_subplot(4, n_col, n_col*2 + 2, title="all world features")
                         subplt0.imshow(student_res_view)
                         subplt1.imshow(label_view)
                         subplt2.imshow(pseudo_label_view)
                         subplt3.imshow(teacher_res_view)
-                        subplt4.imshow(all_views)
-                        subplt5.imshow(all_world_features)
+                        subplt4.imshow(pseudo_label_view_aug)
+                        subplt5.imshow(all_views)
+                        subplt6.imshow(all_world_features)
                         plt.savefig(os.path.join(epoch_dir, f'train_target_{batch_idx}.jpg'))
                         plt.close(fig)
 
@@ -1571,7 +1581,9 @@ class UDATrainer(BaseTrainer):
                             # head_cam_result.save(os.path.join(epoch_dir, f'output_cam{cam_num+1}_head_{batch_idx}.jpg'))
                             foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
                             foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
-                    print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
+                    
+                    if self.auto_th:
+                        print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
 
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
@@ -1637,7 +1649,7 @@ class UDATrainer(BaseTrainer):
                 recall_s.update(recall)
 
                 if visualize:
-                    fig = plt.figure()
+                    fig = plt.figure(dpi=500)
                     subplt0 = fig.add_subplot(411, title="output")
                     subplt1 = fig.add_subplot(412, title="target")
                     subplt2 = fig.add_subplot(413, title="view indicators")
@@ -1646,8 +1658,8 @@ class UDATrainer(BaseTrainer):
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
-                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)
@@ -1770,8 +1782,8 @@ class UDATrainer(BaseTrainer):
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
-                    all_views = torch.norm(torch.cat(view_indicator_list), dim=0)[0].numpy()
-                    all_world_features = torch.norm(torch.cat(world_features, dim=0), dim=0)[0].detach().cpu().numpy()
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)

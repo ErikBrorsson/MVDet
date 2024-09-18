@@ -1837,7 +1837,43 @@ multiviewx->multiviewx on gmvd branch gave
 max_moda: 90.3%, max_modp: 82.7%, max_precision: 98.5%, max_recall: 91.7%, epoch: 16.0%
 
 
+### 17/9
 
+Premisser för att undersöka pslabel-th:
+- [x] uda med automatisk pseudo-label-th ger stor förbättring över baseline
+  - [x] gmvd scene1 -> multiviewx
+  - [x] gmvd scene2 -> multiviewx
+  - [x] wildtrack 1,3,5,7 -> 2,4,5,6
+  - [x] wildtrack 2,4,5,6 -> 1,3,5,7
+  - [ ] wildtrack -> multiviewx
+  - [ ] multiviewx -> wildtrack
+- [ ] uda med fixed ps-label-th ger ej lika bra resultat som ovan uda, alt är mycket svår att tuna
+  - [ ] gmvd scene1 -> multiviewx
+  - [ ] gmvd scene2 -> multiviewx
+  - [x] wildtrack 1,3,5,7 -> 2,4,5,6
+  - [x] wildtrack 2,4,5,6 -> 1,3,5,7
+  - [ ] wildtrack -> multiviewx
+  - [ ] multiviewx -> wildtrack
+
+
+
+
+### 18/9
+found out an issue with mvaug:  
+![](resources/images/warp_perspective_issues.png)
+
+It seems like mvaug doesnt work properly when there are points of the grid "behind" the camera.
+In MVAug, they do not use kronia warp perspective, but rather use torch.grid_sample. They do the followingsteps:
+1. initialize grid in 3d coordinates
+2. multiply transformation matrix with the grid to get into camera coordinates
+3. divide with the third component to get to the image plane
+4. normalize to [-1, 1] "image coordinates"
+5. use grid_sample to sample the points in the image
+   
+Witht this approach, it should be possible to check in the third step that the third component is strictly positive.
+However, I don't see that MVAug does this, so they might also have this issue of points "behind" the camera.
+
+When using kornia warp_perspective, it is not as clear how to deal with this.
 
 
 # TODO
@@ -1850,4 +1886,5 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 - exps on GMVD dataset. GMVD scene 1 -> multiviewx, GMVD scene 1 -> scene 5, multiviewx -> GMVD scene 5
 
 
+- fix mvaug. see logs from ### 18/9
 
