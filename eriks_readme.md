@@ -1848,8 +1848,8 @@ Premisser för att undersöka pslabel-th:
   - [ ] wildtrack -> multiviewx
   - [ ] multiviewx -> wildtrack
 - [ ] uda med fixed ps-label-th ger ej lika bra resultat som ovan uda, alt är mycket svår att tuna
-  - [ ] gmvd scene1 -> multiviewx
-  - [ ] gmvd scene2 -> multiviewx
+  - [x] gmvd scene1 -> multiviewx slurm-2813208_280 moda drops a lot as UDA kicks in (with pseudo-label-th= ~0.4)
+  - [x] gmvd scene2 -> multiviewx 2813657_289 moda drops a lot as UDA kicks in (with pseudo-label-th= ~0.4)
   - [x] wildtrack 1,3,5,7 -> 2,4,5,6
   - [x] wildtrack 2,4,5,6 -> 1,3,5,7
   - [ ] wildtrack -> multiviewx
@@ -1876,14 +1876,39 @@ However, I don't see that MVAug does this, so they might also have this issue of
 When using kornia warp_perspective, it is not as clear how to deal with this.
 
 
+multiviewx -> wildtrack baseline w/o mvaug 
+max_moda: 73.0%, max_modp: 73.4%, max_precision: 93.1%, max_recall: 78.9%, epoch: 6.0%
+
+wildtrack -> multiviewx baseline w/o mvaug
+max_moda: 37.2%, max_modp: 68.1%, max_precision: 79.0%, max_recall: 50.7%, epoch: 8.0%
+
+multiviewx -> wildtrack baseline w mvaug
+max_moda: 69.2%, max_modp: 70.9%, max_precision: 90.3%, max_recall: 77.5%, epoch: 12.0%
+
+wildtrack -> multiviewx baseline w mvaug
+max_moda: 31.0%, max_modp: 65.6%, max_precision: 82.3%, max_recall: 39.5%, epoch: 9.0%
+
+Note: MVAUG actually yields worse performance in above experiments... Have I recently introduced the found issue in MVAug? It seems weird that it worked well on other benchmarks before but results in degradation here...
+
+
+
+multiviewx -> wildtrack auto_th
+ONGOING slurm-2813675_300
+
+wildtrack -> multiviewx auto_th
+ONGOING slurm-2813675_305
+
+TODO after baseline is OK
+multiviewx -> wildtrack fixed uda
+wildtrack -> multiviewx fixed uda
+
+
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?
 - duplicate views and permutations augmentation I use for MVDet is advantageous in an UDA setting
 To test the above, I could enable duplicate views also for GMVD. This would basically make it such that the mean becomes a weighted mean, with extra focus on different cameras. Sounds pretty good?
 
-
-- exps on GMVD dataset. GMVD scene 1 -> multiviewx, GMVD scene 1 -> scene 5, multiviewx -> GMVD scene 5
 
 
 - fix mvaug. see logs from ### 18/9
