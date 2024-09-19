@@ -11,7 +11,7 @@ python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
 python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --trg_cams "2,4,5,6" --cls_thres 0.05 --persp_map
 python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --src_cams "1,2,3,4,5,6,7" --trg_cams "2,4,5,6"
 
-python test.py --log_dir /mnt/2024-09-13_08-54-23-114946 --data_path /data/MultiviewX --dataset multiviewx --avgpool
+python test.py --log_dir /mnt/2024-09-13_08-36-25-800234 --data_path /data/MultiviewX --dataset multiviewx --avgpool
 
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
@@ -1909,10 +1909,31 @@ wildtrack -> multiviewx fixed uda
 max_moda: 26.0%, max_modp: 65.7%, max_precision: 75.4%, max_recall: 38.6%, epoch: 4.0%
 moda ~0 by epoch 20.
 
-| benchmark               | baseline w/o mvaug | baseline w mvaug | uda auto_th | uda fixed | MT MV paper |
-| ----------------------- | ------------------ | ---------------- | ----------- | --------- | ----------- |
-| multiviewx->wildtrack   | 73.0               | 69.2             | 84.9        | 79.7      | 0.851       |
-| wildtrack -> multiviewx | 37.2               | 31.0             | 73.5        | 26.0      | 0.759       |
+| benchmark               | baseline w/o mvaug | baseline w mvaug | uda auto_th | uda 40 nms_th | uda fixed | MT MV paper |
+| ----------------------- | ------------------ | ---------------- | ----------- | ------------- | --------- | ----------- |
+| multiviewx->wildtrack   | 73.0               | 69.2             | 84.9        | ONGOING       | 79.7      | 0.851       |
+| wildtrack -> multiviewx | 37.2               | 31.0             | 73.5        | 79.0          | 26.0      | 0.759       |
+
+### 19/9
+
+fiddling around with different methods to go form predictions to pseudo-labels.
+
+Observations:
+**Flaws with current pred->detection method**
+The current method for making detections/pseudo-labels relies heavily on the predicted score/confidence. Since it doesn't even find local maximas, virtually any point with score above the chosen threshold may become a detection, regardless if some of it's neighboors have higher score. 
+  
+A problem with this is that regions **near** the pedestrian's body in the BEV center may have similar score as the feet position near BEV border. Resulting in inaccurate detections when reducing the cls_threshold enough to take into consideration the pedestrians near bev border.
+
+Another drawback is that the chosen NMS threshold actually may effect the exact **position** of the final detection.
+This may reduce the MODP score.
+
+**local optima implementation**
+I implemented a real local-optima finder and tested it out. It seems like putting the requirement of local optima definitely makes the pseudo-labeling more robust. With this implementation, we can set a low cls_thres and still not achieve very many false positives.
+
+
+
+
+
 
 # TODO
 
