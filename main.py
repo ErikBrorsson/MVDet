@@ -370,9 +370,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    # print('Testing...')
-    # test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-    #                                             test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+    print('Testing...')
+    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+                                                test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
     best_epoch = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
