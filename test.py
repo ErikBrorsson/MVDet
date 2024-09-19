@@ -79,7 +79,7 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         for i, cls_thres in enumerate(cls_thres_array):
             all_res_list_thres = all_res_list[str(cls_thres)]
             all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
-            # np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + f'/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+            np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + f'/all_res.txt', all_res_list_thres.numpy(), '%.8f')
             res_list = []
             for frame in np.unique(all_res_list_thres[:, 0]):
                 res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
@@ -343,7 +343,9 @@ def main(args):
     # else:
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     print("test_set.gt_fpath: ", test_set.gt_fpath)
-    test_loss, metrics, metrics_04 = test(model, test_loader, np.arange(0.05, 0.95, 0.05), criterion,
+    cls_thres_array = np.arange(0.05, 0.95, 0.05)
+    cls_thres_array = [0.05]
+    test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics
     (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = metrics_04

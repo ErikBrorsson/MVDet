@@ -1053,7 +1053,8 @@ class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
-                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False, auto_th=False):
+                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False, auto_th=False,
+                 uda_nms_th=20):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -1081,6 +1082,7 @@ class UDATrainer(BaseTrainer):
         self.uda_persp_sup = uda_persp_sup
         self.persp_sup = persp_sup
         self.auto_th = auto_th
+        self.uda_nms_th = uda_nms_th
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
         B, N, C, H, W = imgs.shape
@@ -1306,7 +1308,7 @@ class UDATrainer(BaseTrainer):
                             scores = temp[temp > varying_th]
                             positions = (temp > varying_th).nonzero().float()
                             if not torch.numel(positions) == 0:
-                                ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                                ids, count = nms(positions.float(), scores, self.uda_nms_th / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
                                 positions = positions[ids[:count], :]
                                 scores = scores[ids[:count]]
                             else:
@@ -1330,7 +1332,7 @@ class UDATrainer(BaseTrainer):
                     # else:
                     #     positions = positions
                     if not torch.numel(positions) == 0:
-                        ids, count = nms(positions.float(), scores, 20 / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                        ids, count = nms(positions.float(), scores, self.uda_nms_th / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
                         positions = positions[ids[:count], :]
                         scores = scores[ids[:count]]
                     map_pseudo_label = torch.zeros_like(map_pred_teacher)

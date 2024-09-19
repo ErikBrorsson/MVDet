@@ -11,6 +11,8 @@ python main.py -d wildtrack --cam_adapt --train_viz --resume 2024-06-26_11-16-08
 python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --trg_cams "2,4,5,6" --cls_thres 0.05 --persp_map
 python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wildtrack --cam_adapt --src_cams "1,2,3,4,5,6,7" --trg_cams "2,4,5,6"
 
+python test.py --log_dir /mnt/2024-09-13_08-54-23-114946 --data_path /data/MultiviewX --dataset multiviewx --avgpool
+
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
 
@@ -1891,17 +1893,26 @@ max_moda: 31.0%, max_modp: 65.6%, max_precision: 82.3%, max_recall: 39.5%, epoch
 Note: MVAUG actually yields worse performance in above experiments... Have I recently introduced the found issue in MVAug? It seems weird that it worked well on other benchmarks before but results in degradation here...
 
 
-
 multiviewx -> wildtrack auto_th
-ONGOING slurm-2813675_300
+max_moda: 84.9%, max_modp: 68.4%, max_precision: 94.4%, max_recall: 90.2%, epoch: 13.0%
+didnt finish epochs 17-20 due to: *** JOB 2813676 ON alvis9-04 CANCELLED AT 2024-09-18T22:29:11 DUE TO TIME LIMIT ***
 
 wildtrack -> multiviewx auto_th
-ONGOING slurm-2813675_305
+max_moda: 73.5%, max_modp: 62.4%, max_precision: 96.1%, max_recall: 76.6%, epoch: 16.0%
+didnt finish epochs 19 and 20 due to: *** JOB 2813675 ON alvis7-03 CANCELLED AT 2024-09-18T22:48:18 DUE TO TIME LIMIT ***
 
-TODO after baseline is OK
 multiviewx -> wildtrack fixed uda
-wildtrack -> multiviewx fixed uda
+max_moda: 79.7%, max_modp: 68.6%, max_precision: 93.4%, max_recall: 85.8%, epoch: 13.0%
+didnt finish epochs 17-20 due to: *** JOB 2814044 ON alvis7-06 CANCELLED AT 2024-09-19T01:21:37 DUE TO TIME LIMIT ***
 
+wildtrack -> multiviewx fixed uda
+max_moda: 26.0%, max_modp: 65.7%, max_precision: 75.4%, max_recall: 38.6%, epoch: 4.0%
+moda ~0 by epoch 20.
+
+| benchmark               | baseline w/o mvaug | baseline w mvaug | uda auto_th | uda fixed | MT MV paper |
+| ----------------------- | ------------------ | ---------------- | ----------- | --------- | ----------- |
+| multiviewx->wildtrack   | 73.0               | 69.2             | 84.9        | 79.7      | 0.851       |
+| wildtrack -> multiviewx | 37.2               | 31.0             | 73.5        | 26.0      | 0.759       |
 
 # TODO
 
