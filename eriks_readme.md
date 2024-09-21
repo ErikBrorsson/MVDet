@@ -1911,7 +1911,7 @@ moda ~0 by epoch 20.
 
 | benchmark               | baseline w/o mvaug | baseline w mvaug | uda auto_th | uda 40 nms_th | uda fixed | MT MV paper |
 | ----------------------- | ------------------ | ---------------- | ----------- | ------------- | --------- | ----------- |
-| multiviewx->wildtrack   | 73.0               | 69.2             | 84.9        | ONGOING       | 79.7      | 0.851       |
+| multiviewx->wildtrack   | 73.0               | 69.2             | 84.9        | 70.0          | 79.7      | 0.851       |
 | wildtrack -> multiviewx | 37.2               | 31.0             | 73.5        | 79.0          | 26.0      | 0.759       |
 
 ### 19/9
@@ -1931,8 +1931,30 @@ This may reduce the MODP score.
 I implemented a real local-optima finder and tested it out. It seems like putting the requirement of local optima definitely makes the pseudo-labeling more robust. With this implementation, we can set a low cls_thres and still not achieve very many false positives.
 
 
+### 20/9
+| benchmark                        | baseline | uda auto_th | uda 40 nms_th    | uda from scratch           | oracle |
+| -------------------------------- | -------- | ----------- | ---------------- | -------------------------- | ------ |
+| 2,4,5,6->1,3,5,7                 | 73       | 79          | 78.9 2819445_312 | 70.3     2820649_318       | 81     |
+| 1,3,5,7->2,4,5,6                 | 65       | 76          | 74.2 2819445_313 | 74.9   2820649_319         | 85     |
+| gmvd scene1 conf 1 -> multiviewx | 69       | 82          | 81.2 2818585_280 | 76.9     2820649_284       | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 63       | 83          | 84.9 2818585_285 | 83.9     2820643_289       | ~90    |
+| multiviewx->wildtrack            | 73.0     | 84.9        | 70.0 2819249_300 | degenerate 2820649_304     |        |
+| wildtrack -> multiviewx          | 37.2     | 73.5        | 79.0 2818585_305 | 76.2 @epoch13  2820649_309 |        |
 
 
+| multiviewx cam adapt             | 55               | 62.2 ongoing 2826520_336 | ~70    |
+
+multiviewx->wildtrack is the only benchmark with unsatisfactory results from the *uda 40 nms_th* column.
+The reason seems to be that there is higher risk for false positives in this benchmark. Specifically sitting people are detected as false positives.
+=> pseudo-label-th needs to be higher
+
+In multiviewx->wildtrack slurm-2821734_300, I used uda_nms_th=20 and pseudo-label-th=0.38
+moda: 81.9
+
+
+### 21/9
+1. verify yesterday's results on new random seeds.
+2. write an arXiv version asap
 
 
 # TODO
