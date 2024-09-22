@@ -269,7 +269,8 @@ class BaseTrainer(object):
 
 
 class PerspectiveTrainer(BaseTrainer):
-    def __init__(self, model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0, augmentation_module: Augmentation=Augmentation(), persp_sup=True):
+    def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
+                 augmentation_module: Augmentation=Augmentation(), persp_sup=True, alpha_teacher=0.99):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.criterion = criterion
@@ -280,6 +281,8 @@ class PerspectiveTrainer(BaseTrainer):
 
         self.augmentation = augmentation_module
         self.persp_sup = persp_sup
+        self.ema_model = ema_model
+        self.alpha_teacher = alpha_teacher
 
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
@@ -551,6 +554,13 @@ class PerspectiveTrainer(BaseTrainer):
 
             loss += self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
             loss.backward()
+
+            # update ema model
+            alpha_teacher = self.alpha_teacher
+            iteration = (epoch - 1) * len(data_loader.dataset) + batch_idx
+            self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
+
+
             optimizer.step()
             losses += loss.item()
             pred = (map_res > self.cls_thres).int().to(map_gt.device)
@@ -957,6 +967,255 @@ class PerspectiveTrainer(BaseTrainer):
 
             return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
 
+    def test_ema(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, varying_cls_thres=False):
+        if varying_cls_thres:
+            cls_thres_array = np.arange(0.05, 0.95, 0.05)
+            all_res_list = {str(x): [] for x in cls_thres_array}
+
+            self.ema_model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = {str(x): [] for x in cls_thres_array}
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+                with torch.no_grad():
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.ema_model(data, proj_mats, config_dict)
+                if res_fpath is not None:
+                    for cls_thres in cls_thres_array:
+                        map_grid_res = map_res.detach().cpu().squeeze()
+                        v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
+                        grid_ij = (map_grid_res > cls_thres).nonzero()
+                        if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                            grid_xy = grid_ij[:, [1, 0]]
+                        else:
+                            grid_xy = grid_ij
+                        all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
+                        loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+                if visualize:
+                    fig = plt.figure(dpi=500)
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
+            moda = 0
+            moda_04 = 0
+            modp_04 = 0
+            precision_04 = 0
+            recall_04 = 0
+            moda_list = []
+            precision_list = []
+            recall_list = []
+            modp_list = []
+            if res_fpath is not None:
+                for i, cls_thres in enumerate(cls_thres_array):
+                    all_res_list_thres = all_res_list[str(cls_thres)]
+                    all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
+                    np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+                    res_list = []
+                    for frame in np.unique(all_res_list_thres[:, 0]):
+                        res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
+                        positions, scores = res[:, 1:3], res[:, 3]
+                        ids, count = nms(positions, scores, 20, np.inf)
+                        res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                    res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                    np.savetxt(res_fpath, res_list, '%d')
+
+                    recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
+
+                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                    #                                             data_loader.dataset.base.__name__)
+                    # print("cls_thres: ", cls_thres)
+                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    #         format(moda, modp, precision, recall))
+                    moda_list.append(moda)
+                    modp_list.append(modp)
+                    precision_list.append(precision)
+                    recall_list.append(recall)
+
+                    if cls_thres == 0.4:
+                        moda_04 = moda
+                        modp_04 = modp
+                        precision_04 = precision
+                        recall_04 = recall
+
+                max_indx = np.argmax(moda_list)
+                moda = moda_list[max_indx]
+                modp = modp_list[max_indx]
+                precision = precision_list[max_indx]
+                recall = recall_list[max_indx]
+                max_cls_thres = cls_thres_array[max_indx]
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
+                        format(moda, modp, precision, recall, max_cls_thres))
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
+
+        else:
+            self.ema_model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = []
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+                with torch.no_grad():
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.ema_model(data, proj_mats, config_dict)
+                if res_fpath is not None:
+                    map_grid_res = map_res.detach().cpu().squeeze()
+                    v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
+                    grid_ij = (map_grid_res > self.cls_thres).nonzero()
+                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                        grid_xy = grid_ij[:, [1, 0]]
+                    else:
+                        grid_xy = grid_ij
+                    all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
+                    loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > self.cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+                if visualize:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    # visualizing the heatmap for per-view estimation
+                    # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+
+            moda = 0
+            if res_fpath is not None:
+                all_res_list = torch.cat(all_res_list, dim=0)
+                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
+                res_list = []
+                for frame in np.unique(all_res_list[:, 0]):
+                    res = all_res_list[all_res_list[:, 0] == frame, :]
+                    positions, scores = res[:, 1:3], res[:, 3]
+                    ids, count = nms(positions, scores, 20, np.inf)
+                    res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                np.savetxt(res_fpath, res_list, '%d')
+
+                recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
+
+                # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                #                                             data_loader.dataset.base.__name__)
+
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    format(moda, modp, precision, recall))
+
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
+    
+
+
+
+
+    @staticmethod
+    def update_ema_variables(ema_model, model, alpha_teacher, iteration):
+        """Note: Sets the ema model to equal the student model in the first iteration.
+        Thereafter starts EMA updates."""
+        # Use the "true" average until the exponential average is more correct
+        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
+        # if len(gpus)>1:
+        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
+        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        # else:
+        for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+            ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+        return ema_model
 
 class BBOXTrainer(BaseTrainer):
     def __init__(self, model, criterion, cls_thres):
@@ -1837,8 +2096,242 @@ class UDATrainer(BaseTrainer):
             return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
     
 
+    def test_ema(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, varying_cls_thres=False):
+        if varying_cls_thres:
+            cls_thres_array = np.arange(0.05, 0.95, 0.05)
+            all_res_list = {str(x): [] for x in cls_thres_array}
+
+            self.ema_model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = {str(x): [] for x in cls_thres_array}
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+                with torch.no_grad():
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.ema_model(data, proj_mats, config_dict)
+                if res_fpath is not None:
+                    for cls_thres in cls_thres_array:
+                        map_grid_res = map_res.detach().cpu().squeeze()
+                        v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
+                        grid_ij = (map_grid_res > cls_thres).nonzero()
+                        if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                            grid_xy = grid_ij[:, [1, 0]]
+                        else:
+                            grid_xy = grid_ij
+                        all_res_list[str(cls_thres)].append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
+                        loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+                if visualize:
+                    fig = plt.figure(dpi=500)
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
+            moda = 0
+            moda_04 = 0
+            modp_04 = 0
+            precision_04 = 0
+            recall_04 = 0
+            moda_list = []
+            precision_list = []
+            recall_list = []
+            modp_list = []
+            if res_fpath is not None:
+                for i, cls_thres in enumerate(cls_thres_array):
+                    all_res_list_thres = all_res_list[str(cls_thres)]
+                    all_res_list_thres = torch.cat(all_res_list_thres, dim=0)
+                    np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list_thres.numpy(), '%.8f')
+                    res_list = []
+                    for frame in np.unique(all_res_list_thres[:, 0]):
+                        res = all_res_list_thres[all_res_list_thres[:, 0] == frame, :]
+                        positions, scores = res[:, 1:3], res[:, 3]
+                        ids, count = nms(positions, scores, 20, np.inf)
+                        res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                    res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                    np.savetxt(res_fpath, res_list, '%d')
+
+                    recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                                data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
+
+                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                    #                                             data_loader.dataset.base.__name__)
+                    # print("cls_thres: ", cls_thres)
+                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    #         format(moda, modp, precision, recall))
+                    moda_list.append(moda)
+                    modp_list.append(modp)
+                    precision_list.append(precision)
+                    recall_list.append(recall)
+
+                    if cls_thres == 0.4:
+                        moda_04 = moda
+                        modp_04 = modp
+                        precision_04 = precision
+                        recall_04 = recall
+
+                max_indx = np.argmax(moda_list)
+                moda = moda_list[max_indx]
+                modp = modp_list[max_indx]
+                precision = precision_list[max_indx]
+                recall = recall_list[max_indx]
+                max_cls_thres = cls_thres_array[max_indx]
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%, cls_thres: {:.2f}'.
+                        format(moda, modp, precision, recall, max_cls_thres))
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
+
+        else:
+            self.ema_model.eval()
+            losses = 0
+            precision_s, recall_s = AverageMeter(), AverageMeter()
+            all_res_list = []
+            t0 = time.time()
+            if res_fpath is not None:
+                assert gt_fpath is not None
+            for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+                with torch.no_grad():
+                    config_dict = data_loader.dataset.dicts[dataset_name[0]]
+                    map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.ema_model(data, proj_mats, config_dict)
+                if res_fpath is not None:
+                    map_grid_res = map_res.detach().cpu().squeeze()
+                    v_s = map_grid_res[map_grid_res > self.cls_thres].unsqueeze(1)
+                    grid_ij = (map_grid_res > self.cls_thres).nonzero()
+                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                        grid_xy = grid_ij[:, [1, 0]]
+                    else:
+                        grid_xy = grid_ij
+                    all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
+
+                loss = 0
+                for img_res, img_gt in zip(imgs_res, imgs_gt):
+                    loss += self.criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
+                loss = self.criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
+                    loss / len(imgs_gt) * self.alpha
+                losses += loss.item()
+                pred = (map_res > self.cls_thres).int().to(map_gt.device)
+                true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
+                false_positive = pred.sum().item() - true_positive
+                false_negative = map_gt.sum().item() - true_positive
+                precision = true_positive / (true_positive + false_positive + 1e-4)
+                recall = true_positive / (true_positive + false_negative + 1e-4)
+                precision_s.update(precision)
+                recall_s.update(recall)
+
+                if visualize:
+                    fig = plt.figure()
+                    subplt0 = fig.add_subplot(411, title="output")
+                    subplt1 = fig.add_subplot(412, title="target")
+                    subplt2 = fig.add_subplot(413, title="view indicators")
+                    subplt3 = fig.add_subplot(414, title="world features")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    plt.savefig(os.path.join(self.logdir, f'map_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    # visualizing the heatmap for per-view estimation
+                    # heatmap0_head = imgs_res[0][0, 0].detach().cpu().numpy().squeeze()
+                    heatmap0_foot = imgs_res[0][0, 1].detach().cpu().numpy().squeeze()
+                    img0 = self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])
+                    img0 = Image.fromarray((img0 * 255).astype('uint8'))
+                    # head_cam_result = add_heatmap_to_image(heatmap0_head, img0)
+                    # head_cam_result.save(os.path.join(self.logdir, 'cam1_head.jpg'))
+                    foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
+                    foot_cam_result.save(os.path.join(self.logdir, f'cam1_foot_{batch_idx}.jpg'))
+
+            t1 = time.time()
+            t_epoch = t1 - t0
+
+            moda = 0
+            if res_fpath is not None:
+                all_res_list = torch.cat(all_res_list, dim=0)
+                np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
+                res_list = []
+                for frame in np.unique(all_res_list[:, 0]):
+                    res = all_res_list[all_res_list[:, 0] == frame, :]
+                    positions, scores = res[:, 1:3], res[:, 3]
+                    ids, count = nms(positions, scores, 20, np.inf)
+                    res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
+                res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
+                np.savetxt(res_fpath, res_list, '%d')
+
+                recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                                                        data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
+
+                # If you want to use the unofiicial python evaluation tool for convenient purposes.
+                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
+                #                                             data_loader.dataset.base.__name__)
+
+                print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
+                    format(moda, modp, precision, recall))
+
+            print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
+                losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
+
+            return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
+    
+
+
     @staticmethod
     def update_ema_variables(ema_model, model, alpha_teacher, iteration):
+        """Note: Sets the ema model to equal the student model in the first iteration.
+        Thereafter starts EMA updates."""
         # Use the "true" average until the exponential average is more correct
         alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
         # if len(gpus)>1:

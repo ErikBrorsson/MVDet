@@ -250,16 +250,16 @@ def main(args):
     if args.variant == 'default':
         model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
 
-        if args.uda:
-            # init ema model
-            ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
-            for param in ema_model.parameters():
-                param.detach_()
-            mp = list(model.parameters())
-            mcp = list(ema_model.parameters())
-            n = len(mp)
-            for i in range(0, n):
-                mcp[i].data[:] = mp[i].data[:].clone()
+        # if args.uda:
+        # init ema model
+        ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
+        for param in ema_model.parameters():
+            param.detach_()
+        mp = list(model.parameters())
+        mcp = list(ema_model.parameters())
+        n = len(mp)
+        for i in range(0, n):
+            mcp[i].data[:] = mp[i].data[:].clone()
 
     elif args.variant == 'img_proj':
         model = ImageProjVariant(train_set, args.arch)
@@ -327,7 +327,7 @@ def main(args):
                              low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup,
                              persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th)
     else:
-        trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation_module=augmentation, persp_sup=args.persp_sup)
+        trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation_module=augmentation, persp_sup=args.persp_sup)
 
     # learn
     if args.resume_model is not None:
@@ -375,6 +375,9 @@ def main(args):
                                                 test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
     best_epoch = -1
+
+    max_moda_ema = -1e10
+    best_epoch_ema = -1
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')
         if args.uda:
@@ -385,6 +388,10 @@ def main(args):
         print('Testing...')
         test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
                                                     test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+        
+        if args.test_ema:
+            _, (moda_ema, modp_ema, precision_ema, recall_ema, cls_thres_var_ema), (moda_04_ema, modp_04_ema, precision_04_ema, recall_04_ema, cls_thres_fix_ema) = trainer.test_ema(test_loader, os.path.join(logdir, 'test.txt'),
+                                                        test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
 
         if moda >= max_moda:
             max_modp, max_precision, max_recall = modp, precision, recall
@@ -392,11 +399,19 @@ def main(args):
             best_epoch = epoch
             # save model after every epoch
             torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector.pth'))
-            if args.uda:
+            # if args.uda:
+            #     torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
+
+        if args.test_ema:
+            if moda_ema >= max_moda_ema:
+                max_modp_ema, max_precision_ema, max_recall_ema = modp_ema, precision_ema, recall_ema
+                max_moda_ema = moda_ema
+                best_epoch_ema = epoch
+                # save model after every epoch
                 torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema.pth'))
 
         torch.save(model.state_dict(), os.path.join(logdir, 'MultiviewDetector_latest.pth'))
-        if args.uda:
+        if args.uda or args.test_ema:
             torch.save(ema_model.state_dict(), os.path.join(logdir, 'MultiviewDetector_ema_latest.pth'))
 
 
@@ -426,6 +441,10 @@ def main(args):
         print('max_moda: {:.1f}%, max_modp: {:.1f}%, max_precision: {:.1f}%, max_recall: {:.1f}%, epoch: {:.1f}%'.
                 format(max_moda, max_modp, max_precision, max_recall, best_epoch))
         
+        if args.test_ema:
+            print('EMA METRICS: max_moda: {:.1f}%, max_modp: {:.1f}%, max_precision: {:.1f}%, max_recall: {:.1f}%, epoch: {:.1f}%'.
+                    format(max_moda_ema, max_modp_ema, max_precision_ema, max_recall_ema, best_epoch_ema))
+
 
 if __name__ == '__main__':
     # settings
@@ -476,6 +495,7 @@ if __name__ == '__main__':
     parser.add_argument('--wildtrack2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
     parser.add_argument('--auto_th', action="store_true")
+    parser.add_argument('--test_ema', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
     parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')
     parser.add_argument('--uda_nms_th', type=int, default=20, help='The NMS distance threshold used when creating pseudo-labels')

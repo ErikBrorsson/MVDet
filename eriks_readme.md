@@ -1937,7 +1937,7 @@ I implemented a real local-optima finder and tested it out. It seems like puttin
 | 2,4,5,6->1,3,5,7                 | 73       | 79          | 78.9 2819445_312 | 70.3     2820649_318       | 81     |
 | 1,3,5,7->2,4,5,6                 | 65       | 76          | 74.2 2819445_313 | 74.9   2820649_319         | 85     |
 | gmvd scene1 conf 1 -> multiviewx | 69       | 82          | 81.2 2818585_280 | 76.9     2820649_284       | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | 63       | 83          | 84.9 2818585_285 | 83.9     2820643_289       | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 59       | 83          | 84.9 2818585_285 | 83.9     2820643_289       | ~90    |
 | multiviewx->wildtrack            | 73.0     | 84.9        | 70.0 2819249_300 | degenerate 2820649_304     |        |
 | wildtrack -> multiviewx          | 37.2     | 73.5        | 79.0 2818585_305 | 76.2 @epoch13  2820649_309 |        |
 
@@ -1955,6 +1955,39 @@ moda: 81.9
 ### 21/9
 1. verify yesterday's results on new random seeds.
 2. write an arXiv version asap
+
+
+
+### 22/9
+
+Table 1: Real-world  data camera adaptation (w/o persp. sup)
+| benchmark        | baseline w/o mvaug | baseline w mvaug | uda w/o mvaug            | uda w mvaug      | oracle |
+| ---------------- | ------------------ | ---------------- | ------------------------ | ---------------- | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320   | 73.1 2829115_320 |                          | 77.0 2829119_330 | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321   | 65.4 2732249_263 | 77.8 ongoing 2826672_331 |                  | 85     |
+
+** ongoing with ps-label-th=0.4 and 0.3 (optimal from pretraining)
+ps_label_th=0.4 => moda 77.0 slurm-2829119_330
+ps_label_th=0.3 => moda 73.5 slurm-2829123_330
+also training a new baseline with mvaug, which was used in the successful uda exp in eriks_readme
+
+Table 2: simulated data camera adaptation
+| benchmark                        | baseline w mvaug w persp sup | baseline w/o mvaug w persp sup | uda               | oracle |
+| -------------------------------- | ---------------------------- | ------------------------------ | ----------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 64.4 2813208_280             | 64.7 2826072_322               | 81.9  2826869_332 | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 59.1    2813657_289          | 62.5 2826072_323               | 79.3  2826869_333 | ~90    |
+
+
+| benchmark            | baseline w/o mv aug w/o persp sup | baseline w mv aug w/o persp sup | uda w mvaug w/o persp | oracle |
+| -------------------- | --------------------------------- | ------------------------------- | --------------------- | ------ |
+| multiviewx cam adapt | 49.9 2826575_326                  | 55.7 2829165_326                | 64.0 2832016_337      | ~70    |
+
+
+Table 3: sim2real and real2sim adaptation
+| benchmark               | baseline w/o mvaug w persp | baseline w mvaug w persp | uda               | oracle |
+| ----------------------- | -------------------------- | ------------------------ | ----------------- | ------ |
+| multiviewx->wildtrack   | 72.8 2826072_324           | 69.2  2813641_290        | 77.5  2826869_334 | 87     |
+| wildtrack -> multiviewx | 40.2 2826072_325           | 31.0 2813641_295         | 78.8  2826869_335 | 88     |
 
 
 # TODO
