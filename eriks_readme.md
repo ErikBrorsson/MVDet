@@ -2000,3 +2000,8 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 
 - fix mvaug. see logs from ### 18/9
 
+
+EXJOBB?
+Detektera och hantera problem med enskilda kamerorna i multi-kamera nätverk. 
+
+

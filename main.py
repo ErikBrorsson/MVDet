@@ -317,6 +317,13 @@ def main(args):
     cls_thres_list_fix = []
 
     augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
+    if args.dropview_uda is None:
+        args.dropview_uda = args.dropview
+    if args.permutation_uda is None:
+        args.permutation_uda = args.permutation
+    if args.mvaug_uda is None:
+        args.mvaug_uda = args.mvaug
+    augmentation_uda = Augmentation(args.dropview_uda, args.permutation_uda, args.mvaug_uda)
 
     if args.uda:
         # pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
@@ -325,7 +332,7 @@ def main(args):
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
                              augmentation_module=augmentation, weighted_mse=args.weighted_mse,
                              low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup,
-                             persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th)
+                             persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda)
     else:
         trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation_module=augmentation, persp_sup=args.persp_sup)
 
@@ -370,9 +377,9 @@ def main(args):
             pseudo_label_th = args.pseudo_label_th
         print("pseudo_label_th: ", pseudo_label_th)
 
-    print('Testing...')
-    test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
-                                                test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
+    # print('Testing...')
+    # test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
+    #                                             test_set.gt_fpath, True, varying_cls_thres=args.varying_cls_thres)
     max_moda = -1e10
     best_epoch = -1
 
@@ -480,6 +487,11 @@ if __name__ == '__main__':
     parser.add_argument('--dropview', action="store_true")
     parser.add_argument("--permutation", action="store_true")
     parser.add_argument("--mvaug", action="store_true")
+
+    parser.add_argument('--dropview_uda', action="store_true", default=None)
+    parser.add_argument("--permutation_uda", action="store_true", default=None)
+    parser.add_argument("--mvaug_uda", action="store_true", default=None)
+
     parser.add_argument('--soft_labels', action="store_true")
     parser.add_argument('--pretrained', action="store_true")
     parser.add_argument('--src_cams', type=str, default=None)

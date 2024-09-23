@@ -330,6 +330,7 @@ class PerspectiveTrainer(BaseTrainer):
         grid_homo[0:2, :] = grid
         grid_homo = grid_homo.unsqueeze(0)
         grid_persp = torch.bmm(proj_mat.float().to('cuda:0'), grid_homo.to('cuda:0')).cpu().numpy().squeeze()
+        # grid_persp = grid_persp[:, grid_persp[2, :] > 0] # remove all points that are behind the camera
         grid_persp = grid_persp / grid_persp[2, :]
         img = img.cpu().numpy().squeeze().transpose([1, 2, 0])
         img = Image.fromarray((img * 255).astype('uint8'))
@@ -1313,7 +1314,7 @@ class UDATrainer(BaseTrainer):
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
                  soft_labels=False, augmentation_module: Augmentation=Augmentation(),
                  weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False, auto_th=False,
-                 uda_nms_th=20):
+                 uda_nms_th=20, augmentation_uda: Augmentation=Augmentation()):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.teacher = model
@@ -1334,6 +1335,7 @@ class UDATrainer(BaseTrainer):
         self.soft_labels = soft_labels
 
         self.augmentation = augmentation_module
+        self.augmentation_uda = augmentation_uda
 
         self.weighted_mse = weighted_mse
         self.low_th = low_th
@@ -1539,7 +1541,7 @@ class UDATrainer(BaseTrainer):
             if target_weight != 0:
                 with torch.no_grad():
                     # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
-                    data_teacher, _, _, proj_mats_teacher = self.augmentation.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                    data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
                     
                     if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
                         # if the target data includes less views than source data, we resort to duplicating some views.
@@ -1630,7 +1632,7 @@ class UDATrainer(BaseTrainer):
 
                     # apply augmentation to target images and pseudo-labels prior to student training
                     map_pseudo_label_unaug = torch.clone(map_pseudo_label)
-                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
                                                                                                                 map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                     
                     if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
@@ -1657,7 +1659,7 @@ class UDATrainer(BaseTrainer):
                     # apply augmentation to target images and pseudo-labels prior to student training
                     map_pseudo_label = map_pred_teacher
                     imgs_pseudo_labels = [None]*len(self.target_cameras)
-                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation.strong_augmentation(data_target,
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
                                                                                                                 map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)                
                     if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
                         # if the target data includes less views than source data, we resort to duplicating some views.
