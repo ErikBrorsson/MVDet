@@ -1961,15 +1961,11 @@ moda: 81.9
 ### 22/9
 
 Table 1: Real-world  data camera adaptation (w/o persp. sup)
-| benchmark        | baseline w/o mvaug | baseline w mvaug | uda w/o mvaug            | uda w mvaug      | oracle |
-| ---------------- | ------------------ | ---------------- | ------------------------ | ---------------- | ------ |
-| 2,4,5,6->1,3,5,7 | 70.4 2826072_320   | 73.1 2829115_320 |                          | 77.0 2829119_330 | 81     |
-| 1,3,5,7->2,4,5,6 | 65.3 2826072_321   | 65.4 2732249_263 | 77.8 ongoing 2826672_331 |                  | 85     |
+| benchmark        | baseline w/o mvaug | baseline w mvaug | uda w/o mvaug                      | uda w mvaug      | oracle |
+| ---------------- | ------------------ | ---------------- | ---------------------------------- | ---------------- | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320   | 73.1 2829115_320 | 77.6 2832050_330 (ps-label-th=0.4) | 77.0 2829119_330 | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321   | 65.4 2732249_263 | 77.8 2826672_331                   |                  | 85     |
 
-** ongoing with ps-label-th=0.4 and 0.3 (optimal from pretraining)
-ps_label_th=0.4 => moda 77.0 slurm-2829119_330
-ps_label_th=0.3 => moda 73.5 slurm-2829123_330
-also training a new baseline with mvaug, which was used in the successful uda exp in eriks_readme
 
 Table 2: simulated data camera adaptation
 | benchmark                        | baseline w mvaug w persp sup | baseline w/o mvaug w persp sup | uda               | oracle |
@@ -1989,6 +1985,9 @@ Table 3: sim2real and real2sim adaptation
 | multiviewx->wildtrack   | 72.8 2826072_324           | 69.2  2813641_290        | 77.5  2826869_334 | 87     |
 | wildtrack -> multiviewx | 40.2 2826072_325           | 31.0 2813641_295         | 78.8  2826869_335 | 88     |
 
+In the above baseline exps, mvaug provides significant boost in 2 exps, and significant decrease in 3 exps. I would not recommend using it.
+
+
 
 ### 24/9
 
@@ -1996,6 +1995,57 @@ Fixed problem with mvaug:
 Before the fix, image points "behind" the camera would have a z component < 0 => division with a negative number (mirroring the pixels to incorrect place).  
 After the fix, any such points are not contributing to the projected feature map.  
 ![](resources/images/before_after_mvaug_fix.png)
+
+Have problems with nans...
+In MVAug, they also treat nans specifically, which seems to be necessary since the grid_values may = infty => grid_sample return NaN for these points.
+
+
+GMVD s1c1 -> MultiviewX
+| description                       | ema weights | persp. supervision | dropview | mvaug | pretrained | MODA             | MODA new         | varying threshold |
+| --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
+| baseline                          |             |                    |          |       |            | 36.9 2832981_340 | 35.3             |                   |
+| baseline pre                      |             |                    |          |       | x          | 64.6 2833240_341 | 60.5             |                   |
+| baseline pre w dropview           |             |                    | x        |       | x          | 65.8 2833867_342 | 65.1             |                   |
+| baseline pre w mvaug              |             |                    |          | x     | x          | 66.1 2833240_343 | 64.3 2846137_343 |                   |
+| baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 67.9 2833240_344 | 67.1 2846842_344 |                   |
+| baseline pre w persp.             |             | x                  |          |       | x          | 66.4 2833240_345 | 66.0             |                   |
+| baseline pre w persp. + mvaug     |             | x                  |          | x     | x          | 69.2 2833240_346 | 64.9 2846842_346 |                   |
+| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 66.3 2833883_347 | 66.7             |                   |
+| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 69.1 2833883_348 | 66.9             |                   |
+diff = prev - new
+np.mean(diff)=1.7
+np.std(diff)=1.5
+
+
+MultiviewX -> Wildtrack
+| description                       | ema weights | persp. supervision | dropview | mvaug | pretrained | MODA             | MODA new         | varying threshold |
+| --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
+| baseline                          |             |                    |          |       |            | 52.5 2833966_350 | 46.3 2847441_350 |                   |
+| baseline pre                      |             |                    |          |       | x          | 69.5 2833966_351 | 72.4             |                   |
+| baseline pre w dropview           |             |                    | x        |       | x          | 72.9 2833966_352 | 73.2             |                   |
+| baseline pre w mvaug              |             |                    |          | x     | x          | 69.0 2833966_353 | 67.1             |                   |
+| baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 70.1 2833966_354 | 70.1             |                   |
+| baseline pre w persp.             |             | x                  |          |       | x          | 70.9 2833966_355 | 72.2             |                   |
+| baseline pre w persp. + mvaug     |             | x                  |          | x     | x          | 68.8 2833966_356 | 70.9             |                   |
+| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 73.3 2833966_357 | 72.6             |                   |
+| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 70.1 2833966_358 | 71.4             |                   |
+diff = prev - new
+np.mean(diff)=0.1
+np.std(diff)=2.6
+
+First of all, the new feature projection seems to work. It is a bit strange that the gmvd -> multiviewx has one std worse performance. But it is reassuring that the performance is unchanged on multiviewz -> wildtrack.
+
+Second, in these experiments, persp.sup doesnt do any difference, dropout is always beneficial, mvaug is deterimental in most cases (only has positive effect in 2 experiments).
+Based on this, I would probably use dropview without persp.sup and mvaug for the baseline.
+
+These results are quite surprising.
+
+**NOTE: After further investigation, it is clear that I didn't have as much evidence for using MVAug as I though. On the contrary, there are quite few experiments that show that mvaug is benificial**
+=> I should verify that my mvaug implementation is correct by trying to reproduce the results in the mvaug article.
+Note: I think that they use MVAug builds on MVDet, and thus they dont use avg_pool.
+I should try mvaug both with and without avg_pool on a supervised benchmark (i.e. multiviewx and wildtrack like they do in the MVAug article).
+
+
 
 # TODO
 
@@ -2005,10 +2055,8 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 
 
 
-- fix mvaug. see logs from ### 18/9
+- MVAug doesn't seem to help much in the domain generalization/adaptation setting. I should verify that my implementation is alright by running supervised experiments like they do in the MVAUG article.
+- If I find that MVAug is not suitable, I should try some other augmentation techniques. Implement 3DROM.
 
-
-EXJOBB?
-Detektera och hantera problem med enskilda kamerorna i multi-kamera nätverk. 
 
 
