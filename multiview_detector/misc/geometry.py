@@ -68,7 +68,9 @@ def warp_features_pytorch(features, proj_mat, reducedgrid_shape, camera_orient):
     grid_persp = grid_persp.reshape((2, y.shape[0], x.shape[0])).unsqueeze(0)
     grid_persp = grid_persp.permute(0,2,3,1)
 
-    world_feature = torch.nn.functional.grid_sample(features, grid_persp, mode='bilinear', align_corners=True)
+    world_feature = torch.nn.functional.grid_sample(features, grid_persp, mode='bilinear', align_corners=True, padding_mode="zeros")
+
+    world_feature[torch.isnan(world_feature)] = 0
 
     return world_feature
 
