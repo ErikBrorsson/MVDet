@@ -334,7 +334,8 @@ def main(args):
                              low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup,
                              persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda)
     else:
-        trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation_module=augmentation, persp_sup=args.persp_sup)
+        trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha,
+                                     augmentation_module=augmentation, persp_sup=args.persp_sup, visualize_train=args.train_viz)
 
     # learn
     if args.resume_model is not None:

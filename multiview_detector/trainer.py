@@ -272,7 +272,7 @@ class BaseTrainer(object):
 
 class PerspectiveTrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
-                 augmentation_module: Augmentation=Augmentation(), persp_sup=True, alpha_teacher=0.99):
+                 augmentation_module: Augmentation=Augmentation(), persp_sup=True, alpha_teacher=0.99, visualize_train=False):
         super(BaseTrainer, self).__init__()
         self.model = model
         self.criterion = criterion
@@ -285,6 +285,8 @@ class PerspectiveTrainer(BaseTrainer):
         self.persp_sup = persp_sup
         self.ema_model = ema_model
         self.alpha_teacher = alpha_teacher
+
+        self.visualize_train = visualize_train
 
 
     def duplicate_images(self, imgs, imgs_labels, proj_mats):
@@ -584,7 +586,7 @@ class PerspectiveTrainer(BaseTrainer):
                     data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
-            map_res, imgs_res, _ = self.model(data, proj_mats, config_dict)
+            map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict)
             
             t_f = time.time()
             t_forward += t_f - t_b
@@ -624,6 +626,107 @@ class PerspectiveTrainer(BaseTrainer):
                 elif isinstance(cyclic_scheduler, torch.optim.lr_scheduler.OneCycleLR):
                     cyclic_scheduler.step()
             if (batch_idx + 1) % log_interval == 0:
+                if self.visualize_train:
+                    epoch_dir = os.path.join(self.logdir, f'epoch_{epoch}')
+                    if not os.path.exists(epoch_dir):
+                        os.mkdir(epoch_dir)
+
+                    fig = plt.figure(dpi=800)
+                    n_col = 5
+                    subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                    subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                    subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="view indicators")
+                    subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="world_features")
+
+                    subplt4 = fig.add_subplot(4, n_col,  2, title="img_feature_i")
+                    subplt5 = fig.add_subplot(4, n_col, n_col + 2, title="world_feature_i")
+                    subplt6 = fig.add_subplot(4, n_col,  n_col*2 + 2, title="img_feature_i")
+                    subplt7 = fig.add_subplot(4, n_col, n_col*3 + 2, title="world_feature_i")
+
+                    subplt8 = fig.add_subplot(4, n_col,  3, title="img_feature_i")
+                    subplt9 = fig.add_subplot(4, n_col, n_col + 3, title="world_feature_i")
+                    subplt10 = fig.add_subplot(4, n_col,  n_col*2 + 3, title="img_feature_i")
+                    subplt11 = fig.add_subplot(4, n_col, n_col*3 + 3, title="world_feature_i")
+
+                    subplt12 = fig.add_subplot(4, n_col,  4, title="img_feature_i")
+                    subplt13 = fig.add_subplot(4, n_col, n_col + 4, title="world_feature_i")
+                    subplt14 = fig.add_subplot(4, n_col,  n_col*2 + 4, title="img_feature_i")
+                    subplt15 = fig.add_subplot(4, n_col, n_col*3 + 4, title="world_feature_i")
+
+                    subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
+                    subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
+
+                    map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+                    label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                                .cpu().detach().numpy().squeeze(), view_indicator_list)
+                    all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
+                    all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+
+                    if len(world_features) >= 1:
+                        img_feature_i = torch.norm(img_features[0][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[0][0].detach(), dim=0).cpu().numpy()
+                        subplt4.imshow(img_feature_i)
+                        subplt5.imshow(w_feature_i)
+
+                    if len(world_features) >= 2:
+                        img_feature_i = torch.norm(img_features[1][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[1][0].detach(), dim=0).cpu().numpy()
+                        subplt6.imshow(img_feature_i)
+                        subplt7.imshow(w_feature_i)
+
+                    if len(world_features) >= 3:
+                        img_feature_i = torch.norm(img_features[2][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[2][0].detach(), dim=0).cpu().numpy()
+                        subplt8.imshow(img_feature_i)
+                        subplt9.imshow(w_feature_i)
+
+                    if len(world_features) >= 4:
+                        img_feature_i = torch.norm(img_features[3][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[3][0].detach(), dim=0).cpu().numpy()
+                        subplt10.imshow(img_feature_i)
+                        subplt11.imshow(w_feature_i)
+
+                    if len(world_features) >= 5:
+                        img_feature_i = torch.norm(img_features[4][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[4][0].detach(), dim=0).cpu().numpy()
+                        subplt12.imshow(img_feature_i)
+                        subplt13.imshow(w_feature_i)
+
+                    if len(world_features) >= 6:
+                        img_feature_i = torch.norm(img_features[5][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[5][0].detach(), dim=0).cpu().numpy()
+                        subplt14.imshow(img_feature_i)
+                        subplt15.imshow(w_feature_i)
+
+                    if len(world_features) >= 7:
+                        img_feature_i = torch.norm(img_features[6][0].detach(), dim=0).cpu().numpy()
+                        w_feature_i = torch.norm(world_features[6][0].detach(), dim=0).cpu().numpy()
+                        subplt16.imshow(img_feature_i)
+                        subplt17.imshow(w_feature_i)
+
+                    plt.savefig(os.path.join(epoch_dir, f'train_source_features_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+                    fig = plt.figure(dpi=500)
+                    n_col = 1
+                    subplt0 = fig.add_subplot(4, n_col, 1, title="student output")
+                    subplt1 = fig.add_subplot(4, n_col, n_col*1 + 1, title="label")
+                    subplt2 = fig.add_subplot(4, n_col, n_col*2 + 1, title="view indicators")
+                    subplt3 = fig.add_subplot(4, n_col, n_col*3 + 1, title="world_features")
+
+                    subplt0.imshow(map_res_view)
+                    subplt1.imshow(label_view)
+                    subplt2.imshow(all_views)
+                    subplt3.imshow(all_world_features)
+                    plt.savefig(os.path.join(epoch_dir, f'train_source_{batch_idx}.jpg'))
+                    plt.close(fig)
+
+
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()
                 t_epoch = t1 - t0
