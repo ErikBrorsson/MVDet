@@ -6,19 +6,20 @@ import torch.nn.functional as F
 import kornia
 from torchvision.models.vgg import vgg11
 from multiview_detector.models.resnet import resnet18
+from multiview_detector.misc.geometry import warp_features_pytorch
 
 import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False, num_cam = None):
+    def __init__(self, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False, num_cam = None, warp_kornia=True):
         super().__init__()
         # self.num_cam = dataset.num_cam
         # print("# cameras in model: ", self.num_cam)
         # self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
         # self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
         # self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
-
+        self.warp_kornia = warp_kornia
         if num_cam is None:
             self.num_cam = 8
         else:
@@ -69,6 +70,7 @@ class PerspTransDetector(nn.Module):
         upsample_shape = config_dict['upsample_shape']
         reducedgrid_shape = config_dict['reducedgrid_shape']
         coord_map = config_dict['coord_map']
+        indexing = config_dict['indexing']
 
         if not self.avgpool:
             assert N == self.num_cam
@@ -92,7 +94,10 @@ class PerspTransDetector(nn.Module):
 
             # here, the proj_mat has been constructed for a specific grid (output) and image (input) size.
             # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
-            world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            if self.warp_kornia:
+                world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            else:
+                world_feature = warp_features_pytorch(img_feature.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, indexing)
             if visualize:
                 fig = plt.figure(figsize=(16,9))
                 subplt0 = fig.add_subplot(211, title="img_features")
@@ -107,7 +112,10 @@ class PerspTransDetector(nn.Module):
                 # plt.show()
 
             view_indicator = torch.ones_like(img_feature)
-            view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            if self.warp_kornia:
+                view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
+            else:
+                view_indicator = warp_features_pytorch(view_indicator.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, indexing)
             view_indicator_viz.append(view_indicator.detach().cpu())
             img_feature_viz.append(img_feature.detach().cpu())
             world_feature_viz.append(world_feature.detach().cpu())
@@ -140,13 +148,9 @@ class PerspTransDetector(nn.Module):
             fig = plt.figure(
                 
             )
-            subplt0 = fig.add_subplot(321, title="view_indicators")
-            subplt1 = fig.add_subplot(322, title="view_indicators")
-            subplt4 = fig.add_subplot(323, title="view_indicators")
+            subplt0 = fig.add_subplot(111, title="view_indicators")
             subplt0.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
-            subplt1.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
-            subplt4.imshow(torch.norm(view_indicators[0].detach(), dim=0).cpu().numpy())
-            plt.savefig(f"iview_indicators{i}.jpg")
+            plt.savefig(f"iview_indicators.jpg")
             plt.close(fig)
             
         map_result = self.map_classifier(world_features.to('cuda:0'))
@@ -156,7 +160,7 @@ class PerspTransDetector(nn.Module):
             fig = plt.figure(figsize=(16,9))
             subplt0 = fig.add_subplot(111, title="map_result")
             subplt0.imshow(torch.norm(map_result[0].detach(), dim=0).cpu().numpy())
-            plt.savefig(f"imap_res{i}.jpg")
+            plt.savefig(f"imap_res.jpg")
             plt.close(fig)
         return map_result, imgs_result, (world_feature_viz, img_feature_viz, view_indicator_viz)
 

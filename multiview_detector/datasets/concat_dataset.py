@@ -22,6 +22,7 @@ class ConcatDataset(torch.utils.data.ConcatDataset):
             self.config_dict['img_shape'] = d.img_shape
             self.config_dict['reducedgrid_shape'] = d.reducedgrid_shape
             self.config_dict['img_reduce'] = d.img_reduce
+            self.config_dict['indexing'] = d.indexing
             
             upsample_shape = list(map(lambda x: int(x / d.img_reduce), d.img_shape))
             self.config_dict['upsample_shape'] = upsample_shape

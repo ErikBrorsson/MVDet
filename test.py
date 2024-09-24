@@ -35,10 +35,10 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
     t0 = time.time()
     if res_fpath is not None:
         assert gt_fpath is not None
-    for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
+    for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, proj_mats_mvaug_features, dataset_name) in enumerate(data_loader):
         with torch.no_grad():
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
-            map_res, imgs_res, _ = model(data, proj_mats, config_dict)
+            map_res, imgs_res, _ = model(data, proj_mats_mvaug_features, config_dict, visualize=True)
         if res_fpath is not None:
             for cls_thres in cls_thres_array:
                 map_grid_res = map_res.detach().cpu().squeeze()
@@ -344,7 +344,7 @@ def main(args):
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
-    cls_thres_array = [0.05]
+    cls_thres_array = [0.4]
     test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics

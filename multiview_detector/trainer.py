@@ -22,6 +22,8 @@ from multiview_detector.evaluation.pyeval.CLEAR_MOD_HUN import CLEAR_MOD_HUN
 
 import kornia
 
+from multiview_detector.misc.geometry import warp_features_pytorch
+
 
 def display_cam_layout(img, view_indicator_list):
     temp = 255*img
@@ -316,9 +318,11 @@ class PerspectiveTrainer(BaseTrainer):
         return imgs_extended, imgs_labels_extended, proj_mats_extended
 
 
-    def visualize_grid_and_bev(self, proj_mat, img, bev, f_name, foot_points, map_label=None):
-        bev_h = 360
-        bev_w = 120
+    def visualize_grid_and_bev(self, proj_mat, img, bev, f_name, foot_points, reducedgrid_shape, map_label=None):
+        # bev_h = 360
+        # bev_w = 120
+        bev_w, bev_h = reducedgrid_shape
+
         # x = torch.linspace(0, bev_h-1, bev_h)
         x = torch.linspace(0, bev_h-1, int(bev_h/4))
         # y = torch.linspace(0, bev_w-1, bev_w)
@@ -330,7 +334,9 @@ class PerspectiveTrainer(BaseTrainer):
         grid_homo[0:2, :] = grid
         grid_homo = grid_homo.unsqueeze(0)
         grid_persp = torch.bmm(proj_mat.float().to('cuda:0'), grid_homo.to('cuda:0')).cpu().numpy().squeeze()
+
         # grid_persp = grid_persp[:, grid_persp[2, :] > 0] # remove all points that are behind the camera
+        
         grid_persp = grid_persp / grid_persp[2, :]
         img = img.cpu().numpy().squeeze().transpose([1, 2, 0])
         img = Image.fromarray((img * 255).astype('uint8'))
@@ -354,6 +360,32 @@ class PerspectiveTrainer(BaseTrainer):
 
         plt.savefig(f_name)
         plt.close(fig)
+
+    # def warp_features_pytorch(self, features, proj_mat):
+    #     bev_h = 360
+    #     bev_w = 120
+    #     # x = torch.linspace(0, bev_h-1, bev_h)
+    #     x = torch.linspace(0, bev_h-1, bev_h)
+    #     # y = torch.linspace(0, bev_w-1, bev_w)
+    #     y = torch.linspace(0, bev_w-1, bev_w)
+    #     mesh = torch.meshgrid([x,y], indexing="xy")
+    #     grid = torch.concat([mesh[0].unsqueeze(0), mesh[1].unsqueeze(0)])
+    #     grid = grid.reshape((2, -1))
+    #     grid_homo = torch.ones((3, grid.shape[1]))
+    #     grid_homo[0:2, :] = grid
+    #     grid_homo = grid_homo.unsqueeze(0)
+    #     grid_persp = torch.bmm(proj_mat.float().to('cuda:0'), grid_homo.to('cuda:0')).squeeze()#.cpu().numpy().squeeze()
+    #     z = grid_persp[2, :]
+    #     grid_persp = grid_persp / z
+    #     grid_persp = (grid_persp[0:2,:] / torch.tensor([features.shape[-2]-1, features.shape[-1]-1], device="cuda:0").reshape((2, 1)))*2 - 1
+
+    #     grid_persp[0:2, z < 0] = -10 # remove all points that are behind the camera
+    #     grid_persp = grid_persp.reshape((2, y.shape[0], x.shape[0])).unsqueeze(0)
+    #     grid_persp = grid_persp.permute(0,2,3,1)
+
+    #     features_warped = torch.nn.functional.grid_sample(features, grid_persp, mode='bilinear')
+
+    #     return features_warped
 
     def train(self, epoch, data_loader, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
@@ -493,6 +525,7 @@ class PerspectiveTrainer(BaseTrainer):
                     self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
                                                 os.path.join(f'img_and_bev_aug_resized{i}.jpg'),
                                                 foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
                                                 self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
                     
                     # visualize augmneted "img features" and projection to bev, including sene augmentation
@@ -500,10 +533,19 @@ class PerspectiveTrainer(BaseTrainer):
                     img_resized = resize(img_aug)
                     temp_mat = proj_mat_aug_list[i]
                     temp_mat_inv = torch.linalg.inv(temp_mat)
-                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
+
+                    kornia_proj = False
+                    if kornia_proj:
+                        world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
+                    else:
+                        world_feature = warp_features_pytorch(img_resized.to("cuda:0"), temp_mat_inv.to("cuda:0"),
+                                                              data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
+                                                              data_loader.dataset.dicts[dataset_name[0]]['base'].indexing)
+
                     self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
                                                 os.path.join(f'img_and_bev_aug_resized_sceneaug{i}.jpg'),
                                                 foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
+                                                data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
                                                 self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
                     
 

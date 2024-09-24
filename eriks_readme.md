@@ -1990,6 +1990,13 @@ Table 3: sim2real and real2sim adaptation
 | wildtrack -> multiviewx | 40.2 2826072_325           | 31.0 2813641_295         | 78.8  2826869_335 | 88     |
 
 
+### 24/9
+
+Fixed problem with mvaug:  
+Before the fix, image points "behind" the camera would have a z component < 0 => division with a negative number (mirroring the pixels to incorrect place).  
+After the fix, any such points are not contributing to the projected feature map.  
+![](resources/images/before_after_mvaug_fix.png)
+
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?

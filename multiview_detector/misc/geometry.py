@@ -6,8 +6,71 @@ from scipy.interpolate import interp1d
 from skimage.draw import polygon, polygon_perimeter
 from sympy.geometry.util import intersection, convex_hull
 from sympy import Point, Polygon
-
+import matplotlib.pyplot as plt
 # from multiview_detector.misc.log_utils import log
+
+# erik
+def warp_features_pytorch(features, proj_mat, reducedgrid_shape, indexing):
+    # features, proj_mat = img_resized.to("cuda:0"), temp_mat_inv.to("cuda:0")
+
+    # wildtrack
+    # bev_w, bev_h = reducedgrid_shape
+    # x = torch.linspace(0, bev_h-1, bev_h)
+    # y = torch.linspace(0, bev_w-1, bev_w)
+    # mesh = torch.meshgrid([x,y], indexing="xy")
+
+    # multiviewx
+    bev_w, bev_h = reducedgrid_shape
+    x = torch.linspace(0, bev_h-1, bev_h)
+    y = torch.linspace(0, bev_w-1, bev_w)
+    mesh = torch.meshgrid([x,y], indexing="xy")
+
+
+    grid = torch.concat([mesh[0].unsqueeze(0), mesh[1].unsqueeze(0)])
+    grid = grid.reshape((2, -1))
+    grid_homo = torch.ones((3, grid.shape[1]))
+    grid_homo[0:2, :] = grid
+    grid_homo = grid_homo.unsqueeze(0)
+    grid_persp = torch.bmm(proj_mat.float().to('cuda:0'), grid_homo.to('cuda:0')).squeeze()#.cpu().numpy().squeeze()
+    z = grid_persp[2, :]
+    grid_persp = grid_persp / z
+
+    # fig = plt.figure()
+    # plt.hist(grid_persp.cpu().numpy()[0,:], bins=np.linspace(-100, 500))
+    # fig.savefig("hist_x2.jpg")
+    # plt.close(fig)
+
+    # fig = plt.figure()
+    # plt.hist(grid_persp.cpu().numpy()[1,:], bins=np.linspace(-100, 500))
+    # fig.savefig("hist_y2.jpg")
+    # plt.close(fig)
+
+
+    grid_persp = (grid_persp[0:2,:] / torch.tensor([features.shape[-1]-1, features.shape[-2]-1], device="cuda:0").reshape((2, 1)))*2 - 1
+    
+    # fig = plt.figure()
+    # plt.hist(grid_persp.cpu().numpy()[0,:], bins=np.linspace(-5, 5))
+    # fig.savefig("hist_x2_norm.jpg")
+    # plt.close(fig)
+
+    # fig = plt.figure()
+    # plt.hist(grid_persp.cpu().numpy()[1,:], bins=np.linspace(-5, 5))
+    # fig.savefig("hist_y2_norm.jpg")
+    # plt.close(fig)
+    
+    if indexing == "xy":
+        grid_persp[0:2, z > 0] = -10 # remove all points that are behind the camera
+    elif indexing == "ij":
+        grid_persp[0:2, z < 0] = -10 # remove all points that are behind the camera
+    else:
+        raise Exception("indexing must be either xy or ij")
+
+    grid_persp = grid_persp.reshape((2, y.shape[0], x.shape[0])).unsqueeze(0)
+    grid_persp = grid_persp.permute(0,2,3,1)
+
+    world_feature = torch.nn.functional.grid_sample(features, grid_persp, mode='bilinear')
+
+    return world_feature
 
 def project_to_ground_plane_pytorch(img, H, homography_input_size, homography_output_size, grounplane_img_size, padding_mode="zeros"):
 

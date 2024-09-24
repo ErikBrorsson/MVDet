@@ -248,11 +248,11 @@ def main(args):
 
     # model
     if args.variant == 'default':
-        model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
+        model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
 
         # if args.uda:
         # init ema model
-        ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext)
+        ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
         for param in ema_model.parameters():
             param.detach_()
         mp = list(model.parameters())
@@ -506,6 +506,7 @@ if __name__ == '__main__':
     parser.add_argument('--multiviewx2wildtrack', action="store_true")
     parser.add_argument('--wildtrack2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
+    parser.add_argument('--warp_kornia', action="store_true", default=True)
     parser.add_argument('--auto_th', action="store_true")
     parser.add_argument('--test_ema', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
