@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # from multiview_detector.misc.log_utils import log
 
 # erik
-def warp_features_pytorch(features, proj_mat, reducedgrid_shape, indexing):
+def warp_features_pytorch(features, proj_mat, reducedgrid_shape, camera_orient):
     # features, proj_mat = img_resized.to("cuda:0"), temp_mat_inv.to("cuda:0")
 
     # wildtrack
@@ -58,12 +58,12 @@ def warp_features_pytorch(features, proj_mat, reducedgrid_shape, indexing):
     # fig.savefig("hist_y2_norm.jpg")
     # plt.close(fig)
     
-    if indexing == "xy":
+    if camera_orient == "multiviewx":
         grid_persp[0:2, z > 0] = -10 # remove all points that are behind the camera
-    elif indexing == "ij":
+    elif camera_orient == "wildtrack":
         grid_persp[0:2, z < 0] = -10 # remove all points that are behind the camera
     else:
-        raise Exception("indexing must be either xy or ij")
+        raise Exception("camera_orient must be one of [multiviewx, wildtrack]")
 
     grid_persp = grid_persp.reshape((2, y.shape[0], x.shape[0])).unsqueeze(0)
     grid_persp = grid_persp.permute(0,2,3,1)

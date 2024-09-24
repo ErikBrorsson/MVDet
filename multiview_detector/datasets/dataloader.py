@@ -14,7 +14,7 @@ class GetDataset(VisionDataset):
         super().__init__(base.root, transform=transform, target_transform=target_transform)
         self.base = base
         self.reID =  reID
-        self.root, self.num_cam, self.num_frames, self.cameras, self.indexing = base.root, base.num_cam, base.num_frames, base.cameras, base.indexing
+        self.root, self.num_cam, self.num_frames, self.cameras, self.indexing, self.camera_orient = base.root, base.num_cam, base.num_frames, base.cameras, base.indexing, base.camera_orient
         self.dataset_name = base.dataset_name
         self.img_shape, self.world_grid_shape = base.img_shape, base.world_grid_shape  # H,W; N_row,N_col
         if sample_require:

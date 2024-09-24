@@ -20,7 +20,7 @@ class frameDataset(VisionDataset):
         self.reID, self.grid_reduce, self.img_reduce = reID, grid_reduce, img_reduce
 
         self.base = base
-        self.root, self.num_cam, self.num_frames, self.indexing = base.root, base.num_cam, base.num_frames, base.indexing
+        self.root, self.num_cam, self.num_frames, self.indexing, self.camera_orient = base.root, base.num_cam, base.num_frames, base.indexing, base.camera_orient
         self.cameras = base.cameras
         self.img_shape, self.world_grid_shape = base.img_shape, base.world_grid_shape  # H,W; N_row,N_col
         self.reducedgrid_shape = list(map(lambda x: int(x / self.grid_reduce), self.world_grid_shape))

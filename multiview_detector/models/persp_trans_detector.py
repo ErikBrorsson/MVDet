@@ -70,7 +70,7 @@ class PerspTransDetector(nn.Module):
         upsample_shape = config_dict['upsample_shape']
         reducedgrid_shape = config_dict['reducedgrid_shape']
         coord_map = config_dict['coord_map']
-        indexing = config_dict['indexing']
+        camera_orient = config_dict['camera_orient']
 
         if not self.avgpool:
             assert N == self.num_cam
@@ -97,7 +97,7 @@ class PerspTransDetector(nn.Module):
             if self.warp_kornia:
                 world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             else:
-                world_feature = warp_features_pytorch(img_feature.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, indexing)
+                world_feature = warp_features_pytorch(img_feature.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, camera_orient)
             if visualize:
                 fig = plt.figure(figsize=(16,9))
                 subplt0 = fig.add_subplot(211, title="img_features")
@@ -115,7 +115,7 @@ class PerspTransDetector(nn.Module):
             if self.warp_kornia:
                 view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             else:
-                view_indicator = warp_features_pytorch(view_indicator.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, indexing)
+                view_indicator = warp_features_pytorch(view_indicator.to('cuda:0'), torch.linalg.inv(proj_mat), reducedgrid_shape, camera_orient)
             view_indicator_viz.append(view_indicator.detach().cpu())
             img_feature_viz.append(img_feature.detach().cpu())
             world_feature_viz.append(world_feature.detach().cpu())

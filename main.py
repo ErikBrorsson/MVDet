@@ -68,7 +68,7 @@ def main(args):
             sample_require = int(data_row[3])
             path = os.path.join(data_root, str(data_row[1]))
             if data_row[1].split('/')[-1]!='Wildtrack':
-                base = MultiviewX(path)
+                base = MultiviewX(path, camera_orient="wildtrack")
             else:
                 base = Wildtrack(path)
             if data_row[0]=='train':

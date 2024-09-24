@@ -13,7 +13,7 @@ extrinsic_camera_matrix_filenames = ['extr_CVLab1.xml', 'extr_CVLab2.xml', 'extr
 
 
 class Wildtrack(VisionDataset):
-    def __init__(self, root, cameras=None):#[1,2,3,4,5,6,7]):
+    def __init__(self, root, cameras=None, camera_orient="wildtrack"):#[1,2,3,4,5,6,7]):
         super().__init__(root)
         self.root = root
         self.gt_fname = os.path.join(self.root,'gt.txt')
@@ -26,6 +26,7 @@ class Wildtrack(VisionDataset):
         self.grid_cell, self.origin = config['grid_cell'], config['origin']
         self.region_size = config['region_size'] 
         self.indexing = 'ij'
+        self.camera_orient = camera_orient
         self.worldgrid2worldcoord_mat = np.array([[self.grid_cell, 0, self.origin[0]], [0, self.grid_cell, self.origin[1]], [0, 0, 1]])
 
         if cameras is not None:

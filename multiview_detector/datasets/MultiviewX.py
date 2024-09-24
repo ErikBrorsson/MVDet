@@ -15,7 +15,7 @@ extrinsic_camera_matrix_filenames = ['extr_Camera1.xml', 'extr_Camera2.xml', 'ex
 
 
 class MultiviewX(VisionDataset):
-    def __init__(self, root, cameras=None):#[1,2,3,4,5,6]):
+    def __init__(self, root, cameras=None, camera_orient="multiviewx"):#[1,2,3,4,5,6]):
         super().__init__(root)
 
         self.root = root
@@ -29,6 +29,8 @@ class MultiviewX(VisionDataset):
         self.grid_cell, self.origin = config['grid_cell'], config['origin']
         self.region_size = config['region_size'] 
         self.indexing = 'xy'
+        self.camera_orient = camera_orient
+
         self.worldgrid2worldcoord_mat = np.array([[0,self.grid_cell, self.origin[0]], [self.grid_cell, 0, self.origin[1]], [0, 0, 1]])
 
         if cameras is not None:
