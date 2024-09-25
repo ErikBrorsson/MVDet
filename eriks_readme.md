@@ -2003,15 +2003,15 @@ In MVAug, they also treat nans specifically, which seems to be necessary since t
 GMVD s1c1 -> MultiviewX
 | description                       | ema weights | persp. supervision | dropview | mvaug | pretrained | MODA             | MODA new         | varying threshold |
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
-| baseline                          |             |                    |          |       |            | 36.9 2832981_340 | 35.3             |                   |
-| baseline pre                      |             |                    |          |       | x          | 64.6 2833240_341 | 60.5             |                   |
-| baseline pre w dropview           |             |                    | x        |       | x          | 65.8 2833867_342 | 65.1             |                   |
+| baseline                          |             |                    |          |       |            | 36.9 2832981_340 | 35.3 2847447_340 |                   |
+| baseline pre                      |             |                    |          |       | x          | 64.6 2833240_341 | 60.5 2847447_341 |                   |
+| baseline pre w dropview           |             |                    | x        |       | x          | 65.8 2833867_342 | 65.1 2847447_342 |                   |
 | baseline pre w mvaug              |             |                    |          | x     | x          | 66.1 2833240_343 | 64.3 2846137_343 |                   |
 | baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 67.9 2833240_344 | 67.1 2846842_344 |                   |
-| baseline pre w persp.             |             | x                  |          |       | x          | 66.4 2833240_345 | 66.0             |                   |
+| baseline pre w persp.             |             | x                  |          |       | x          | 66.4 2833240_345 | 66.0 2847447_345 |                   |
 | baseline pre w persp. + mvaug     |             | x                  |          | x     | x          | 69.2 2833240_346 | 64.9 2846842_346 |                   |
-| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 66.3 2833883_347 | 66.7             |                   |
-| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 69.1 2833883_348 | 66.9             |                   |
+| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 66.3 2833883_347 | 66.7 2847447_347 |                   |
+| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 69.1 2833883_348 | 66.9 2846842_348 |                   |
 diff = prev - new
 np.mean(diff)=1.7
 np.std(diff)=1.5
@@ -2021,14 +2021,14 @@ MultiviewX -> Wildtrack
 | description                       | ema weights | persp. supervision | dropview | mvaug | pretrained | MODA             | MODA new         | varying threshold |
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
 | baseline                          |             |                    |          |       |            | 52.5 2833966_350 | 46.3 2847441_350 |                   |
-| baseline pre                      |             |                    |          |       | x          | 69.5 2833966_351 | 72.4             |                   |
-| baseline pre w dropview           |             |                    | x        |       | x          | 72.9 2833966_352 | 73.2             |                   |
-| baseline pre w mvaug              |             |                    |          | x     | x          | 69.0 2833966_353 | 67.1             |                   |
-| baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 70.1 2833966_354 | 70.1             |                   |
-| baseline pre w persp.             |             | x                  |          |       | x          | 70.9 2833966_355 | 72.2             |                   |
-| baseline pre w persp. + mvaug     |             | x                  |          | x     | x          | 68.8 2833966_356 | 70.9             |                   |
-| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 73.3 2833966_357 | 72.6             |                   |
-| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 70.1 2833966_358 | 71.4             |                   |
+| baseline pre                      |             |                    |          |       | x          | 69.5 2833966_351 | 72.4 2847441_351 |                   |
+| baseline pre w dropview           |             |                    | x        |       | x          | 72.9 2833966_352 | 73.2 2847441_352 |                   |
+| baseline pre w mvaug              |             |                    |          | x     | x          | 69.0 2833966_353 | 67.1 2846215_353 |                   |
+| baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 70.1 2833966_354 | 70.1 2846846_354 |                   |
+| baseline pre w persp.             |             | x                  |          |       | x          | 70.9 2833966_355 | 72.2 2847441_355 |                   |
+| baseline pre w persp. + mvaug     |             | x                  |          | x     | x          | 68.8 2833966_356 | 70.9 2846846_356 |                   |
+| baseline pre w persp. + dv        |             | x                  | x        |       | x          | 73.3 2833966_357 | 72.6 2847441_357 |                   |
+| baseline pre w persp.+ dv + mvaug |             | x                  | x        | x     | x          | 70.1 2833966_358 | 71.4 2846846_358 |                   |
 diff = prev - new
 np.mean(diff)=0.1
 np.std(diff)=2.6
@@ -2046,6 +2046,37 @@ Note: I think that they use MVAug builds on MVDet, and thus they dont use avg_po
 I should try mvaug both with and without avg_pool on a supervised benchmark (i.e. multiviewx and wildtrack like they do in the MVAug article).
 
 
+### 25/9
+
+Baseline: pre + dropview (no persp.sup and no mvaug)
+uda: with dropview (no persp.sup and no mvaug)
+
+Table 1: Real-world  camera adaptation 
+| benchmark        | baseline         | uda                                | oracle |
+| ---------------- | ---------------- | ---------------------------------- | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 85     |
+
+
+Table 2: simulated data camera adaptation
+| benchmark                        | baseline            | uda                 | oracle |
+| -------------------------------- | ------------------- | ------------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342    | ONGOING 2852343_332 | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | ONGOING 2852346_323 | **TODO**            | ~90    |
+
+
+| benchmark            | baseline         | uda                 | oracle |
+| -------------------- | ---------------- | ------------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | ONGOING 2852359_336 | ~70    |
+
+
+Table 3: sim2real and real2sim adaptation
+| benchmark               | baseline            | uda                 | oracle |
+| ----------------------- | ------------------- | ------------------- | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352    | ONGOING 2852369_334 | 87     |
+| wildtrack -> multiviewx | ONGOING 2852371_325 | **TODO**            | 88     |
+
+
 
 # TODO
 
@@ -2057,6 +2088,7 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 
 - MVAug doesn't seem to help much in the domain generalization/adaptation setting. I should verify that my implementation is alright by running supervised experiments like they do in the MVAUG article.
 - If I find that MVAug is not suitable, I should try some other augmentation techniques. Implement 3DROM.
+- try to get good results on all benchmarks without mvaug and without persp. sup (only a few left)
 
 
 

@@ -293,11 +293,6 @@ def main(args):
     #         dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
     #         shutil.copyfile(script, dst_file)
     sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
-    print('Settings:')
-    for k, v in vars(args).items():
-        print(k, ": ", v)
-
-    print("logdir: ", logdir)
 
     # draw curve
     x_epoch = []
@@ -324,6 +319,12 @@ def main(args):
     if args.mvaug_uda is None:
         args.mvaug_uda = args.mvaug
     augmentation_uda = Augmentation(args.dropview_uda, args.permutation_uda, args.mvaug_uda)
+
+    print('Settings:')
+    for k, v in vars(args).items():
+        print(k, ": ", v)
+
+    print("logdir: ", logdir)
 
     if args.uda:
         # pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
