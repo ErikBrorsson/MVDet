@@ -2082,6 +2082,11 @@ Table 3: sim2real and real2sim adaptation
 **ONGOING** mvaug verification experiments (supervised) 2852421_x + 2852408_360
 
 
+I've found that true_max has some benefits over nms_40:
+- Since many false positive are eliminated due to true_max, ps-labels can be allowed to be closer to each other
+- It doesnt "push" pseudo-labels away from each other like nms_40 does
+Implement it in the UDA, and see if I can reach improved MODP with this? Perhaps also MODA.
+
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?
