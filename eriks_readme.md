@@ -3,6 +3,8 @@ docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/dat
 
 docker run -it --gpus all --shm-size=8g -v $PWD:/code/ -v /home/gpss1/remote/mnts/mnt0:/mnt -v /home/gpss1/remote/datasets/Wildtrack_dataset:/data/Wildtrack -v /home/gpss1/remote/datasets/MultiviewX:/data/MultiviewX -w /code mvdet
 
+pip install ipykernel
+
 python main.py -d wildtrack --data_path /data/Wildtrack 
 python main.py -d multiviewx --data_path /data/MultiviewX 
 
@@ -2059,23 +2061,25 @@ Table 1: Real-world  camera adaptation
 
 
 Table 2: simulated data camera adaptation
-| benchmark                        | baseline            | uda                 | oracle |
-| -------------------------------- | ------------------- | ------------------- | ------ |
-| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342    | ONGOING 2852343_332 | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | ONGOING 2852346_323 | **TODO**            | ~90    |
+| benchmark                        | baseline         | uda                     | oracle |
+| -------------------------------- | ---------------- | ----------------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0 2852343_332        | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | **ONGOING** 2853231_333 | ~90    |
 
 
-| benchmark            | baseline         | uda                 | oracle |
-| -------------------- | ---------------- | ------------------- | ------ |
-| multiviewx cam adapt | 50.0 2826575_326 | ONGOING 2852359_336 | ~70    |
+| benchmark            | baseline         | uda               | oracle |
+| -------------------- | ---------------- | ----------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | ~70    |
 
 
 Table 3: sim2real and real2sim adaptation
-| benchmark               | baseline            | uda                 | oracle |
-| ----------------------- | ------------------- | ------------------- | ------ |
-| multiviewx->wildtrack   | 73.2 2847441_352    | ONGOING 2852369_334 | 87     |
-| wildtrack -> multiviewx | ONGOING 2852371_325 | **TODO**            | 88     |
+| benchmark               | baseline         | uda                          | oracle |
+| ----------------------- | ---------------- | ---------------------------- | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352 | **ONGOING** 80.3 2852369_334 | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | **ONGOING** 2853233_335      | 88     |
 
+
+**ONGOING** mvaug verification experiments (supervised) 2852421_x + 2852408_360
 
 
 # TODO
@@ -2086,9 +2090,8 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 
 
 
-- MVAug doesn't seem to help much in the domain generalization/adaptation setting. I should verify that my implementation is alright by running supervised experiments like they do in the MVAUG article.
+
 - If I find that MVAug is not suitable, I should try some other augmentation techniques. Implement 3DROM.
-- try to get good results on all benchmarks without mvaug and without persp. sup (only a few left)
 
 
 
