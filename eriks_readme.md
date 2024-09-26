@@ -2061,10 +2061,10 @@ Table 1: Real-world  camera adaptation
 
 
 Table 2: simulated data camera adaptation
-| benchmark                        | baseline         | uda                           | oracle |
-| -------------------------------- | ---------------- | ----------------------------- | ------ |
-| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332             | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | **ONGOING** 71.2* 2853231_333 | ~90    |
+| benchmark                        | baseline         | uda               | oracle |
+| -------------------------------- | ---------------- | ----------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | ~90    |
 
 *it starts producing very many FP.
 
@@ -2074,10 +2074,10 @@ Table 2: simulated data camera adaptation
 
 
 Table 3: sim2real and real2sim adaptation
-| benchmark               | baseline         | uda                          | oracle |
-| ----------------------- | ---------------- | ---------------------------- | ------ |
-| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 2852369_334             | 87     |
-| wildtrack -> multiviewx | 36.7 2852371_325 | **ONGOING** 73.8 2853275_335 | 88     |
+| benchmark               | baseline         | uda              | oracle |
+| ----------------------- | ---------------- | ---------------- | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 2852369_334 | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335 | 88     |
 
 
 **ONGOING** mvaug verification experiments (supervised) 2852421_x + 2852408_360
@@ -2090,12 +2090,25 @@ Table 3: sim2real and real2sim adaptation
 | multiviewx + dv | 89.5 |
 | multiviewx + mv | 91.1 |
 
+MVAug implementation seems OKAY since it works fairly well on the supervised benchmarks.
+Note: it is not quite as good as the MVAug paper suggests, however, remember that I'm using a different architecture than they did.
+It is not clear why MVAug would be less suitable in the setting of UDA.
 
 
 I've found that true_max has some benefits over nms_40:
 - Since many false positive are eliminated due to true_max, ps-labels can be allowed to be closer to each other
 - It doesnt "push" pseudo-labels away from each other like nms_40 does
 Implement it in the UDA, and see if I can reach improved MODP with this? Perhaps also MODA.
+
+### 26/9
+
+Ongoing experiments with max_pseudo
+| benchmark                        | baseline         | uda               | max_pseudo | oracle |
+| -------------------------------- | ---------------- | ----------------- | ---------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 |            | 90     |
+| multiviewx->wildtrack            | 73.2 2847441_352 | 80.6 2852369_334  |            | 87     |
+
+
 
 # TODO
 
