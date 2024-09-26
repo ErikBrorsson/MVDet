@@ -250,6 +250,14 @@ def main(args):
     if args.variant == 'default':
         model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
 
+        # load pre-trained model before initializing EMA
+        if args.resume_model is not None:
+            # resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
+            # resume_fname = resume_dir + '/MultiviewDetector.pth'
+            resume_fname = args.resume_model
+            print("Loading saved model from: ", resume_fname)
+            model.load_state_dict(torch.load(resume_fname))
+
         # if args.uda:
         # init ema model
         ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
@@ -261,12 +269,12 @@ def main(args):
         for i in range(0, n):
             mcp[i].data[:] = mp[i].data[:].clone()
 
-    elif args.variant == 'img_proj':
-        model = ImageProjVariant(train_set, args.arch)
-    elif args.variant == 'res_proj':
-        model = ResProjVariant(train_set, args.arch)
-    elif args.variant == 'no_joint_conv':
-        model = NoJointConvVariant(train_set, args.arch)
+    # elif args.variant == 'img_proj':
+    #     model = ImageProjVariant(train_set, args.arch)
+    # elif args.variant == 'res_proj':
+    #     model = ResProjVariant(train_set, args.arch)
+    # elif args.variant == 'no_joint_conv':
+    #     model = NoJointConvVariant(train_set, args.arch)
     else:
         raise Exception('no support for this variant')
 
@@ -333,18 +341,11 @@ def main(args):
                              alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
                              augmentation_module=augmentation, weighted_mse=args.weighted_mse,
                              low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup,
-                             persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda)
+                             persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda,
+                             max_pseudo=args.max_pseudo, max_pseudo_th=args.max_pseudo_th)
     else:
         trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha,
                                      augmentation_module=augmentation, persp_sup=args.persp_sup, visualize_train=args.train_viz)
-
-    # learn
-    if args.resume_model is not None:
-        # resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
-        # resume_fname = resume_dir + '/MultiviewDetector.pth'
-        resume_fname = args.resume_model
-        print("Loading saved model from: ", resume_fname)
-        model.load_state_dict(torch.load(resume_fname))
 
 
     if args.uda:
@@ -509,6 +510,8 @@ if __name__ == '__main__':
     parser.add_argument('--wildtrack2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
     parser.add_argument('--warp_kornia', action="store_true", default=True)
+    parser.add_argument('--max_pseudo', action="store_true")
+    parser.add_argument('--max_pseudo_th', type=int, default=11, help='The kernel size when finding local_maxima for max_pseudo pseudo-label creation')
     parser.add_argument('--auto_th', action="store_true")
     parser.add_argument('--test_ema', action="store_true")
     parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')

@@ -2061,11 +2061,12 @@ Table 1: Real-world  camera adaptation
 
 
 Table 2: simulated data camera adaptation
-| benchmark                        | baseline         | uda                     | oracle |
-| -------------------------------- | ---------------- | ----------------------- | ------ |
-| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0 2852343_332        | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | **ONGOING** 2853231_333 | ~90    |
+| benchmark                        | baseline         | uda                           | oracle |
+| -------------------------------- | ---------------- | ----------------------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332             | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | **ONGOING** 71.2* 2853231_333 | ~90    |
 
+*it starts producing very many FP.
 
 | benchmark            | baseline         | uda               | oracle |
 | -------------------- | ---------------- | ----------------- | ------ |
@@ -2075,11 +2076,20 @@ Table 2: simulated data camera adaptation
 Table 3: sim2real and real2sim adaptation
 | benchmark               | baseline         | uda                          | oracle |
 | ----------------------- | ---------------- | ---------------------------- | ------ |
-| multiviewx->wildtrack   | 73.2 2847441_352 | **ONGOING** 80.3 2852369_334 | 87     |
-| wildtrack -> multiviewx | 36.7 2852371_325 | **ONGOING** 2853233_335      | 88     |
+| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 2852369_334             | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | **ONGOING** 73.8 2853275_335 | 88     |
 
 
 **ONGOING** mvaug verification experiments (supervised) 2852421_x + 2852408_360
+| model           | moda |
+| --------------- | ---- |
+| wildtrack base  | 87.4 |
+| wildtrack + dv  | 87.2 |
+| wildtrack + mv  | 89.0 |
+| multiviewx base | 88.7 |
+| multiviewx + dv | 89.5 |
+| multiviewx + mv | 91.1 |
+
 
 
 I've found that true_max has some benefits over nms_40:
