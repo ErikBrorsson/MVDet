@@ -656,16 +656,22 @@ class PerspectiveTrainer(BaseTrainer):
                     subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
                     subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
 
+                    subplt18 = fig.add_subplot(4, n_col, 2*n_col + 5, title="example_image")
+
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
                     all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()
                     all_world_features = torch.norm(torch.cat(world_features, dim=1)[0], dim=0).detach().cpu().numpy()
 
+                    img0 = (255*self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])).astype(np.uint8)
+
+
                     subplt0.imshow(map_res_view)
                     subplt1.imshow(label_view)
                     subplt2.imshow(all_views)
                     subplt3.imshow(all_world_features)
+                    subplt18.imshow(img0)
 
                     if len(world_features) >= 1:
                         img_feature_i = torch.norm(img_features[0][0].detach(), dim=0).cpu().numpy()
@@ -1610,6 +1616,11 @@ class UDATrainer(BaseTrainer):
                     subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
                     subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
 
+                    subplt18 = fig.add_subplot(4, n_col, 2*n_col + 5, title="example_image")
+
+                    img0 = (255*self.denormalize(data[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])).astype(np.uint8)
+
+
                     map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
                     label_view = display_cam_layout(self.criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                 .cpu().detach().numpy().squeeze(), view_indicator_list)
@@ -1620,6 +1631,7 @@ class UDATrainer(BaseTrainer):
                     subplt1.imshow(label_view)
                     subplt2.imshow(all_views)
                     subplt3.imshow(all_world_features)
+                    subplt18.imshow(img0)
 
                     if len(world_features) >= 1:
                         img_feature_i = torch.norm(img_features[0][0].detach(), dim=0).cpu().numpy()
@@ -1881,10 +1893,14 @@ class UDATrainer(BaseTrainer):
                         subplt14 = fig.add_subplot(4, n_col,  n_col*2 + 4, title="img_feature_i")
                         subplt15 = fig.add_subplot(4, n_col, n_col*3 + 4, title="world_feature_i")
 
-                        subplt16 = fig.add_subplot(4, n_col,  5, title="img_feature_i")
-                        subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="world_feature_i")
+                        subplt16 = fig.add_subplot(4, n_col,  5, title="student_img_example")
+                        subplt17 = fig.add_subplot(4, n_col, n_col + 5, title="teacher_img_example")
                         subplt18 = fig.add_subplot(4, n_col,  n_col*2 + 5, title="view indicator")
                         subplt19 = fig.add_subplot(4, n_col, n_col*3 + 5, title="all world features")
+
+
+                        img0 = (255*self.denormalize(data_student[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])).astype(np.uint8)
+                        img1 = (255*self.denormalize(data_teacher[0, 0]).cpu().numpy().squeeze().transpose([1, 2, 0])).astype(np.uint8)
 
                         student_res_view = display_cam_layout(map_res_target.cpu().detach().numpy().squeeze(), view_indicator_list)
                         label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
@@ -1947,6 +1963,9 @@ class UDATrainer(BaseTrainer):
                             w_feature_i = torch.norm(world_features[6][0].detach(), dim=0).cpu().numpy()
                             subplt16.imshow(img_feature_i)
                             subplt17.imshow(w_feature_i)
+
+                        subplt16.imshow(img0)
+                        subplt17.imshow(img1)
 
 
                         all_views = torch.norm(torch.cat(view_indicator_list, dim=1)[0], dim=0).numpy()

@@ -2108,7 +2108,7 @@ Ongoing experiments with max_pseudo
 Table 1: Real-world  camera adaptation 
 | benchmark        | baseline         | uda                                | max pseudo             | oracle |
 | ---------------- | ---------------- | ---------------------------------- | ---------------------- | ------ |
-| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) |                        | 81     |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | **TODO**               | 81     |
 | 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 slurm-2856412_331 | 85     |
 
 
@@ -2120,16 +2120,16 @@ Table 2: simulated data camera adaptation
 
 *it starts producing very many FP.
 
-| benchmark            | baseline         | uda               | max pseudo          | oracle |
-| -------------------- | ---------------- | ----------------- | ------------------- | ------ |
-| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | ongoing 2856663_336 | ~70    |
+| benchmark            | baseline         | uda               | max pseudo       | oracle |
+| -------------------- | ---------------- | ----------------- | ---------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | 50.9 2856663_336 | ~70    |
 
 
 Table 3: sim2real and real2sim adaptation
 | benchmark               | baseline         | uda                                | max pseudo                         | oracle |
 | ----------------------- | ---------------- | ---------------------------------- | ---------------------------------- | ------ |
 | multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334 | 87     |
-| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | ongoing 2856412_335                | 88     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | ongoing 75.8 2856412_335           | 88     |
 
 
 
@@ -2141,11 +2141,41 @@ Similarly, max_pseudo_th=7 => 3 pixels on either side => diagonal radius of sqrt
 
 Conclusion: max pseudo yields similar performance as low/high-cls/nms strategy. The question is perhaps which one is more robust.
 
-TODO
-sensitivity analysis of different methods
-1. ONGOING Default method with pseudo-label-th as the only hyperparameter.
-2. high nms threshold method. Both pseudo-label-th and nms-threshold are hyperparameters
-3. max_pseudo strategy. if k-size is low enough (i.e. 7), we can view pseudo-label-th as the only hyperparam   
+**TODO**
+sensitivity analysis of different methods on gmvds1c1 -> multiviewx
+
+**Default method** with pseudo-label-th as the only hyperparameter.
+ONGOING slurm-2856689_x
+| pseudo-label-th | moda |
+| --------------- | ---- |
+| 0.2             | x    |
+| 0.3**           | 74.1 |
+| 0.4             | x    |
+| 0.5             | x    |
+x means no better than baseline
+** threshold=best moda from pretraining
+
+**high nms threshold method.** Both pseudo-label-th and nms-threshold are hyperparameters 
+ONGOINGslurm-2856800_x
+pseudo-label-th=0.20 in all runs
+| nms_th | moda |
+| ------ | ---- |
+| 30     |      |
+| 40     |      |
+| 50     |      |
+x means no better than baseline
+
+
+**max_pseudo strategy.** if k-size is low enough (i.e. 7), we can view pseudo-label-th as the only hyperparam   
+k_size=7 for all experiments
+ONGOING slurm-2856816_x
+| pseudo-label-th | moda |
+| --------------- | ---- |
+| 0.10            |      |
+| 0.20            |      |
+| 0.30            |      |
+x means no better than baseline
+
 
 
 # TODO
@@ -2157,7 +2187,8 @@ To test the above, I could enable duplicate views also for GMVD. This would basi
 
 
 
-- If I find that MVAug is not suitable, I should try some other augmentation techniques. Implement 3DROM.
-
+- [ ] 3DROM
+  - [x] 3DROM for baseline exps
+  - [ ] 3DROM for UDA exps (currently, the augmentation is done directly in the data loader, which doesn't allow for weak-strong augmentation in UDA) 
 
 

@@ -9,6 +9,12 @@ We make the following contributions:
 
 # Results
 
+On all benchmarks, present results for
+1. standard pseudo-labeling: ps-label-th=(best moda from pretraining)
+2. low cls_thres high nms_thres: pseudo_th=0.2 and nms_th=40 for all (will produce good results on some datasets, worse on others)
+3. max_pseudo: 0.2 for all with fixed kernel
+
+
 Table 1: Real-world  data camera adaptation
 | benchmark        | baseline         | uda                                                                 | oracle |
 | ---------------- | ---------------- | ------------------------------------------------------------------- | ------ |
@@ -43,11 +49,11 @@ Table 3: sim2real and real2sim adaptation
 The above results show that mean-teacher self-training is a valuable UDA method for mv pedestrian detection, both when it comes to camera-rig adaptation and sim2real adaptation.
 
 
-# Ablations/analysis
+# Ablations
 Since my pseudo-label trick only works for some datasets, while standard pseudo-labeling is better on other datasets,
 I should show performance of both methods on all benchmarks. Otherwise, the user might question the necessity of my pseudo-label trick (perhaps it only works on 1 dataset?).
 
-For the other things: mean teacher, mvaug, persp sup, uda persp sup: it would be good to test these components on a single benchmark and then apply the most successful combination on all experiments.
+For the other things, that probably seems a bit more general (should work on all datasets): mean teacher, mvaug, persp sup, uda persp sup: it would be good to test these components on a single benchmark and then apply the most successful combination on all experiments.
 
 - no mean teacher (make pseudo-labels with student)
 - no self-training (use mean-teacher and potential extra training rounds to verify that this alone does not boost performance)
@@ -63,6 +69,12 @@ For the other things: mean teacher, mvaug, persp sup, uda persp sup: it would be
 | uda w/o weak-strong aug | x            | x             | x              |                 | x              | ?    |
 | uda w/o mean-teacher    |              | x             | x              | x               | x              | ?    |
 | uda w/o ps-label trick  | x            | x             |                | x               | x              | ?    |
+
+# Analysis of extra interesting/important components
+
+Table with different data augmentation performance
+
+Table with different pseudo-labelling techniques. ANalysis of sensitivity to cls_thres and nms_thres
 
 
 # Further experiments (probably appendix)
