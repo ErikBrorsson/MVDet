@@ -30,6 +30,8 @@ class MultiviewX(VisionDataset):
         self.region_size = config['region_size'] 
         self.indexing = 'xy'
         self.camera_orient = camera_orient
+        self.unit = 1
+        self.n_pos = self.world_grid_shape[0] * self.world_grid_shape[1]
 
         self.worldgrid2worldcoord_mat = np.array([[0,self.grid_cell, self.origin[0]], [self.grid_cell, 0, self.origin[1]], [0, 0, 1]])
 

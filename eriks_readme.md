@@ -2107,7 +2107,13 @@ Ongoing experiments with max_pseudo
 | -------------------------------- | ---------------- | ----------------- | ---------- | ------ |
 | gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 |            | 90     |
 | multiviewx->wildtrack            | 73.2 2847441_352 | 80.6 2852369_334  |            | 87     |
+*it starts producing very many FP.
 
+Note: STadnard NMS removes any points closer than a radius of 50 cm, corresponding to 20 pixels on bev-grid (each square on bev is 2.5 cm).
+In downscaled bev predictions, we do nms with nms_th=5, since the map is downscaled 1/4.
+Therefore, the corresponding max_pseudo_th are about 29 and 7 in full res and downscaled res
+Note that max_pseudo_res=29 results in 14 pixels on either side => diagonal radius of sqrt(14² + 14^2) = 19.7
+Similarly, max_pseudo_th=7 => 3 pixels on either side => diagonal radius of sqrt(18)=4.2
 
 
 # TODO

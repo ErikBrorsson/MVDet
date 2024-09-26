@@ -41,6 +41,18 @@ def main(args):
     denormalize = img_color_denormalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     train_trans = T.Compose([T.Resize([720, 1280]), T.ToTensor(), normalize, ])
 
+    if args.rom3d_uda is None:
+        args.rom3d_uda = args.rom3d
+
+    if args.rom3d:
+        framedataset = frameDataset3DROM
+    else:
+        framedataset = frameDataset
+
+    if args.rom3d_uda:
+        framedataset_trg = frameDataset3DROM
+    else:
+        framedataset_trg = frameDataset
 
     if args.gmvd2multiviewx:
 
@@ -124,7 +136,7 @@ def main(args):
         data_path = args.data_path_trg
         print("\nTraining datasets trg")
         target_base = MultiviewX(data_path)
-        train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_trg_ = framedataset_trg(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
         train_dataset_trg = ConcatDataset(train_dataset_trg_)
 
         print("\nTest datasets trg")
@@ -136,7 +148,7 @@ def main(args):
         data_path = args.data_path_src
         print("\nTraining datasets src")
         source_base = Wildtrack(data_path)
-        train_dataset_src_ = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_src_ = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
         train_dataset_src = ConcatDataset(train_dataset_src_)
 
 
@@ -168,9 +180,10 @@ def main(args):
                 source_base = Wildtrack(data_path, cameras=src_cams)
                 target_base = Wildtrack(data_path, cameras=trg_cams)
 
-                train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
-                train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
-                test_set = frameDataset(target_base, train=False, transform=train_trans, grid_reduce=4)
+
+                train_set = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4)
+                train_set_target = framedataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+                test_set = framedataset(target_base, train=False, transform=train_trans, grid_reduce=4)
 
                 train_set = ConcatDataset(train_set)
                 train_set_target = ConcatDataset(train_set_target)
@@ -212,9 +225,10 @@ def main(args):
                 source_base = MultiviewX(data_path, cameras=src_cams)
                 target_base = MultiviewX(data_path, cameras=trg_cams)
 
-                train_set = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4)
-                train_set_target = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4)
-                test_set = frameDataset(target_base, train=False, transform=train_trans, grid_reduce=4)
+
+                train_set = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4)
+                train_set_target = framedataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+                test_set = framedataset(target_base, train=False, transform=train_trans, grid_reduce=4)
 
                 train_set = ConcatDataset(train_set)
                 train_set_target = ConcatDataset(train_set_target)
@@ -490,10 +504,12 @@ if __name__ == '__main__':
     parser.add_argument('--dropview', action="store_true")
     parser.add_argument("--permutation", action="store_true")
     parser.add_argument("--mvaug", action="store_true")
+    parser.add_argument("--rom3d", action="store_true")
 
     parser.add_argument('--dropview_uda', action="store_true", default=None)
     parser.add_argument("--permutation_uda", action="store_true", default=None)
     parser.add_argument("--mvaug_uda", action="store_true", default=None)
+    parser.add_argument("--rom3d_uda", action="store_true", default=None)
 
     parser.add_argument('--soft_labels', action="store_true")
     parser.add_argument('--pretrained', action="store_true")
