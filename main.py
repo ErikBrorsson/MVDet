@@ -55,6 +55,8 @@ def main(args):
         framedataset_trg = frameDataset
 
     if args.gmvd2multiviewx:
+        if args.rom3d or args.rom3d_uda:
+            raise Exception("3DROM not implemented for gmvd dataset")
 
         # set multiview x as target dataset and test dataset
         data_path = args.data_path_trg
@@ -105,19 +107,19 @@ def main(args):
         data_path = args.data_path_trg
         print("\nTraining datasets trg")
         target_base = Wildtrack(data_path)
-        train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_trg_ = framedataset_trg(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
         train_dataset_trg = ConcatDataset(train_dataset_trg_)
 
         print("\nTest datasets trg")
         test_base0 = Wildtrack(data_path)
-        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_set = framedataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
         test_dataset_ = ConcatDataset(test_set)
 
         # set multiview x as source train set
         data_path = args.data_path_src
         print("\nTraining datasets src")
         source_base = MultiviewX(data_path)
-        train_dataset_src_ = frameDataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_src_ = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
         train_dataset_src = ConcatDataset(train_dataset_src_)
 
         train_loader = torch.utils.data.DataLoader(train_dataset_src, batch_size=args.batch_size, shuffle=True,
@@ -141,7 +143,7 @@ def main(args):
 
         print("\nTest datasets trg")
         test_base0 = MultiviewX(data_path)
-        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_set = framedataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
         test_dataset_ = ConcatDataset(test_set)
 
         # set wildtrack as src train
@@ -182,7 +184,7 @@ def main(args):
 
 
                 train_set = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4)
-                train_set_target = framedataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+                train_set_target = framedataset_trg(target_base, train=True, transform=train_trans, grid_reduce=4)
                 test_set = framedataset(target_base, train=False, transform=train_trans, grid_reduce=4)
 
                 train_set = ConcatDataset(train_set)
@@ -200,8 +202,8 @@ def main(args):
                 base = Wildtrack(data_path)
                 test_base = base
 
-                train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
-                test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+                train_set = framedataset(base, train=True, transform=train_trans, grid_reduce=4)
+                test_set = framedataset(test_base, train=False, transform=train_trans, grid_reduce=4)
 
                 train_set = ConcatDataset(train_set)
                 test_dataset = ConcatDataset(test_set)
@@ -227,7 +229,7 @@ def main(args):
 
 
                 train_set = framedataset(source_base, train=True, transform=train_trans, grid_reduce=4)
-                train_set_target = framedataset(target_base, train=True, transform=train_trans, grid_reduce=4)
+                train_set_target = framedataset_trg(target_base, train=True, transform=train_trans, grid_reduce=4)
                 test_set = framedataset(target_base, train=False, transform=train_trans, grid_reduce=4)
 
                 train_set = ConcatDataset(train_set)
@@ -244,9 +246,9 @@ def main(args):
                 base = MultiviewX(data_path)
                 test_base = base
 
-                train_set = frameDataset(base, train=True, transform=train_trans, grid_reduce=4)
+                train_set = framedataset(base, train=True, transform=train_trans, grid_reduce=4)
                 train_dataset = ConcatDataset(train_set)
-                test_set = frameDataset(test_base, train=False, transform=train_trans, grid_reduce=4)
+                test_set = framedataset(test_base, train=False, transform=train_trans, grid_reduce=4)
                 test_dataset = ConcatDataset(test_set)
 
                 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,

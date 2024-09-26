@@ -2081,14 +2081,16 @@ Table 3: sim2real and real2sim adaptation
 
 
 **ONGOING** mvaug verification experiments (supervised) 2852421_x + 2852408_360
-| model           | moda |
-| --------------- | ---- |
-| wildtrack base  | 87.4 |
-| wildtrack + dv  | 87.2 |
-| wildtrack + mv  | 89.0 |
-| multiviewx base | 88.7 |
-| multiviewx + dv | 89.5 |
-| multiviewx + mv | 91.1 |
+| model              | moda |
+| ------------------ | ---- |
+| wildtrack base     | 87.4 |
+| wildtrack + dv     | 87.2 |
+| wildtrack + mv     | 89.0 |
+| wildtrack + 3drom  |      |
+| multiviewx base    | 88.7 |
+| multiviewx + dv    | 89.5 |
+| multiviewx + mv    | 91.1 |
+| multiviewx + 3drom |      |
 
 MVAug implementation seems OKAY since it works fairly well on the supervised benchmarks.
 Note: it is not quite as good as the MVAug paper suggests, however, remember that I'm using a different architecture than they did.
@@ -2103,17 +2105,47 @@ Implement it in the UDA, and see if I can reach improved MODP with this? Perhaps
 ### 26/9
 
 Ongoing experiments with max_pseudo
-| benchmark                        | baseline         | uda               | max_pseudo | oracle |
-| -------------------------------- | ---------------- | ----------------- | ---------- | ------ |
-| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 |            | 90     |
-| multiviewx->wildtrack            | 73.2 2847441_352 | 80.6 2852369_334  |            | 87     |
+Table 1: Real-world  camera adaptation 
+| benchmark        | baseline         | uda                                | max pseudo             | oracle |
+| ---------------- | ---------------- | ---------------------------------- | ---------------------- | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) |                        | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 slurm-2856412_331 | 85     |
+
+
+Table 2: simulated data camera adaptation
+| benchmark                        | baseline         | uda               | max pseudo                                         | oracle |
+| -------------------------------- | ---------------- | ----------------- | -------------------------------------------------- | ------ |
+| gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 | 77.0 2856412_332, 79.0 (larger kernel) 2855757_332 | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | 74.8 2856412_333                                   | ~90    |
+
 *it starts producing very many FP.
+
+| benchmark            | baseline         | uda               | max pseudo          | oracle |
+| -------------------- | ---------------- | ----------------- | ------------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | ongoing 2856663_336 | ~70    |
+
+
+Table 3: sim2real and real2sim adaptation
+| benchmark               | baseline         | uda                                | max pseudo                         | oracle |
+| ----------------------- | ---------------- | ---------------------------------- | ---------------------------------- | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334 | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | ongoing 2856412_335                | 88     |
+
+
 
 Note: STadnard NMS removes any points closer than a radius of 50 cm, corresponding to 20 pixels on bev-grid (each square on bev is 2.5 cm).
 In downscaled bev predictions, we do nms with nms_th=5, since the map is downscaled 1/4.
 Therefore, the corresponding max_pseudo_th are about 29 and 7 in full res and downscaled res
 Note that max_pseudo_res=29 results in 14 pixels on either side => diagonal radius of sqrt(14² + 14^2) = 19.7
 Similarly, max_pseudo_th=7 => 3 pixels on either side => diagonal radius of sqrt(18)=4.2
+
+Conclusion: max pseudo yields similar performance as low/high-cls/nms strategy. The question is perhaps which one is more robust.
+
+TODO
+sensitivity analysis of different methods
+1. ONGOING Default method with pseudo-label-th as the only hyperparameter.
+2. high nms threshold method. Both pseudo-label-th and nms-threshold are hyperparameters
+3. max_pseudo strategy. if k-size is low enough (i.e. 7), we can view pseudo-label-th as the only hyperparam   
 
 
 # TODO
