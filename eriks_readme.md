@@ -2086,11 +2086,11 @@ Table 3: sim2real and real2sim adaptation
 | wildtrack base     | 87.4 |
 | wildtrack + dv     | 87.2 |
 | wildtrack + mv     | 89.0 |
-| wildtrack + 3drom  |      |
+| wildtrack + 3drom  | 91.6 |
 | multiviewx base    | 88.7 |
 | multiviewx + dv    | 89.5 |
 | multiviewx + mv    | 91.1 |
-| multiviewx + 3drom |      |
+| multiviewx + 3drom | 91.9 |
 
 MVAug implementation seems OKAY since it works fairly well on the supervised benchmarks.
 Note: it is not quite as good as the MVAug paper suggests, however, remember that I'm using a different architecture than they did.
@@ -2106,30 +2106,30 @@ Implement it in the UDA, and see if I can reach improved MODP with this? Perhaps
 
 Ongoing experiments with max_pseudo
 Table 1: Real-world  camera adaptation 
-| benchmark        | baseline         | uda                                | max pseudo             | oracle |
-| ---------------- | ---------------- | ---------------------------------- | ---------------------- | ------ |
-| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | **TODO**               | 81     |
-| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 slurm-2856412_331 | 85     |
+| benchmark        | baseline         | uda                                | max pseudo                                        | oracle |
+| ---------------- | ---------------- | ---------------------------------- | ------------------------------------------------- | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | **ONGOING** 2858655_330                           | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 2856412_331, **ONGOING** th=0.40 2858653_331 | 85     |
 
 
 Table 2: simulated data camera adaptation
 | benchmark                        | baseline         | uda               | max pseudo                                         | oracle |
 | -------------------------------- | ---------------- | ----------------- | -------------------------------------------------- | ------ |
 | gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 | 77.0 2856412_332, 79.0 (larger kernel) 2855757_332 | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | 74.8 2856412_333                                   | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | 74.8 2856412_333, **ONGOING**th=0.45 2858651_333   | ~90    |
 
 *it starts producing very many FP.
 
-| benchmark            | baseline         | uda               | max pseudo       | oracle |
-| -------------------- | ---------------- | ----------------- | ---------------- | ------ |
-| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | 50.9 2856663_336 | ~70    |
+| benchmark            | baseline         | uda               | max pseudo                                      | oracle |
+| -------------------- | ---------------- | ----------------- | ----------------------------------------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | 50.9 2856663_336, **ONGOING**th=0.3 2858650_336 | ~70    |
 
 
 Table 3: sim2real and real2sim adaptation
-| benchmark               | baseline         | uda                                | max pseudo                         | oracle |
-| ----------------------- | ---------------- | ---------------------------------- | ---------------------------------- | ------ |
-| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334 | 87     |
-| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | ongoing 75.8 2856412_335           | 88     |
+| benchmark               | baseline         | uda                                | max pseudo                                             | oracle |
+| ----------------------- | ---------------- | ---------------------------------- | ------------------------------------------------------ | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334                     | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | 75.9 th=0.2 2856412_335, **ONGOING**th=0.3 2858648_335 | 88     |
 
 
 
@@ -2156,24 +2156,27 @@ x means no better than baseline
 ** threshold=best moda from pretraining
 
 **high nms threshold method.** Both pseudo-label-th and nms-threshold are hyperparameters 
-ONGOINGslurm-2856800_x
+ONGOING slurm-2856800_x
 pseudo-label-th=0.20 in all runs
-| nms_th | moda |
-| ------ | ---- |
-| 30     |      |
-| 40     |      |
-| 50     |      |
+| nms_th | moda        |
+| ------ | ----------- |
+| 30     | 73.1        |
+| 40     | 77.2        |
+| 50     | 79.9        |
+| 60     | **ONGOING** |
+| 70     | **ONGOING** |
 x means no better than baseline
 
 
 **max_pseudo strategy.** if k-size is low enough (i.e. 7), we can view pseudo-label-th as the only hyperparam   
 k_size=7 for all experiments
 ONGOING slurm-2856816_x
-| pseudo-label-th | moda |
-| --------------- | ---- |
-| 0.10            |      |
-| 0.20            |      |
-| 0.30            |      |
+| pseudo-label-th | moda        |
+| --------------- | ----------- |
+| 0.10            | x           |
+| 0.20            | 78.0        |
+| 0.30            | 86.3        |
+| 0.40            | **ONGOING** |
 x means no better than baseline
 
 

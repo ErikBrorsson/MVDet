@@ -22,7 +22,7 @@ from multiview_detector.utils.draw_curve import draw_curve2
 from multiview_detector.utils.image_utils import img_color_denormalize
 from multiview_detector.trainer import PerspectiveTrainer, UDATrainer, Augmentation
 from multiview_detector.datasets.concat_dataset import ConcatDataset
-from multiview_detector.datasets.dataloader import GetDataset
+from multiview_detector.datasets.dataloader import GetDataset, GetDataset3DROM
 import csv
 
 def main(args):
@@ -46,8 +46,10 @@ def main(args):
 
     if args.rom3d:
         framedataset = frameDataset3DROM
+        getdataset = GetDataset3DROM
     else:
         framedataset = frameDataset
+        getdataset = GetDataset
 
     if args.rom3d_uda:
         framedataset_trg = frameDataset3DROM
@@ -62,12 +64,12 @@ def main(args):
         data_path = args.data_path_trg
         print("\nTraining datasets trg")
         target_base = MultiviewX(data_path)
-        train_dataset_trg_ = frameDataset(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
+        train_dataset_trg_ = framedataset_trg(target_base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4)
         train_dataset_trg = ConcatDataset(train_dataset_trg_)
 
         print("\nTest datasets trg")
         test_base0 = MultiviewX(data_path)
-        test_set = frameDataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
+        test_set = framedataset(test_base0, train=False, transform=train_trans, grid_reduce=4, img_reduce=4)
         test_dataset_ = ConcatDataset(test_set)
 
         # set gmvd train as source dataset
@@ -87,7 +89,7 @@ def main(args):
                 base = Wildtrack(path)
             if data_row[0]=='train':
                 # Train data
-                dataset_obj = GetDataset(base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4, train_ratio=train_ratio, sample_require=sample_require)
+                dataset_obj = getdataset(base, train=True, transform=train_trans, grid_reduce=4, img_reduce=4, train_ratio=train_ratio, sample_require=sample_require)
                 train_dataset_list.append(dataset_obj)
         train_set_ = ConcatDataset(*train_dataset_list)
 
