@@ -58,8 +58,6 @@ def main(args):
         framedataset_trg = frameDataset
 
     if args.gmvd2multiviewx:
-        if args.rom3d or args.rom3d_uda:
-            raise Exception("3DROM not implemented for gmvd dataset")
 
         # set multiview x as target dataset and test dataset
         data_path = args.data_path_trg
