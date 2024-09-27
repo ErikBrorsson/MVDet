@@ -10,7 +10,7 @@ import torch
 from torchvision.transforms import ToTensor
 from multiview_detector.utils.random_occlusion import generate_occlusion
 
-class GetDataset(VisionDataset):
+class GetDataset3DROM(VisionDataset):
     def __init__(self, base, reID=False, train=True, transform=ToTensor(), target_transform=ToTensor(),grid_reduce=4, img_reduce=4, train_ratio=0.9, sample_require=0):
         # parameters in super can be accessed as (self.param) eg:- self.transform, self.target_transform
         super().__init__(base.root, transform=transform, target_transform=target_transform)
