@@ -22,7 +22,8 @@ from multiview_detector.utils.draw_curve import draw_curve2
 from multiview_detector.utils.image_utils import img_color_denormalize
 from multiview_detector.trainer import PerspectiveTrainer, UDATrainer, Augmentation
 from multiview_detector.datasets.concat_dataset import ConcatDataset
-from multiview_detector.datasets.dataloader import GetDataset, GetDataset3DROM
+from multiview_detector.datasets.dataloader import GetDataset
+from multiview_detector.datasets.dataloader_3drom import GetDataset3DROM
 import csv
 
 def main(args):
