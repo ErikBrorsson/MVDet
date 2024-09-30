@@ -2007,6 +2007,10 @@ GMVD s1c1 -> MultiviewX
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
 | baseline                          |             |                    |          |       |            | 36.9 2832981_340 | 35.3 2847447_340 |                   |
 | baseline pre                      |             |                    |          |       | x          | 64.6 2833240_341 | 60.5 2847447_341 |                   |
+| baseline pre + 3drom              |             |                    |          |       | x          | 70.9 2858691_349 | 70.8 2861528_391 |                   |
+| baseline pre + 3drom + dv         |             |                    |          |       | x          |                  | 70.3 2861528_392 |                   |
+| baseline pre + 3drom + mv         |             |                    |          |       | x          |                  | 70.4 2861528_393 |                   |
+| baseline pre + 3drom + dv + mv    |             |                    |          |       | x          |                  | 70.7 2861528_394 |                   |
 | baseline pre w dropview           |             |                    | x        |       | x          | 65.8 2833867_342 | 65.1 2847447_342 |                   |
 | baseline pre w mvaug              |             |                    |          | x     | x          | 66.1 2833240_343 | 64.3 2846137_343 |                   |
 | baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 67.9 2833240_344 | 67.1 2846842_344 |                   |
@@ -2024,6 +2028,7 @@ MultiviewX -> Wildtrack
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | ---------------- | ----------------- |
 | baseline                          |             |                    |          |       |            | 52.5 2833966_350 | 46.3 2847441_350 |                   |
 | baseline pre                      |             |                    |          |       | x          | 69.5 2833966_351 | 72.4 2847441_351 |                   |
+| baseline pre + 3drom              |             |                    |          |       | x          |                  | 70.4 2858672_359 |                   |
 | baseline pre w dropview           |             |                    | x        |       | x          | 72.9 2833966_352 | 73.2 2847441_352 |                   |
 | baseline pre w mvaug              |             |                    |          | x     | x          | 69.0 2833966_353 | 67.1 2846215_353 |                   |
 | baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 70.1 2833966_354 | 70.1 2846846_354 |                   |
@@ -2106,30 +2111,30 @@ Implement it in the UDA, and see if I can reach improved MODP with this? Perhaps
 
 Ongoing experiments with max_pseudo
 Table 1: Real-world  camera adaptation 
-| benchmark        | baseline         | uda                                | max pseudo                                        | oracle |
-| ---------------- | ---------------- | ---------------------------------- | ------------------------------------------------- | ------ |
-| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | **ONGOING** 2858655_330                           | 81     |
-| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 2856412_331, **ONGOING** th=0.40 2858653_331 | 85     |
+| benchmark        | baseline         | uda                                | max pseudo                                 | oracle |
+| ---------------- | ---------------- | ---------------------------------- | ------------------------------------------ | ------ |
+| 2,4,5,6->1,3,5,7 | 70.4 2826072_320 | 77.6 2832050_330 (ps-label-th=0.4) | 76.2 th=0.4 2858655_330                    | 81     |
+| 1,3,5,7->2,4,5,6 | 65.3 2826072_321 | 77.8 2826672_331                   | 77.6 2856412_331, 54.5 th=0.40 2858653_331 | 85     |
 
 
 Table 2: simulated data camera adaptation
 | benchmark                        | baseline         | uda               | max pseudo                                         | oracle |
 | -------------------------------- | ---------------- | ----------------- | -------------------------------------------------- | ------ |
 | gmvd scene1 conf 1 -> multiviewx | 65.1 2847447_342 | 77.0* 2852343_332 | 77.0 2856412_332, 79.0 (larger kernel) 2855757_332 | ~90    |
-| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | 74.8 2856412_333, **ONGOING**th=0.45 2858651_333   | ~90    |
+| gmvd scene1 conf 2 -> multiviewx | 62.0 2852346_323 | 71.2* 2853231_333 | 74.8 2856412_333, 44.0 th=0.45 2858651_333         | ~90    |
 
 *it starts producing very many FP.
 
-| benchmark            | baseline         | uda               | max pseudo                                      | oracle |
-| -------------------- | ---------------- | ----------------- | ----------------------------------------------- | ------ |
-| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | 50.9 2856663_336, **ONGOING**th=0.3 2858650_336 | ~70    |
+| benchmark            | baseline         | uda               | max pseudo                                | oracle |
+| -------------------- | ---------------- | ----------------- | ----------------------------------------- | ------ |
+| multiviewx cam adapt | 50.0 2826575_326 | degen 2852359_336 | 50.9 2856663_336, 64.0 th=0.3 2858650_336 | ~70    |
 
 
 Table 3: sim2real and real2sim adaptation
-| benchmark               | baseline         | uda                                | max pseudo                                             | oracle |
-| ----------------------- | ---------------- | ---------------------------------- | ------------------------------------------------------ | ------ |
-| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334                     | 87     |
-| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | 75.9 th=0.2 2856412_335, **ONGOING**th=0.3 2858648_335 | 88     |
+| benchmark               | baseline         | uda                                | max pseudo                                       | oracle |
+| ----------------------- | ---------------- | ---------------------------------- | ------------------------------------------------ | ------ |
+| multiviewx->wildtrack   | 73.2 2847441_352 | 80.6 (ps-label-th=0.4) 2852369_334 | 79.4 (ps-label-th=0.4) 2855910_334               | 87     |
+| wildtrack -> multiviewx | 36.7 2852371_325 | 74.4 2853275_335                   | 75.9 th=0.2 2856412_335, 67.1 th=0.3 2858648_335 | 88     |
 
 
 
@@ -2146,38 +2151,140 @@ sensitivity analysis of different methods on gmvds1c1 -> multiviewx
 
 **Default method** with pseudo-label-th as the only hyperparameter.
 ONGOING slurm-2856689_x
-| pseudo-label-th | moda |
-| --------------- | ---- |
-| 0.2             | x    |
-| 0.3**           | 74.1 |
-| 0.4             | x    |
-| 0.5             | x    |
+| pseudo-label-th | moda                                                              |
+| --------------- | ----------------------------------------------------------------- |
+| 0.2             | x    2856689_373                                                  |
+| 0.3**           | 74.1 2856689_372 (nan values encountered after model degenerated) |
+| 0.4             | x    2856689_371                                                  |
+| 0.5             | x    2856689_370                                                  |
 x means no better than baseline
 ** threshold=best moda from pretraining
 
 **high nms threshold method.** Both pseudo-label-th and nms-threshold are hyperparameters 
 ONGOING slurm-2856800_x
 pseudo-label-th=0.20 in all runs
-| nms_th | moda        |
-| ------ | ----------- |
-| 30     | 73.1        |
-| 40     | 77.2        |
-| 50     | 79.9        |
-| 60     | **ONGOING** |
-| 70     | **ONGOING** |
+| nms_th | moda             |
+| ------ | ---------------- |
+| 30     | 73.1 2856800_374 |
+| 40     | 77.2 2856800_375 |
+| 50     | 79.9 2856800_376 |
+| 60     | 79.7 2858659_380 |
+| 70     | 77.6 2858659_381 |
 x means no better than baseline
 
+pseudo-label-th=0.30 in all runs
+| nms_th | moda             |
+| ------ | ---------------- |
+| 40     | 85.1 2861130_375 |
+| 50     | 80.5 2861130_376 |
+x means no better than baseline
 
 **max_pseudo strategy.** if k-size is low enough (i.e. 7), we can view pseudo-label-th as the only hyperparam   
 k_size=7 for all experiments
 ONGOING slurm-2856816_x
-| pseudo-label-th | moda        |
-| --------------- | ----------- |
-| 0.10            | x           |
-| 0.20            | 78.0        |
-| 0.30            | 86.3        |
-| 0.40            | **ONGOING** |
+| pseudo-label-th | moda             |
+| --------------- | ---------------- |
+| 0.10            | x    2856816_377 |
+| 0.20            | 78.0 2856816_378 |
+| 0.30            | 86.3 2856816_379 |
+| 0.40            | 57.3 2858659_382 |
 x means no better than baseline
+
+### 27/9
+max_pseudo with th=best_moda_th gave incredible results on gmvds1c1->multiviewX => I should try this on some other benchmarks as well.
+Sensitivity analysis is going well, but I should extend it with some more experiments.
+3D rom on the supervised benchmarks works well, better than both dropview and mvaug. It's now time to try it on the generalization exps, then on uda.
+
+- sensitivity exps ongoing
+- max_pseudo with th=best_moda ongoing
+- 3D rom generalization exps ongoing
+
+Perhaps it is more appealing to only propose one pseudo-labeling technique?
+A nice table for the paper would be:
+| benchmark                    | uda naive                          | uda max_pseudo                     |
+| ---------------------------- | ---------------------------------- | ---------------------------------- |
+| multiviewx -> wildtrack      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| multiviewx cam adapt         | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c1 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c2 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+
+The above table could show that uda max_pseudo not only is yields better performance, but also is less sensitive to the threshold. 
+It would also be nice to show which method is more stable during time.
+Maybe a figure which shows moda over time for uda naive vs uda_max_pseudo.
+
+
+Baseline development: since results differ with different datasets, it may be reasonable to run on all datasets during baseline development.
+| benchmark                    | base             | base+pre         | base+pre+persp    | base+pre+dv      | base+pre+mv      | base+pre+3dr     | full             | full - mv        |
+| ---------------------------- | ---------------- | ---------------- | ----------------- | ---------------- | ---------------- | ---------------- | ---------------- | ---------------- |
+| multiviewx -> wildtrack      | 46.3 2847441_350 | 72.4 2847441_351 | 72.2 2847441_355  | 73.2 2847441_352 | 67.1 2846215_353 | 70.4 2858672_359 |                  |                  |
+| wildtrack -> multiviewx      | 16.9 2870312_410 | 32.0             | 33.3              | 35.0             | 30.1             | 36.1             |                  |                  |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 64.9 2872132_430 | 68.7             | 68.9              | 70.0             | 71.3             | 74.6             |                  |                  |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 46.6 2872126_420 | 62.1             | 56.9              | 65.5             | 59.6             | 66.2             |                  |                  |
+| multiviewx cam adapt         | 28.1 2878318_440 | 46.2             | 47.7              | 51.2             | 52.5             | 52.5             |                  |                  |
+| gmvd s1c1 -> multiviewx      | 35.3 2847447_340 | 60.5 2847447_341 | 66.0  2847447_345 | 65.1 2847447_342 | 64.3 2846137_343 | 70.8 2861528_391 | 70.7 2861528_394 | 70.3 2861528_392 |
+| gmvd s1c2 -> multiviewx      | 35.1 2870292_400 | 60.0             | 60.3              | 57.6             | 65.4             | 64.7             |                  |                  |
+
+number of experiments in which each strategy yielded a significant performance boost/decrease:
+pretraining: 7/7, 0/7
+persp: 2/7, 1/7
+dv: 6/7, 1/7
+mv: 4/7, 3/7
+3dr: 6/7, 1/7
+
+=> full = pre + dv + mv* + 3dr
+*mv is on average beneficial, but since it works poorly in 3 exps it is debatable whether it is worth using.
+
+
+### 30/9
+
+**ONGOING baseline development**
+after multiviewx cam adapt baseline is done, deduce what augmentation to use, then train the complete baseline for all benchmarks!
+
+ONGOING
+slurm-2883159
+Im training one with pre+dv+mv+3drom and one pre+dv+3drom, since mvaug is perhaps not beneficial.
+
+**ONGOING alpha_teacher exps**
+
+alpha_teacher = [0, 0.9, 0.99, 0.999]
+ONGOING
+2881361_45x
+2881411_45x
+
+**TODO target loss weight**
+After alpha_teacher is set, start target_loss_weight = [0.1, 0.3, 0.5, 0.75, 1.0] exps
+
+**TODO UDA baseline**
+After baseline for all benchmarks is set, start UDA development experiments.
+
+**TODO uda naive pseudo vs max pseudo sensitivity (/pseudo-label th param search) table**
+
+
+**all design choices**
+- avgpool from GMVD (motivation: simple and generalizable model)
+- resnet18 (motivation: used by mvdet and GMVD)
+- pretrained on Imagenet (motiviation: done by GMVD)
+- mse loss (motivation: simple, and the loss proposed by gmvd is not defined when there are no pseudo-labels)
+- SGD optimizer with weight_decay and momentum (same as MVDet)
+- onecycleLR scheduler (same as MVDet)
+- 20 epochs (on certain benchmarks, more than 10 epochs is required)
+- alpha persp. sup = 1.0 (same as MVDet)
+- early stopping (motivation: performance fluctuates from epoch to epoch. To ensure that the epoch at which training terminates doesnt effect the reported perfromance of different methods too much, we use early stopping. However, we recognize that this inflates performance and may not be easy to do in practice. Further research towards stabalizing training is therefore of interest.)
+- bev grid (same settings as previous works)
+- evaluation scheme threshold -> nms -> MODA (same as previous works. However, we recognize that the best threshold is not easily controlled in the UDA setting, and it is not reasonable to discard a model just because the threshold should be 0.3 instead 0.4. Therefore, we evaluate a range of thresholds and select the best one. In practice, this step has to be done via manual inspection since there are no target labels.)
+- **dropview**: in 50% of batches, a single view per batch is dropped (gmvd use 100%)
+- mvaug in 50% of batches, mvaug is applied to all images and the scene (same parameters as in mvaug paper)
+- 3DROM: 100% occlusion probability (same paperameters as proposed by 3DROM)
+- use of augmentation and persp. sup (experimentally determined)
+- UDA use of augmentation and persp. sup (experimentally determined)
+- UDA alpha persp. sup = 1.0 (same as MVDet)
+- UDA alpha ema teacher = 0.99 (experimentally determined)
+- UDA loss target weight = 0.3 (experimentally determined)
+- UDA pseudo-label-th (experimentally determined)
+- UDA pseudo-label strategy (max-pseduo experimentally verified)
 
 
 

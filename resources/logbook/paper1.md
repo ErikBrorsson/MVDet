@@ -48,6 +48,7 @@ Table 3: sim2real and real2sim adaptation
 
 The above results show that mean-teacher self-training is a valuable UDA method for mv pedestrian detection, both when it comes to camera-rig adaptation and sim2real adaptation.
 
+To keep it simple, it may be best to only show the best results in the above tables (i.e. only one uda method)
 
 # Ablations
 Since my pseudo-label trick only works for some datasets, while standard pseudo-labeling is better on other datasets,
@@ -61,6 +62,7 @@ For the other things, that probably seems a bit more general (should work on all
 - no augmentation (need to fix mvaug before this?)
 - with persp. sup
 
+Table 4: Ablation study of UDA components
 | description             | mean teacher | self-training | ps-label trick | weak-strong aug | uda persp. sup | MODA |
 | ----------------------- | ------------ | ------------- | -------------- | --------------- | -------------- | ---- |
 | baseline                |              |               |                |                 |                |      |
@@ -72,9 +74,21 @@ For the other things, that probably seems a bit more general (should work on all
 
 # Analysis of extra interesting/important components
 
-Table with different data augmentation performance
+Table 5: Naive pseudo-labelling vs max_pseudo-labelling
+| benchmark                    | uda naive                          | uda max_pseudo                     |
+| ---------------------------- | ---------------------------------- | ---------------------------------- |
+| multiviewx -> wildtrack      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| multiviewx cam adapt         | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c1 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c2 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
 
-Table with different pseudo-labelling techniques. ANalysis of sensitivity to cls_thres and nms_thres
+Figure 1: MODA over time (over training epochs), comparison between uda naive and uda max_pseudo, to see difference in stability.
+
+Table 6: with different data augmentation performance
+Bring in some of the supplementary material here, e.g. augmentation for baseline and/or augmentation for uda.
 
 
 # Further experiments (probably appendix)
@@ -97,7 +111,6 @@ GMVD s1c1 -> MultiviewX
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | -------- | ----------------- |
 | baseline                          |             |                    |          |       |            | 36.9 2832981_340 |          |                   |
 | baseline pre                      |             |                    |          |       | x          | 64.6 2833240_341 |          |                   |
-| baseline pre + 3drom              |             |                    |          |       | x          | **ONGOING**      |          |                   |
 | baseline pre w dropview           |             |                    | x        |       | x          | 65.8 2833867_342 |          |                   |
 | baseline pre w mvaug              |             |                    |          | x     | x          | 66.1 2833240_343 |          |                   |
 | baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 67.9 2833240_344 |          |                   |
@@ -114,7 +127,6 @@ MultiviewX -> Wildtrack
 | --------------------------------- | ----------- | ------------------ | -------- | ----- | ---------- | ---------------- | -------- | ----------------- |
 | baseline                          |             |                    |          |       |            | 52.5 2833966_350 |          |                   |
 | baseline pre                      |             |                    |          |       | x          | 69.5 2833966_351 |          |                   |
-| baseline pre + 3drom              |             |                    |          |       | x          | **ONGOING**      |          |                   |
 | baseline pre w dropview           |             |                    | x        |       | x          | 72.9 2833966_352 |          |                   |
 | baseline pre w mvaug              |             |                    |          | x     | x          | 69.0 2833966_353 |          |                   |
 | baseline pre w d.view + mvaug     |             |                    | x        | x     | x          | 70.1 2833966_354 |          |                   |
@@ -125,6 +137,19 @@ MultiviewX -> Wildtrack
 | baseline pre w. ema weights       | x           | x                  | x        | x     | x          |                  |          |                   |
 
 Conclusion: use pre + dv + persp (no mvaug)
+
+
+Baseline development: since results differ with different datasets, it may be reasonable to run on all datasets during baseline development.
+| benchmark                    | base | base+pre | base+pre+persp | base+pre+dv | base+pre+mv | base+pre+3dr | full baseline |
+| ---------------------------- | ---- | -------- | -------------- | ----------- | ----------- | ------------ | ------------- |
+| multiviewx -> wildtrack      |      |          |                |             |             |              |               |
+| wildtrack -> multiviewx      |      |          |                |             |             |              |               |
+| wildtrack 2,4,5,6 -> 1,3,5,7 |      |          |                |             |             |              |               |
+| wildtrack 1,3,5,7 -> 2,4,5,6 |      |          |                |             |             |              |               |
+| multiviewx cam adapt         |      |          |                |             |             |              |               |
+| gmvd s1c1 -> multiviewx      |      |          |                |             |             |              |               |
+| gmvd s1c2 -> multiviewx      |      |          |                |             |             |              |               |
+
 
 ## uda method development
 I would like to motivate the choices for the UDA method used:
@@ -155,4 +180,43 @@ MultiviewX -> Wildtrack
 | uda w ema and persp.        | x           | x          |                   |                | ?    |
 | full uda                    | x           | x          | x                 |                | ?    |
 | full uda w/o ps-label-trick | x           | x          | x                 | x              | ?    |
+
+
+Baseline development: since results differ with different datasets, it may be reasonable to run on all datasets during baseline development.
+| benchmark                    | base uda** | base+dv | base+mv | base+3dr | base + persp | full uda |
+| ---------------------------- | ---------- | ------- | ------- | -------- | ------------ | -------- |
+| multiviewx -> wildtrack      |            |         |         |          |              |          |
+| wildtrack -> multiviewx      |            |         |         |          |              |          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 |            |         |         |          |              |          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 |            |         |         |          |              |          |
+| multiviewx cam adapt         |            |         |         |          |              |          |
+| gmvd s1c1 -> multiviewx      |            |         |         |          |              |          |
+| gmvd s1c2 -> multiviewx      |            |         |         |          |              |          |
+**with tuned ps-label-strat (otherwise it doesnt work at all) and ema (cause why not)
+Just pick the best ps-label-threshold that I've found so far for each benchmark (preferably use max-pseudo for all exps).
+These experiments are used to set the uda augmentation and persp sup strategy.
+After this, I may run more experiments with the specific choice of augmentation and persp sup, which may result in finding better ps-label-threshold.
+But that won't make this table useless/outdated. Obviously, I cannot do a joint grid search on all parameters to find the optimal, because the search space becomes too big.
+I need to set some parameters at a time. 
+
+## mean teacher paramter
+Do experiments on one cam-adapt benchmark (gmvd->multiviewx) and one domain adaptation benchmark (multiviewx -> wildtrack)
+
+**ONGOING**
+
+- mean teacher alpha=0.9
+- mean teacher alpha=0.99
+- mean teacher alpha=0.999 (used in MIC)
+- mean teacher alpha=0. (no mean teacher)
+
+## Ls + lambda*Lt
+lambda parameter weighting the target loss
+
+Do experiments on one cam-adapt benchmark (gmvd->multiviewx) and one domain adaptation benchmark (multiviewx -> wildtrack)
+
+constant value seems reasonable.
+
+lambda = 0.1, 0.3, 0.5, 0.75, 1.0
+
+
 
