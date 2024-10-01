@@ -2219,17 +2219,17 @@ Maybe a figure which shows moda over time for uda naive vs uda_max_pseudo.
 Baseline development: since results differ with different datasets, it may be reasonable to run on all datasets during baseline development.
 | benchmark                    | base             | base+pre         | base+pre+persp    | base+pre+dv      | base+pre+mv      | base+pre+3dr     | full             | full - mv        |
 | ---------------------------- | ---------------- | ---------------- | ----------------- | ---------------- | ---------------- | ---------------- | ---------------- | ---------------- |
-| multiviewx -> wildtrack      | 46.3 2847441_350 | 72.4 2847441_351 | 72.2 2847441_355  | 73.2 2847441_352 | 67.1 2846215_353 | 70.4 2858672_359 |                  |                  |
-| wildtrack -> multiviewx      | 16.9 2870312_410 | 32.0             | 33.3              | 35.0             | 30.1             | 36.1             |                  |                  |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | 64.9 2872132_430 | 68.7             | 68.9              | 70.0             | 71.3             | 74.6             |                  |                  |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | 46.6 2872126_420 | 62.1             | 56.9              | 65.5             | 59.6             | 66.2             |                  |                  |
-| multiviewx cam adapt         | 28.1 2878318_440 | 46.2             | 47.7              | 51.2             | 52.5             | 52.5             |                  |                  |
+| multiviewx -> wildtrack      | 46.3 2847441_350 | 72.4 2847441_351 | 72.2 2847441_355  | 73.2 2847441_352 | 67.1 2846215_353 | 70.4 2858672_359 | 67.8 2883235_357 | 70.0 2883235_356 |
+| wildtrack -> multiviewx      | 16.9 2870312_410 | 32.0             | 33.3              | 35.0             | 30.1             | 36.1             | 32.1 2883159_417 | 35.9 2883159_416 |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 64.9 2872132_430 | 68.7             | 68.9              | 70.0             | 71.3             | 74.6             | 72.3 2883159_437 | 75.2 2883159_436 |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 46.6 2872126_420 | 62.1             | 56.9              | 65.5             | 59.6             | 66.2             | 66.8 2883159_427 | 72.3 2883159_426 |
+| multiviewx cam adapt         | 28.1 2878318_440 | 46.2             | 47.7              | 51.2             | 52.5             | 52.5             | 53.7 2883235_447 | 54.7 2883235_446 |
 | gmvd s1c1 -> multiviewx      | 35.3 2847447_340 | 60.5 2847447_341 | 66.0  2847447_345 | 65.1 2847447_342 | 64.3 2846137_343 | 70.8 2861528_391 | 70.7 2861528_394 | 70.3 2861528_392 |
-| gmvd s1c2 -> multiviewx      | 35.1 2870292_400 | 60.0             | 60.3              | 57.6             | 65.4             | 64.7             |                  |                  |
+| gmvd s1c2 -> multiviewx      | 35.1 2870292_400 | 60.0             | 60.3              | 57.6             | 65.4             | 64.7             | 68.4 2883159_407 | 66.9 2883159_406 |
 
 number of experiments in which each strategy yielded a significant performance boost/decrease:
 pretraining: 7/7, 0/7
-persp: 2/7, 1/7
+persp: 1/7, 1/7
 dv: 6/7, 1/7
 mv: 4/7, 3/7
 3dr: 6/7, 1/7
@@ -2237,25 +2237,38 @@ mv: 4/7, 3/7
 => full = pre + dv + mv* + 3dr
 *mv is on average beneficial, but since it works poorly in 3 exps it is debatable whether it is worth using.
 
+=> discard mv after the last set of experiments => we use pre+dv+3drom
 
 ### 30/9
 
-**ONGOING baseline development**
-after multiviewx cam adapt baseline is done, deduce what augmentation to use, then train the complete baseline for all benchmarks!
+**baseline development**
+we use pre+dv+3drom for the baseline based on above table
 
-ONGOING
-slurm-2883159
-Im training one with pre+dv+mv+3drom and one pre+dv+3drom, since mvaug is perhaps not beneficial.
+**alpha_teacher exps**
 
-**ONGOING alpha_teacher exps**
-
-alpha_teacher = [0, 0.9, 0.99, 0.999]
-ONGOING
 2881361_45x
 2881411_45x
+For these experiments, I use 
+baseline=pre+dv (no 3drom)
+target loss weight = 0.3
+max-pseudo = True
+pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+| benchmark                     | alpha=0 | alpha = 0.9 | alpha = 0.99 | alpha = 0.999 |
+| ----------------------------- | ------- | ----------- | ------------ | ------------- |
+| gmvd s1c1 -> multiviewx       | 85.6    | 86.7        | 86.0         | 83.3          |
+| multiviewx -> wildtrack_uda** | 59.5    | 60.7        | 80.3         | 81.5          |
+**REDO with loading from new baseline
+
+
+We can see that the mean teacher can boost performance, and is even necessary for stability on certain benchmarks. 
+We choose alpha=0.99 as it performs well on both benchmarks.
+
+
 
 **TODO target loss weight**
-After alpha_teacher is set, start target_loss_weight = [0.1, 0.3, 0.5, 0.75, 1.0] exps
+Use alpha_teacher = 0.99, start target_loss_weight = [0.1, 0.5, 1.0, linearly increasing from 0.1 to 1.0] exps
+
+
 
 **TODO UDA baseline**
 After baseline for all benchmarks is set, start UDA development experiments.
