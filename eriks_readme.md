@@ -2244,15 +2244,33 @@ mv: 4/7, 3/7
 **baseline development**
 we use pre+dv+3drom for the baseline based on above table
 
-**alpha_teacher exps**
+
+**ONGOING target loss weight**
+
+2890333_46x
+2890461_463
+2890443_467
+
+For these experiments, I use 
+baseline=pre+dv+3drom (from above baseline dev table)
+target loss weight = [0.1, 0.5, 1.0, linearly increasing from 0.1 to 1.0]
+alpha_teacher = 0.99
+max-pseudo = True
+pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+UDA_aug = dropview
+
+
+**TODO alpha_teacher exps**
+After loss weight above is set, we do exps on alpha_teacher. The reason behind this ordering as that loss_weight is expected to have higher impact on training than ema teacher value.
 
 2881361_45x
 2881411_45x
 For these experiments, I use 
-baseline=pre+dv (no 3drom)
-target loss weight = 0.3
+baseline=pre+dv+3drom
+target loss weight = as found in above section
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+UDA_aug = dropview
 | benchmark                     | alpha=0 | alpha = 0.9 | alpha = 0.99 | alpha = 0.999 |
 | ----------------------------- | ------- | ----------- | ------------ | ------------- |
 | gmvd s1c1 -> multiviewx       | 85.6    | 86.7        | 86.0         | 83.3          |
@@ -2265,15 +2283,25 @@ We choose alpha=0.99 as it performs well on both benchmarks.
 
 
 
-**TODO target loss weight**
-Use alpha_teacher = 0.99, start target_loss_weight = [0.1, 0.5, 1.0, linearly increasing from 0.1 to 1.0] exps
-
-
-
 **TODO UDA baseline**
-After baseline for all benchmarks is set, start UDA development experiments.
+After we have 
+- the generlizable baseline
+- decided target epoch weight
+- decided alpha teacher
+we start with the UDA development, which involves finding what data augmentations to use and whether to use uda persp sup.
 
 **TODO uda naive pseudo vs max pseudo sensitivity (/pseudo-label th param search) table**
+
+| benchmark                    | uda naive                          | uda max_pseudo                     |
+| ---------------------------- | ---------------------------------- | ---------------------------------- |
+| multiviewx -> wildtrack      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| multiviewx cam adapt         | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c1 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+| gmvd s1c2 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
+
 
 
 **all design choices**
