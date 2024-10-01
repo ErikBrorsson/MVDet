@@ -1541,18 +1541,15 @@ class UDATrainer(BaseTrainer):
         t_b = time.time()
         t_forward = 0
         t_backward = 0
-        for batch_idx, ((data, map_gt, imgs_gt, _, _, data_3drom, _, _, proj_mats_mvaug_features_src, dataset_name),
-                        (data_target, map_gt_target, imgs_gt_target, _, _, data_3drom_target, _, _, proj_mats_mvaug_features_trg, dataset_name_trg)) in enumerate(zip(data_loader, data_loader_target)):
+        for batch_idx, ((data, map_gt, imgs_gt, _, _, _, _, _, proj_mats_mvaug_features_src, dataset_name),
+                        (data_target, map_gt_target, imgs_gt_target, _, _, data_no3drom_target, _, _, proj_mats_mvaug_features_trg, dataset_name_trg)) in enumerate(zip(data_loader, data_loader_target)):
 
             img_gt_shape = imgs_gt[0].shape
 
 
             # train on source data
             optimizer.zero_grad()
-            if self.augmentation_uda.rom3d:
-                data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data_3drom, map_gt, imgs_gt, proj_mats_mvaug_features_src)
-            else:
-                data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features_src)
+            data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features_src)
 
             if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
                 # if the target data includes less views than source data, we resort to duplicating some views.
@@ -1704,7 +1701,10 @@ class UDATrainer(BaseTrainer):
             if target_weight != 0:
                 with torch.no_grad():
                     # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
-                    data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                    if self.augmentation_uda.rom3d:
+                        data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_no3drom_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
+                    else:
+                        data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
                     
                     if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
                         # if the target data includes less views than source data, we resort to duplicating some views.
@@ -1809,12 +1809,9 @@ class UDATrainer(BaseTrainer):
                     # apply augmentation to target images and pseudo-labels prior to student training
                     map_pseudo_label_unaug = torch.clone(map_pseudo_label)
 
-                    if self.augmentation_uda.rom3d:
-                        data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_3drom_target,
-                                                                                                                    map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
-                    else:
-                        data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
-                                                                                                                    map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
+
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
+                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                     
                     if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
                         # if the target data includes less views than source data, we resort to duplicating some views.
@@ -1841,12 +1838,8 @@ class UDATrainer(BaseTrainer):
                     map_pseudo_label = map_pred_teacher
                     imgs_pseudo_labels = [None]*len(self.target_cameras) 
 
-                    if self.augmentation_uda.rom3d:
-                        data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_3drom_target,
-                                                                                                                    map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
-                    else:
-                        data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
-                                                                                                                    map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
+                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
+                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
                     
 
                     if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling

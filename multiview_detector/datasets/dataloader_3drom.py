@@ -199,6 +199,7 @@ class GetDataset3DROM(VisionDataset):
     def __getitem__(self, index):
         frame = list(self.gt_map.keys())[index]
         imgs = []
+        imgs_3drom = []
         # generate random occlusions
         if self.transform is not None and self.trainstat is True:
             # if self.base.__name__ == "Wildtrack":
@@ -214,7 +215,8 @@ class GetDataset3DROM(VisionDataset):
         for cam in range(self.num_cam):
             fpath = self.img_fpath[cam][frame]
             img = Image.open(fpath).convert('RGB')
-            imga = ImageDraw.ImageDraw(img)
+            img_3drom = img.copy()
+            imga = ImageDraw.ImageDraw(img_3drom)
 
             if self.transform is not None and self.trainstat is True:
                 for posID in random_list:
@@ -223,8 +225,14 @@ class GetDataset3DROM(VisionDataset):
                         imga.rectangle((tuple(bbox[:2]), tuple(bbox[2:])), fill='gray', outline=None, width=1)
             if self.transform is not None:
                 img = self.transform(img)
+                img_3drom = self.transform(img_3drom)
+
             imgs.append(img)
+            imgs_3drom.append(img_3drom)
+
         imgs = torch.stack(imgs)
+        imgs_3drom = torch.stack(imgs_3drom)
+
         map_gt = self.gt_map[frame].toarray()
         if self.reID:
             map_gt = (map_gt > 0).int()
@@ -245,7 +253,7 @@ class GetDataset3DROM(VisionDataset):
         for cam in self.cameras:
             proj_mats_mvaug_features.append(self.proj_mats_mvaug_features[cam])
             
-        return imgs, map_gt.float(), imgs_gt, frame, frame, frame, frame, frame, proj_mats_mvaug_features, self.root
+        return imgs_3drom, map_gt.float(), imgs_gt, frame, frame, imgs, frame, frame, proj_mats_mvaug_features, self.root
     
 
     def __len__(self):

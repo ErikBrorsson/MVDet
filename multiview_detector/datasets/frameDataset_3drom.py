@@ -184,7 +184,7 @@ class frameDataset3DROM(VisionDataset):
         for cam in self.cameras:
             fpath = self.img_fpaths[cam][frame]
             img = Image.open(fpath).convert('RGB')
-            img_3drom = Image.open(fpath).convert('RGB')
+            img_3drom = img.copy()
             imga = ImageDraw.ImageDraw(img_3drom)
 
             if self.transform is not None and self.trainstat is True:
@@ -242,7 +242,7 @@ class frameDataset3DROM(VisionDataset):
             
             
 
-        return imgs, map_gt.float(), imgs_gt, frame, proj_mats, imgs_3drom, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features, self.root
+        return imgs_3drom, map_gt.float(), imgs_gt, frame, proj_mats, imgs, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features, self.root
 
     def __len__(self):
         return len(self.map_gt.keys())
