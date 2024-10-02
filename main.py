@@ -472,9 +472,6 @@ def main(args):
             print('EMA METRICS: max_moda: {:.1f}%, max_modp: {:.1f}%, max_precision: {:.1f}%, max_recall: {:.1f}%, epoch: {:.1f}%'.
                     format(max_moda_ema, max_modp_ema, max_precision_ema, max_recall_ema, best_epoch_ema))
 
-        if args.uda: # apply early stopping when uda training. For baseline, I don't want to compromise the results.
-            if epoch - best_epoch >= 5:
-                break
 
 if __name__ == '__main__':
     # settings

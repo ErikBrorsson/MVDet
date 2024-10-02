@@ -2294,7 +2294,7 @@ UDA_aug = dropview
 | --------------------------- | ------- | ----------- | ------------ | ----------------- | ----------- |
 | gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              | 2894834_458 |
 | multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |             |
-
+slurm-2892673_450
 
 
 
@@ -2302,6 +2302,12 @@ We can see that the mean teacher can boost performance, and is even necessary fo
 We choose alpha=0.99 as it performs well on both benchmarks.
 
 **TODO max-pseudo kernel size**
+
+| benchmark                   | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | -   |
+| --------------------------- | -------- | ---------- | ---------- | --------- | --- |
+| gmvd s1c1 -> multiviewx     | 2895050  |            |            |           |     |
+| multiviewx -> wildtrack_uda | 2895050  |            |            |           |     |
+
 
 
 
@@ -2312,15 +2318,15 @@ After we have
 - decided alpha teacher
 we start with the UDA development, which involves finding what data augmentations to use and whether to use uda persp sup.
 
-| benchmark                    | baseline         | base uda** | base+dv | base+mv | base+3dr | base + persp | full uda |
-| ---------------------------- | ---------------- | ---------- | ------- | ------- | -------- | ------------ | -------- |
-| multiviewx -> wildtrack      | 70.0 2883235_356 |            |         |         |          |              |          |
-| wildtrack -> multiviewx      | 35.9 2883159_416 |            |         |         |          |              |          |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 |            |         |         |          |              |          |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 |            |         |         |          |              |          |
-| multiviewx cam adapt         | 54.7 2883235_446 |            |         |         |          |              |          |
-| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 84.6       | 85.5    | 83.9    | 85.1     |              |          |
-| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 |            |         |         |          |              |          |
+| benchmark                    | baseline         | base uda**  | base+dv | base+mv | base+3dr | base + persp | full uda |
+| ---------------------------- | ---------------- | ----------- | ------- | ------- | -------- | ------------ | -------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 2894931_490 |         |         |          |              |          |
+| wildtrack -> multiviewx      | 35.9 2883159_416 |             |         |         |          |              |          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 |             |         |         |          |              |          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 |             |         |         |          |              |          |
+| multiviewx cam adapt         | 54.7 2883235_446 |             |         |         |          |              |          |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 84.6        | 85.5    | 83.9    | 85.1     |              |          |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | ongoing     |         |         |          |              |          |
 **with tuned ps-label-strat and ema. The baseline data aug is applied to source data, while the different augmentation methods here refers to strong-weak self-training aug. 
 
 
