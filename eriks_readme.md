@@ -2290,10 +2290,10 @@ target loss weight = 1.0
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
-| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** |
-| --------------------------- | ------- | ----------- | ------------ | ----------------- |
-| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              |
-| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |
+| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| --------------------------- | ------- | ----------- | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              |           |
+| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |           |
 
 
 
