@@ -2290,10 +2290,10 @@ target loss weight = 1.0
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
-| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
-| --------------------------- | ------- | ----------- | ------------ | ----------------- | --------- |
-| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              |           |
-| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |           |
+| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1   |
+| --------------------------- | ------- | ----------- | ------------ | ----------------- | ----------- |
+| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              | 2894834_458 |
+| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |             |
 
 
 
@@ -2302,6 +2302,7 @@ We can see that the mean teacher can boost performance, and is even necessary fo
 We choose alpha=0.99 as it performs well on both benchmarks.
 
 **TODO max-pseudo kernel size**
+
 
 
 **TODO UDA baseline**
