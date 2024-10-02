@@ -528,7 +528,7 @@ if __name__ == '__main__':
     parser.add_argument('--multiviewx2wildtrack', action="store_true")
     parser.add_argument('--wildtrack2multiviewx', action="store_true")
     parser.add_argument('--persp_sup', action="store_true", default=True)
-    parser.add_argument('--warp_kornia', action="store_true", default=True)
+    parser.add_argument('--warp_kornia', action="store_true", default=False)
     parser.add_argument('--max_pseudo', action="store_true")
     parser.add_argument('--max_pseudo_th', type=int, default=11, help='The kernel size when finding local_maxima for max_pseudo pseudo-label creation')
     parser.add_argument('--auto_th', action="store_true")
