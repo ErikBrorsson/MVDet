@@ -1793,7 +1793,7 @@ class UDATrainer(BaseTrainer):
 
                             for grid_pos in positions:
                                 pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
-                                bbox = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.pom[pos.item()][cam]
+                                bbox = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.bbox_by_pos_cam[pos.item()][cam]
                                 if bbox is None:
                                     continue                    
                                 foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]

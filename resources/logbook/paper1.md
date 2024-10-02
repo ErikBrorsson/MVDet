@@ -198,6 +198,7 @@ These experiments are used to set the uda augmentation and persp sup strategy.
 After this, I may run more experiments with the specific choice of augmentation and persp sup, which may result in finding better ps-label-threshold.
 But that won't make this table useless/outdated. Obviously, I cannot do a joint grid search on all parameters to find the optimal, because the search space becomes too big.
 I need to set some parameters at a time. 
+For all these exps, I will load weights from the developed baseline, and the chosen baseline augmentation will be applied to the source data.
 
 ## mean teacher paramter
 Do experiments on one cam-adapt benchmark (gmvd->multiviewx) and one domain adaptation benchmark (multiviewx -> wildtrack)

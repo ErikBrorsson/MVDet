@@ -2237,7 +2237,7 @@ mv: 4/7, 3/7
 => full = pre + dv + mv* + 3dr
 *mv is on average beneficial, but since it works poorly in 3 exps it is debatable whether it is worth using.
 
-=> discard mv after the last set of experiments => we use pre+dv+3drom
+=> discard mv after the last set of experiments => we use **pre+dv+3drom**
 
 ### 30/9
 
@@ -2250,15 +2250,21 @@ we use pre+dv+3drom for the baseline based on above table
 2890333_46x
 2890461_463
 2890443_467
+2890821_46x
 
 For these experiments, I use 
 baseline=pre+dv+3drom (from above baseline dev table)
-target loss weight = [0.1, 0.5, 1.0, linearly increasing from 0.1 to 1.0]
+target loss weight = [0.1, 0.5, 1.0, 2.0, linearly increasing from 0.1 to 1.0]
 alpha_teacher = 0.99
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
 
+
+| benchmark                   | baseline | lambda=0.1 | lambda = 0.5 | **lambda = 1.0** | lambda = 2.0 | linear ramp |
+| --------------------------- | -------- | ---------- | ------------ | ---------------- | ------------ | ----------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 85.3       | 88.4         | 87.8             | 87.8         | 88.8        |
+| multiviewx -> wildtrack_uda | 70.0     | 74.7       | 77.4         | 81.1             | 78.9         | 74.1        |
 
 **TODO alpha_teacher exps**
 After loss weight above is set, we do exps on alpha_teacher. The reason behind this ordering as that loss_weight is expected to have higher impact on training than ema teacher value.
@@ -2271,16 +2277,31 @@ target loss weight = as found in above section
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
-| benchmark                     | alpha=0 | alpha = 0.9 | alpha = 0.99 | alpha = 0.999 |
-| ----------------------------- | ------- | ----------- | ------------ | ------------- |
-| gmvd s1c1 -> multiviewx       | 85.6    | 86.7        | 86.0         | 83.3          |
-| multiviewx -> wildtrack_uda** | 59.5    | 60.7        | 80.3         | 81.5          |
-**REDO with loading from new baseline
+| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | alpha = 0.999 |
+| --------------------------- | ------- | ----------- | ------------ | ------------- |
+| gmvd s1c1 -> multiviewx     | 85.6    | 86.7        | 86.0         | 83.3          |
+| multiviewx -> wildtrack_uda | 59.5    | 60.7        | 80.3         | 81.5          |
+
+
+REDOING with new baseline and lambda=1.0
+For these experiments, I use 
+baseline=pre+dv+3drom
+target loss weight = 1.0
+max-pseudo = True
+pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+UDA_aug = dropview
+| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** |
+| --------------------------- | ------- | ----------- | ------------ | ----------------- |
+| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              |
+| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |
+
+
 
 
 We can see that the mean teacher can boost performance, and is even necessary for stability on certain benchmarks. 
 We choose alpha=0.99 as it performs well on both benchmarks.
 
+**TODO max-pseudo kernel size**
 
 
 **TODO UDA baseline**
@@ -2289,6 +2310,19 @@ After we have
 - decided target epoch weight
 - decided alpha teacher
 we start with the UDA development, which involves finding what data augmentations to use and whether to use uda persp sup.
+
+| benchmark                    | baseline         | base uda** | base+dv | base+mv | base+3dr | base + persp | full uda |
+| ---------------------------- | ---------------- | ---------- | ------- | ------- | -------- | ------------ | -------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 |            |         |         |          |              |          |
+| wildtrack -> multiviewx      | 35.9 2883159_416 |            |         |         |          |              |          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 |            |         |         |          |              |          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 |            |         |         |          |              |          |
+| multiviewx cam adapt         | 54.7 2883235_446 |            |         |         |          |              |          |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 84.6       | 85.5    | 83.9    | 85.1     |              |          |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 |            |         |         |          |              |          |
+**with tuned ps-label-strat and ema. The baseline data aug is applied to source data, while the different augmentation methods here refers to strong-weak self-training aug. 
+
+
 
 **TODO uda naive pseudo vs max pseudo sensitivity (/pseudo-label th param search) table**
 
