@@ -343,9 +343,9 @@ def main(args):
     for param in ema_model.parameters():
         param.detach_()
     ema_model.load_state_dict(model.state_dict()) # this method correctly copies the parameters
-    with torch.no_grad():
-        for param, param_ema in zip(model.parameters(), ema_model.parameters()):
-            param_ema.data.copy_(param.data)
+    # with torch.no_grad():
+    #     for param, param_ema in zip(model.parameters(), ema_model.parameters()):
+    #         param_ema.data.copy_(param.data)
 
     # mp = list(model.parameters())
     # mcp = list(ema_model.parameters())
@@ -354,7 +354,7 @@ def main(args):
     #     mcp[i].data[:] = mp[i].data[:].clone()
 
     # print(list(model.parameters()))
-    print(list(ema_model.parameters()))
+    # print(list(ema_model.parameters()))
     # raise Exception
     # torch.tensor([[[[ 3.4448e-03, -4.5242e-03, -4.0137e-03],
     #         [ 1.6153e-02, -4.8835e-03,  1.9083e-03],
@@ -391,7 +391,7 @@ def main(args):
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
     # cls_thres_array = [0.05]
-    test_loss, metrics, metrics_04 = test(ema_model, test_loader, cls_thres_array, criterion,
+    test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics
     (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = metrics_04

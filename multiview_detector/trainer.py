@@ -1712,7 +1712,13 @@ class UDATrainer(BaseTrainer):
                             data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
 
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                    map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
+
+                    if self.alpha_teacher == 0: # if alpha_teacher == 0, use student model for pseudo-labelling
+                        map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.model(data_teacher, proj_mats_teacher, config_dict)
+                    else:
+                        if self.alpha_teacher == 1.0: # alpha_teacher == 1.0 means that the pretrained model should be used as is. use .eval() to avoid batch_norm updates
+                            self.ema_model.eval()
+                        map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
                 temp = map_pred_teacher.detach().cpu().squeeze()
 
                 if not self.soft_labels:
@@ -1860,7 +1866,8 @@ class UDATrainer(BaseTrainer):
             # update ema model
             alpha_teacher = self.alpha_teacher
             iteration = (epoch - 1) * len(data_loader.dataset) + batch_idx
-            self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
+            if alpha_teacher != 1.0: # alpha_teacher==1 means no update
+                self.ema_model = self.update_ema_variables(self.ema_model, self.model, alpha_teacher=alpha_teacher, iteration=iteration)
 
 
             optimizer.step()

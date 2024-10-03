@@ -2401,6 +2401,36 @@ we start with the UDA development, which involves finding what data augmentation
 - UDA pseudo-label strategy (max-pseduo experimentally verified)
 
 
+### 3/10
+
+I found some unexpected behaviour of the EMA teacher.
+- In initialization, I've copied the parameters of the loaded student model to the teacher, but this doesnt take into accoutn batch-norm layers. Resulting in poor performance of the teacher from start.
+    I've updated this now such that I use load_state_dict in initialization, which copies both parrameters and buffers.
+- In the update_ema_paramters, the "alpha_teacher" value was changed in the early iterations. I've removed this to make the distinction between alpha_teacher = [0, 0.99, 0.999, 1.0] etc more clear.
+  
+I expect that 
+1. evaluation of student and teacher before training starts gives exactly the same results now.
+2. the distinction between different alpha_teacher values will be more pronounced
+
+After verifying that 1. is satisfied, I should rerun my alpha_teacher experiments.
+
+OLD RESULTS:
+| benchmark               | alpha=0                | alpha = 0.9  | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| ----------------------- | ---------------------- | ------------ | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx | 86.7 slurm-2892673_450 | 87.1         | 87.8         | 87.3              | 86.9      |
+| multiviewx -> wildtrack | 46.1 2895176           | 60.2 2895176 | 79.8         | 80.6 2895176      | 81.2      |
+| wildtrack -> multiviewx | 70.3 2897090_60x       | 71.3         | 69.3         | 69.5              | 69.2      |
+
+NEW RESULTS
+| benchmark               | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| ----------------------- | ------- | ----------- | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx | -       | -           | -            | 77.9              | 77.9      |
+| multiviewx -> wildtrack | -       | -           | -            | 76.6              | 78.6      |
+| wildtrack -> multiviewx | -       | 44          | 46           | 59                | 62        |
+slurm-2900264_60x
+slurm-2900364_45x
+
+
 
 # TODO
 
