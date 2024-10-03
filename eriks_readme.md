@@ -2431,9 +2431,22 @@ slurm-2900264_60x
 slurm-2900364_45x
 
 **ONGOING**
-1. rerunning same gmvd s1c1 -> multiviewx with alpha=0 as above (detach before load_state_config) : 2901385_450
+1. rerunning same gmvd s1c1 -> multiviewx with alpha=0 as above (detach before load_state_config) : 2901385_450 
+  alpha_teacher==0, 0 moda
 2. changed to use the student model if alpha_teacher==0, and maintain pretrained model if alpha_teacher==1: 2901498_450, 2901498_454
-3. same as 1, but now detach is after load_state_config (could be that the teacher models parameters was updated with backprop otherwise?)
+  alpha_teacher==0: 86.9 moda, alpha_teacher==1: 77.2 moda 
+3. same as 1, but now detach is after load_state_config (could be that the teacher models parameters was updated with backprop otherwise?): 2901546_450,
+  alpha_teacher==0, 0 moda
+1. same as 3, but addded ema_model.train() in training such that batch_norm layers may be updated: 2901596_
+  alpha_teacher==0,: 87.6 moda
+
+If we are to update ema teacher parameters with the student parameters, probably we would like the ema teacher buffers (batchnorm mean etc) to be similar to student buffers.
+Therefore, we may want to put ema_teacher in training mode (ema_model.train()) when we feed it target images, such that buffers are updated.
+However, the buffers will not be the same as for the student, since the student is fed both source and target images, while ema model is only fed target images.
+
+Seems like ema_model.train() did the trick.
+Also seems like I solved the problem of "only using the pretrainde model". Now, if I set alpha_teacher=1, the teacher is kept constant throughout training and its performance doesnt change. 
+
 
 
 **fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
