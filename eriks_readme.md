@@ -2431,8 +2431,10 @@ slurm-2900264_60x
 slurm-2900364_45x
 
 **ONGOING**
-rerunning same gmvd s1c1 -> multiviewx with alpha=0 as above : 2901385_450
-changed to use the student model if alpha_teacher==0, and maintain pretrained model if alpha_teacher==1: 2901498_450, 2901498_454
+1. rerunning same gmvd s1c1 -> multiviewx with alpha=0 as above (detach before load_state_config) : 2901385_450
+2. changed to use the student model if alpha_teacher==0, and maintain pretrained model if alpha_teacher==1: 2901498_450, 2901498_454
+3. same as 1, but now detach is after load_state_config (could be that the teacher models parameters was updated with backprop otherwise?)
+
 
 **fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
 

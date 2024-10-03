@@ -1533,6 +1533,7 @@ class UDATrainer(BaseTrainer):
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
         self.model.train()
+        self.ema_model.train()
         losses = 0
         losses_target = 0
         precision_s, recall_s = AverageMeter(), AverageMeter()
