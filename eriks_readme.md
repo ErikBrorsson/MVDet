@@ -2447,6 +2447,25 @@ However, the buffers will not be the same as for the student, since the student 
 Seems like ema_model.train() did the trick.
 Also seems like I solved the problem of "only using the pretrainde model". Now, if I set alpha_teacher=1, the teacher is kept constant throughout training and its performance doesnt change. 
 
+Runnings exps on gmvd->mvx and mvx -> wildtrack... with updated ema teacher.
+alpha=0 is actually the student now (it wasnt before)
+alpha=1 is exactly the pretrained model (before it was actually changing due to the weird update code in update_ema_parameters)
+alpha=0.99, 0.999 should differ a bit more since I removed the weird update code in update_ema_parameters. This weird code made the start of training similar for all values of alpha.
+
+Let's see how the results for the different alpha changes now.
+Also verify that teacher performane is constant when alpha=1.
+
+
+| benchmark               | alpha=0   | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| ----------------------- | --------- | ----------- | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx | 86.4 done | 87.2        | 87.9         | 82.6              | 78.4      |
+| multiviewx -> wildtrack | -  done   | -   done    | 79.0         | 75.0              | 77.1      |
+| wildtrack -> multiviewx | 78.3      | 78.5        | 75.8         | 72.0              | 59.1      |
+**RUNS IN TABLE STILL ONGOING**
+I would expect that 
+- stabiilty issues may arise when using student predictions, as the pseudo-labeling changes quickly
+- alpha=1 is suboptimal since we expect that the pretrained model produces worse pseudo-labels than the uda model
+- some intermediate value of alpha is best, since this allows the pseudo-labels to increase in quality as training progresses, but not too fast to avoid stability issues.
 
 
 **fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
