@@ -278,10 +278,9 @@ def main(args):
         # if args.uda:
         # init ema model
         ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
+        ema_model.load_state_dict(model.state_dict()) # using load_state_dict here to copy parameters and buffers (buffers include e.g. batch_norm mean)
         for param in ema_model.parameters():
             param.detach_()
-        ema_model.load_state_dict(model.state_dict()) # using load_state_dict here to copy parameters and buffers (buffers include e.g. batch_norm mean)
-
         # mp = list(model.parameters())
         # mcp = list(ema_model.parameters())
         # n = len(mp)

@@ -2430,7 +2430,11 @@ NEW RESULTS
 slurm-2900264_60x
 slurm-2900364_45x
 
+**ONGOING**
+rerunning same gmvd s1c1 -> multiviewx with alpha=0 as above : 2901385_450
+changed to use the student model if alpha_teacher==0, and maintain pretrained model if alpha_teacher==1: 2901498_450, 2901498_454
 
+**fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
 
 # TODO
 

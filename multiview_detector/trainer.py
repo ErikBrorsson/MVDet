@@ -1713,12 +1713,12 @@ class UDATrainer(BaseTrainer):
 
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
 
-                    if self.alpha_teacher == 0: # if alpha_teacher == 0, use student model for pseudo-labelling
-                        map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.model(data_teacher, proj_mats_teacher, config_dict)
-                    else:
-                        if self.alpha_teacher == 1.0: # alpha_teacher == 1.0 means that the pretrained model should be used as is. use .eval() to avoid batch_norm updates
-                            self.ema_model.eval()
-                        map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
+                    # if self.alpha_teacher == 0: # if alpha_teacher == 0, use student model for pseudo-labelling
+                    #     map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.model(data_teacher, proj_mats_teacher, config_dict)
+                    # else:
+                    if self.alpha_teacher == 1.0: # alpha_teacher == 1.0 means that the pretrained model should be used as is. use .eval() to avoid batch_norm updates
+                        self.ema_model.eval()
+                    map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
                 temp = map_pred_teacher.detach().cpu().squeeze()
 
                 if not self.soft_labels:
