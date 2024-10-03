@@ -338,6 +338,51 @@ def main(args):
     print("Loading saved model from: ", resume_fname)
     model.load_state_dict(torch.load(resume_fname))
 
+
+    ema_model = PerspTransDetector(args.arch, avgpool=args.avgpool)
+    for param in ema_model.parameters():
+        param.detach_()
+    ema_model.load_state_dict(model.state_dict()) # this method correctly copies the parameters
+    with torch.no_grad():
+        for param, param_ema in zip(model.parameters(), ema_model.parameters()):
+            param_ema.data.copy_(param.data)
+
+    # mp = list(model.parameters())
+    # mcp = list(ema_model.parameters())
+    # n = len(mp)
+    # for i in range(0, n):
+    #     mcp[i].data[:] = mp[i].data[:].clone()
+
+    # print(list(model.parameters()))
+    print(list(ema_model.parameters()))
+    # raise Exception
+    # torch.tensor([[[[ 3.4448e-03, -4.5242e-03, -4.0137e-03],
+    #         [ 1.6153e-02, -4.8835e-03,  1.9083e-03],
+    #         [ 1.1061e-02, -2.0071e-03, -7.6424e-03]],
+
+    #         [[-2.2611e-03,  1.6325e-03, -2.4068e-03],
+    #         [-3.8178e-03,  1.9401e-02,  1.7969e-02],
+    #         [-3.0742e-03,  3.6021e-03, -6.0891e-05]],
+
+    #         [[ 3.1648e-04, -3.3402e-04, -2.1599e-03],
+    #         [-2.9053e-03, -1.4272e-03, -1.4952e-03],
+    #         [-5.8189e-04, -1.7111e-03, -7.9807e-04]],
+
+    #         ...,
+
+    #         [[ 1.1829e-03, -1.8705e-03,  8.2475e-04],
+    #         [ 1.1289e-03, -1.2800e-04, -1.3853e-03],
+    #         [ 4.8036e-04,  6.6727e-04,  1.3871e-03]],
+
+    #         [[ 1.4330e-03,  1.2188e-03, -9.1717e-04],
+    #         [ 1.3699e-03,  8.1890e-06,  3.8926e-04],
+    #         [ 3.8501e-04, -1.2613e-03, -1.6909e-03]],
+
+    #         [[ 5.0788e-03,  7.6537e-03,  3.4672e-03],
+    #         [ 1.1022e-03,  6.7827e-03,  9.5977e-04],
+    #         [ 2.1339e-03, -1.0416e-03, -3.8518e-03]]]], device='cuda:0')
+
+
     print('Testing...')
     # if args.train_set:
     #     trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
@@ -345,8 +390,8 @@ def main(args):
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
-    cls_thres_array = [0.05]
-    test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
+    # cls_thres_array = [0.05]
+    test_loss, metrics, metrics_04 = test(ema_model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics
     (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = metrics_04

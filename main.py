@@ -280,11 +280,13 @@ def main(args):
         ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
         for param in ema_model.parameters():
             param.detach_()
-        mp = list(model.parameters())
-        mcp = list(ema_model.parameters())
-        n = len(mp)
-        for i in range(0, n):
-            mcp[i].data[:] = mp[i].data[:].clone()
+        ema_model.load_state_dict(model.state_dict()) # using load_state_dict here to copy parameters and buffers (buffers include e.g. batch_norm mean)
+
+        # mp = list(model.parameters())
+        # mcp = list(ema_model.parameters())
+        # n = len(mp)
+        # for i in range(0, n):
+        #     mcp[i].data[:] = mp[i].data[:].clone()
 
     # elif args.variant == 'img_proj':
     #     model = ImageProjVariant(train_set, args.arch)
