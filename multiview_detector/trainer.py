@@ -1356,10 +1356,9 @@ class PerspectiveTrainer(BaseTrainer):
 
     @staticmethod
     def update_ema_variables(ema_model, model, alpha_teacher, iteration):
-        """Note: Sets the ema model to equal the student model in the first iteration.
-        Thereafter starts EMA updates."""
+
         # Use the "true" average until the exponential average is more correct
-        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
+        # alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
         # if len(gpus)>1:
         #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
         #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
@@ -2520,10 +2519,9 @@ class UDATrainer(BaseTrainer):
 
     @staticmethod
     def update_ema_variables(ema_model, model, alpha_teacher, iteration):
-        """Note: Sets the ema model to equal the student model in the first iteration.
-        Thereafter starts EMA updates."""
+
         # Use the "true" average until the exponential average is more correct
-        alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
+        # alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
         # if len(gpus)>1:
         #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
         #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)

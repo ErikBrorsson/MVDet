@@ -2251,6 +2251,7 @@ we use pre+dv+3drom for the baseline based on above table
 2890461_463
 2890443_467
 2890821_46x
+2895183_
 
 For these experiments, I use 
 baseline=pre+dv+3drom (from above baseline dev table)
@@ -2261,10 +2262,11 @@ pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
 
 
-| benchmark                   | baseline | lambda=0.1 | lambda = 0.5 | **lambda = 1.0** | lambda = 2.0 | linear ramp |
-| --------------------------- | -------- | ---------- | ------------ | ---------------- | ------------ | ----------- |
-| gmvd s1c1 -> multiviewx     | 70.3     | 85.3       | 88.4         | 87.8             | 87.8         | 88.8        |
-| multiviewx -> wildtrack_uda | 70.0     | 74.7       | 77.4         | 81.1             | 78.9         | 74.1        |
+| benchmark                   | baseline | lambda=0.1 | lambda = 0.5                   | **lambda = 1.0** | lambda = 2.0                  | linear ramp |
+| --------------------------- | -------- | ---------- | ------------------------------ | ---------------- | ----------------------------- | ----------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 85.3       | 88.4                           | 87.8             | 87.8                          | 88.8        |
+| multiviewx -> wildtrack_uda | 70.0     | 74.8       | 77.8 ongoing slurm-2895183_465 | 79.9             | 82.2 ongoin slurm-2895183_469 | 73.9        |
+| OLD                         | 70.0     | 74.7       | 77.4                           | 81.1             | 78.9                          | 74.1        |
 
 **TODO alpha_teacher exps**
 After loss weight above is set, we do exps on alpha_teacher. The reason behind this ordering as that loss_weight is expected to have higher impact on training than ema teacher value.
@@ -2286,15 +2288,30 @@ UDA_aug = dropview
 REDOING with new baseline and lambda=1.0
 For these experiments, I use 
 baseline=pre+dv+3drom
+augmentation = dropview
 target loss weight = 1.0
 max-pseudo = True
 pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
 UDA_aug = dropview
-| benchmark                   | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1   |
-| --------------------------- | ------- | ----------- | ------------ | ----------------- | ----------- |
-| gmvd s1c1 -> multiviewx     | 86.7    | 87.1        | 87.8         | 87.3              | 2894834_458 |
-| multiviewx -> wildtrack_uda | -       | -           | 79.9         | 79.9              |             |
-slurm-2892673_450
+| benchmark                   | alpha=0                | alpha = 0.9  | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| --------------------------- | ---------------------- | ------------ | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx     | 86.7 slurm-2892673_450 | 87.1         | 87.8         | 87.3              | 86.9      |
+| multiviewx -> wildtrack_uda | 46.1 2895176           | 60.2 2895176 | 79.8         | 80.6 2895176      | 81.2      |
+| OLD                         | -                      | -            | 79.9         | 79.9              |           |
+
+REDOING with new baseline and lambda=1.0
+For these experiments, I use 
+baseline=pre+dv+3drom
+augmentation = dv+3drom
+target loss weight = 1.0
+max-pseudo = True
+pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+UDA_aug = dropview+3drom
+| benchmark                   | alpha=0          | alpha = 0.9 | alpha = 0.99 | alpha = 0.999 | alpha = 1 |
+| --------------------------- | ---------------- | ----------- | ------------ | ------------- | --------- |
+| gmvd s1c1 -> multiviewx     |                  |             |              |               |           |
+| multiviewx -> wildtrack_uda |                  |             |              |               |           |
+| wildtrack -> multiviewx     | 70.3 2897090_60x | 71.3        | 69.3         | 69.5          | 69.2      |
 
 
 
@@ -2303,45 +2320,60 @@ We choose alpha=0.99 as it performs well on both benchmarks.
 
 **TODO max-pseudo kernel size**
 
-| benchmark                   | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | -   |
-| --------------------------- | -------- | ---------- | ---------- | --------- | --- |
-| gmvd s1c1 -> multiviewx     | 2895050  |            |            |           |     |
-| multiviewx -> wildtrack_uda | 2895050  |            |            |           |     |
+2895196 _ x
+| benchmark                   | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | k_size=15 |
+| --------------------------- | -------- | ---------- | ---------- | --------- | --------- |
+| gmvd s1c1 -> multiviewx     | 87.3     | 87.2       | 87.5       | 87.9      | 85.6      |
+| multiviewx -> wildtrack_uda | 82.6     | 82.1       | 81.4       | 78.9      | 67.9      |
 
 
+**TODO choosing ps-label-th**
+Do exps on UDA base using:
+- generalizanle baseline = pre+dv+3drom
+- target_weight = 1.0
+- alpha_teacher = 0.999
+- k_size = from above
+
+sbatch 550-591
+
+Note: all exps on multiviewx -> wildtrack, wildtrack -> multiviewx and gmvds1c1->multiviewx reached max before epoch ~5. After that, performance just degraded.
+| benchmark                    | baseline         | uda naive                                   | uda max_pseudo                              |
+| ---------------------------- | ---------------- | ------------------------------------------- | ------------------------------------------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 18.6 (th=0.2), 16.5 (th=0.3), 75.6 (th=0.4) | 65.5 (th=0.2), 71.8 (th=0.3), 76.4 (th=0.4) |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 0.0 (th=0.2), 16.8 (th=0.3), 36.5 (th=0.4)  | 66.5 (th=0.2), 54.8 (th=0.3), 31.5 (th=0.4) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | x (th=0.2), x (th=0.3), x (th=0.4)          | x (th=0.2), x (th=0.3), x (th=0.4)          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | x (th=0.2), x (th=0.3), x (th=0.4)          | x (th=0.2), x (th=0.3), x (th=0.4)          |
+| multiviewx cam adapt         | 54.7 2883235_446 | x (th=0.2), x (th=0.3), x (th=0.4)          | x (th=0.2), x (th=0.3), x (th=0.4)          |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 76.2 (th=0.2), 84.8 (th=0.3), 70.5 (th=0.4) | 75.0 (th=0.2), 85.4 (th=0.3), 73.3 (th=0.4) |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | x (th=0.2), x (th=0.3), x (th=0.4)          | x (th=0.2), x (th=0.3), x (th=0.4)          |
+
+This table is used to choose a good ps-label-th for all benchmarks. 
+The ps-label-th is absolutely critical for reaching good performance, so it makes sense to do this before investigating whether augmentation techniques are beneficial.
+Additioanlly, this table will (hopefully) show that max_pseudo is more stable than uda_naive.
 
 
 **TODO UDA baseline**
 After we have 
-- the generlizable baseline
-- decided target epoch weight
-- decided alpha teacher
+- the generlizable baseline = pre+dv+3drom (no persp, no mvaug)
+- decided target epoch weight = 1.0
+- decided alpha teacher = 0.999
 we start with the UDA development, which involves finding what data augmentations to use and whether to use uda persp sup.
 
-| benchmark                    | baseline         | base uda**     | base+dv | base+mv | base+3dr | base + persp | full uda |
-| ---------------------------- | ---------------- | -------------- | ------- | ------- | -------- | ------------ | -------- |
-| multiviewx -> wildtrack      | 70.0 2883235_356 | sbatch 490-494 |         |         |          |              |          |
-| wildtrack -> multiviewx      | 35.9 2883159_416 |                |         |         |          |              |          |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 |                |         |         |          |              |          |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 |                |         |         |          |              |          |
-| multiviewx cam adapt         | 54.7 2883235_446 |                |         |         |          |              |          |
-| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 84.6           | 85.5    | 83.9    | 85.1     |              |          |
-| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | sbatch 480-484 |         |         |          |              |          |
+| benchmark                    | baseline         | jobscript | base uda** | base+dv         | base+mv | base+3dr | base + persp | full uda |
+| ---------------------------- | ---------------- | --------- | ---------- | --------------- | ------- | -------- | ------------ | -------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 490-494   |            |                 |         |          |              |          |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 500-504   |            |                 |         |          |              |          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 520-524   |            | 2896707_521,525 |         |          |              |          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 530-534   |            |                 |         |          |              |          |
+| multiviewx cam adapt         | 54.7 2883235_446 | 540-544   |            |                 |         |          |              |          |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 470-474   | 84.6       | 85.5            | 83.9    | 85.1     | 2894833_474  |          |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 480-484   |            |                 |         |          |              |          |
 **with tuned ps-label-strat and ema. The baseline data aug is applied to source data, while the different augmentation methods here refers to strong-weak self-training aug. 
 
 
 
-**TODO uda naive pseudo vs max pseudo sensitivity (/pseudo-label th param search) table**
+**TODO main results from max_pseudo and uda naive on all benchmarks**
 
-| benchmark                    | uda naive                          | uda max_pseudo                     |
-| ---------------------------- | ---------------------------------- | ---------------------------------- |
-| multiviewx -> wildtrack      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| wildtrack -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| multiviewx cam adapt         | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| gmvd s1c1 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
-| gmvd s1c2 -> multiviewx      | x (th=0.2), x (th=0.3), x (th=0.4) | x (th=0.2), x (th=0.3), x (th=0.4) |
 
 
 
