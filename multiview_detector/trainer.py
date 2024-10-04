@@ -1788,7 +1788,7 @@ class UDATrainer(BaseTrainer):
                         
 
                     # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                    if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
+                    if data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].indexing == 'xy':
                         positions = positions[:, [1, 0]]
                     else:
                         positions = positions

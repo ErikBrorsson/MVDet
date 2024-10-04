@@ -2458,14 +2458,32 @@ Also verify that teacher performane is constant when alpha=1.
 
 | benchmark               | alpha=0   | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
 | ----------------------- | --------- | ----------- | ------------ | ----------------- | --------- |
-| gmvd s1c1 -> multiviewx | 86.4 done | 87.2        | 87.9         | 82.6              | 78.4      |
-| multiviewx -> wildtrack | -  done   | -   done    | 79.0         | 75.0              | 77.1      |
-| wildtrack -> multiviewx | 78.3      | 78.5        | 75.8         | 72.0              | 59.1      |
+| gmvd s1c1 -> multiviewx | 86.4 done | 87.8        | 87.9         | 86.5              | 78.4      |
+| multiviewx -> wildtrack | -  done   | -   done    | 79.0         | 80.9              | 79.0      |
+| wildtrack -> multiviewx | 78.3      | 79.5        | 78.9         | 83.7              | 65.1      |
+2902043_x
+2902038_x
+2901886_x
+
 **RUNS IN TABLE STILL ONGOING**
 I would expect that 
 - stabiilty issues may arise when using student predictions, as the pseudo-labeling changes quickly
 - alpha=1 is suboptimal since we expect that the pretrained model produces worse pseudo-labels than the uda model
 - some intermediate value of alpha is best, since this allows the pseudo-labels to increase in quality as training progresses, but not too fast to avoid stability issues.
+
+
+| benchmark                    | baseline         | uda naive                                   | uda max_pseudo                              |
+| ---------------------------- | ---------------- | ------------------------------------------- | ------------------------------------------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 19.9 (th=0.2), 42.5 (th=0.3), 78.6 (th=0.4) | 55.8 (th=0.2), 70.8 (th=0.3), 75.8 (th=0.4) |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 0.0 (th=0.2), 48.1 (th=0.3), 47.9 (th=0.4)  | 73.2 (th=0.2), 68.7 (th=0.3), 43.5 (th=0.4) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 0 (th=0.2), 73.8 (th=0.3), 78.5 (th=0.4)    | 65.3 (th=0.2), 78.6 (th=0.3), 77.7 (th=0.4) |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 0.4 (th=0.2), 57.9 (th=0.3), 73.4 (th=0.4)  | 71.0 (th=0.2), 79.8 (th=0.3), 60.6 (th=0.4) |
+| multiviewx cam adapt         | 54.7 2883235_446 | 15.5 (th=0.2), 40.6 (th=0.3), 55.2 (th=0.4) | 58.1 (th=0.2), 63.1 (th=0.3), 56.3 (th=0.4) |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 69.1 (th=0.2), 87.8 (th=0.3), 81.5 (th=0.4) | 73.4 (th=0.2), 87.8 (th=0.3), 81.3 (th=0.4) |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 0 (th=0.2), 74.9 (th=0.3), 82.8 (th=0.4)    | 79.9 (th=0.2), 88.1 (th=0.3), 80.1 (th=0.4) |
+2903285_x
+2903311_x
+2902658_x
 
 
 **fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
