@@ -1,3 +1,14 @@
+# TODO
+
+- [x] baseline development (develop a strong generalization baseline, which is also used as the pretraining step for UDA)
+- [x] pseudo-labelling method (simple self-training without data augmentation. Here I choose appropriate pseudo-label thresholds for each benchmark and choose pseudo-labelling strategy) 
+- [x] uda development (After choosing ps-label-th and pseduo-labelling method above. I choose data augmentation and persp supervision. 5 epochs, 0.99 alpha teacher, 1.0 lambda, max_pseudo)
+- [x] UDA sota exps (running with 0.999 alpha teacher and 20 epochs boosts performance slightly on all but one benchmark)
+- [ ] alpha teacher experiments (analyze the importance of the teacher model, alpha ranging from 0 to 1. Also show how it is connected to the number of epochs.)
+- [ ] max-pseudo-threshold table (show that my pseudo-labelling method is robust to the choice of max-pseudo-threshold)
+- [ ] lambda table (show performance of different lambdas. It would make sense to design the loss as (1-lambda)*Ls + lambda*Lt but perhaps it is too late for that)
+
+
 # Abstract
 We consider the problem of UDA for MV pedestrian detection.
 Our paper constitutes the first extensive study on mean teacher self-training for this problem.
@@ -100,26 +111,13 @@ Bring in some of the supplementary material here, e.g. augmentation for baseline
 
 
 **Table 7**: Mean teacher alpha parameter. alpha=0 may yield instability, while alpha=1 doesn't allow for improving pseudo-labels over time.
+Show 2 benchmarks and have one row for epochs=5 and one for epochs=20. This shows that 0.99 is reasonable for epochs=5, while 0.999 may be beneficial for longer trainings.
+Since the number of epochs should probably be increased when data augmentation is used, it makes sense to make these runs with the full UDA method (using augmentation).
+**ONGOING**: runs on gmvds1c1 and mvx->wildtrack, 5 epochs. Baseline=pre+dv+3drom, uda=dv+3drom (max-pseudo=7, alpha_teacher=0.99, lambda=1.0, epochs=5)
 
-**Note: it doesnt really make sense that I didnt use dv+3drom for source data in method 2.**
-1. Baseline: pre+dv+3drom, UDA: augmentation=[dropview, 3drom], no persp sup, max_pseudo_th=7, lambda=1.0, epochs=20
-2. Baseline: pre+dv, UDA: augmentation=dropview, no persp sup, max_pseudo_th=7, lambda=1.0, epochs=20
-| benchmark               | baseline | training method | ps-label-th | alpha=0   | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
-| ----------------------- | -------- | --------------- | ----------- | --------- | ----------- | ------------ | ----------------- | --------- |
-| gmvd s1c1 -> multiviewx | 70.3     | 2               | 0.3         | 86.4 done | 87.8        | 87.9         | 86.5              | 78.4      |
-| multiviewx -> wildtrack | 70.0     | 2               | 0.4         | -  done   | -   done    | 79.0         | 80.9              | 79.0      |
-| wildtrack -> multiviewx | 35.9     | 1               | 0.2         | 78.3      | 79.5        | 78.9         | 83.7              | 65.1      |
-2902043_x
-2902038_x
-2901886_x
 
-## max_pseudo_th
-1. Baseline: pre+dv, UDA: augmentation=dropview, no persp sup, alpha_teacher=0.999, lambda=1.0, epochs=20
-| benchmark               | baseline | training method | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | k_size=15 |
-| ----------------------- | -------- | --------------- | -------- | ---------- | ---------- | --------- | --------- |
-| gmvd s1c1 -> multiviewx | 70.3     | 1               | 87.3     | 87.2       | 87.5       | 87.9      | 85.6      |
-| multiviewx -> wildtrack | 70.0     | 1               | 82.6     | 82.1       | 81.4       | 78.9      | 67.9      |
-2895196 _ x
+**Table 8**: max_pseudo_th, shwoing robustness to varying max-pseudo-th.
+**TODO**: exps on mvx -> wildtrack and gmvds1c1. Same as table 7, but varying max-pseudo-th instead. alpha_teacher=0.99 and 5 epochs should do.
 
 
 
@@ -160,18 +158,37 @@ I would like to motivate the choices for the UDA method used:
 
 Baseline: pre+dv+3drom (no mvaug, no persp sup)
 UDA: max_pseudo_th=7, lambda=1.0, alpha_teacher=0.99, epochs=5
-| benchmark                    | baseline         | jobscript           | ps-label-th | base uda** | base+dv | base+mv | base+3dr | base + persp | full uda |
-| ---------------------------- | ---------------- | ------------------- | ----------- | ---------- | ------- | ------- | -------- | ------------ | -------- |
-| multiviewx -> wildtrack      | 70.0 2883235_356 | 490-494 **ONGOING** | 0.4         |            |         |         |          |              |          |
-| wildtrack -> multiviewx      | 35.9 2883159_416 | 500-504 **ONGOING** | 0.2         |            |         |         |          |              |          |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 520-524             |             |            |         |         |          |              |          |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 530-534             |             |            |         |         |          |              |          |
-| multiviewx cam adapt         | 54.7 2883235_446 | 540-544             |             |            |         |         |          |              |          |
-| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 470-474             |             |            |         |         |          |              |          |
-| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 480-484             |             |            |         |         |          |              |          |
+| benchmark                    | baseline         | jobscript | ps-label-th | base uda** | base+dv | base+mv | base+3dr | base + persp | base+dv+mv+3drom | base+dv+3drom |
+| ---------------------------- | ---------------- | --------- | ----------- | ---------- | ------- | ------- | -------- | ------------ | ---------------- | ------------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 490-494   | 0.4         | 76.8       | 79.7    | 80.8    | 85.0     | 75.5         | 81.8             | 84.7          |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 500-504   | 0.2         | 73.1       | 77.4    | 76.0    | 79.8     | 72.8         | 80.7             | 82.4          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 520-524   | 0.3         | 78.0       | 79.3    | 79.4    | 79.2     | 78.2         | 79.0             | 79.4          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 530-534   | 0.3         | 79.9       | 81.9    | 80.6    | 79.5     | 79.9         | 80.0             | 81.4          |
+| multiviewx cam adapt         | 54.7 2883235_446 | 540-544   | 0.3         | 62.9       | 63.6    | 65.1    | 63.3     | 62.8         | 62.6             | 64.2          |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 470-474   | 0.3         | 88.0       | 88.3    | 87.1    | 88.8     | 87.3         | 87.0             | 89.0          |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 480-484   | 0.3         | 87.9       | 87.8    | 87.7    | 89.1     | 87.8         | 87.4             | 88.8          |
 **with tuned ps-label-strat and ema. The baseline data aug is applied to source data, while the different augmentation methods here refers to strong-weak self-training aug. 
+number of experiments in which each strategy yielded a significant performance boost/decrease:
+persp: 0/7, 0/7
+dv: 5/7, 0/7
+mv: 5/7, 1/7
+3dr: 6/7, 0/7
+=> use dv+mv+3drom 
 
+Try ablating mv aug just since it wasnt used in baseline (and because it's complicated) => mv aug degrades performance. 
+**use base+dv+3DROM**
 
+jobscripts 630-636
+slurm-2905426_63x
+| benchmark                    | baseline         | ps-label-th | base+dv+3drom (20 epochs, 0.999 ema) |
+| ---------------------------- | ---------------- | ----------- | ------------------------------------ |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 0.4         | 82.9                                 |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 0.2         | 83.6                                 |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 0.3         | 79.4                                 |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 0.3         | 84.9                                 |
+| multiviewx cam adapt         | 54.7 2883235_446 | 0.3         | 68.9                                 |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 0.3         | 89.8                                 |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 0.3         | 90.2                                 |
 
 ## Ls + lambda*Lt
 

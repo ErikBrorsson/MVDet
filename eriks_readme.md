@@ -2320,12 +2320,12 @@ We choose alpha=0.99 as it performs well on both benchmarks.
 
 **TODO max-pseudo kernel size**
 
+Baseline: pre+dv, UDA: augmentation=dropview, no persp sup, alpha_teacher=0.999, lambda=1.0, epochs=20
+| benchmark               | baseline | training method | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | k_size=15 |
+| ----------------------- | -------- | --------------- | -------- | ---------- | ---------- | --------- | --------- |
+| gmvd s1c1 -> multiviewx | 70.3     | 1               | 87.3     | 87.2       | 87.5       | 87.9      | 85.6      |
+| multiviewx -> wildtrack | 70.0     | 1               | 82.6     | 82.1       | 81.4       | 78.9      | 67.9      |
 2895196 _ x
-| benchmark                   | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | k_size=15 |
-| --------------------------- | -------- | ---------- | ---------- | --------- | --------- |
-| gmvd s1c1 -> multiviewx     | 87.3     | 87.2       | 87.5       | 87.9      | 85.6      |
-| multiviewx -> wildtrack_uda | 82.6     | 82.1       | 81.4       | 78.9      | 67.9      |
-
 
 **TODO choosing ps-label-th**
 Do exps on UDA base using:
@@ -2456,16 +2456,18 @@ Let's see how the results for the different alpha changes now.
 Also verify that teacher performane is constant when alpha=1.
 
 
-| benchmark               | alpha=0   | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
-| ----------------------- | --------- | ----------- | ------------ | ----------------- | --------- |
-| gmvd s1c1 -> multiviewx | 86.4 done | 87.8        | 87.9         | 86.5              | 78.4      |
-| multiviewx -> wildtrack | -  done   | -   done    | 79.0         | 80.9              | 79.0      |
-| wildtrack -> multiviewx | 78.3      | 79.5        | 78.9         | 83.7              | 65.1      |
+1. Baseline: pre+dv+3drom, UDA: augmentation=[dropview, 3drom], no persp sup, max_pseudo_th=7, lambda=1.0, epochs=20
+2. Baseline: pre+dv, UDA: augmentation=dropview, no persp sup, max_pseudo_th=7, lambda=1.0, epochs=20
+| benchmark               | baseline | training method | ps-label-th | alpha=0   | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| ----------------------- | -------- | --------------- | ----------- | --------- | ----------- | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx | 70.3     | 2               | 0.3         | 86.4 done | 87.8        | 87.9         | 86.5              | 78.4      |
+| multiviewx -> wildtrack | 70.0     | 2               | 0.4         | -  done   | -   done    | 79.0         | 80.9              | 79.0      |
+| wildtrack -> multiviewx | 35.9     | 1               | 0.2         | 78.3      | 79.5        | 78.9         | 83.7              | 65.1      |
 2902043_x
 2902038_x
 2901886_x
 
-**RUNS IN TABLE STILL ONGOING**
+
 I would expect that 
 - stabiilty issues may arise when using student predictions, as the pseudo-labeling changes quickly
 - alpha=1 is suboptimal since we expect that the pretrained model produces worse pseudo-labels than the uda model
