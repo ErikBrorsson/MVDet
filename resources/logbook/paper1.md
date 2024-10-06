@@ -113,12 +113,26 @@ Bring in some of the supplementary material here, e.g. augmentation for baseline
 **Table 7**: Mean teacher alpha parameter. alpha=0 may yield instability, while alpha=1 doesn't allow for improving pseudo-labels over time.
 Show 2 benchmarks and have one row for epochs=5 and one for epochs=20. This shows that 0.99 is reasonable for epochs=5, while 0.999 may be beneficial for longer trainings.
 Since the number of epochs should probably be increased when data augmentation is used, it makes sense to make these runs with the full UDA method (using augmentation).
-**ONGOING**: runs on gmvds1c1 and mvx->wildtrack, 5 epochs. Baseline=pre+dv+3drom, uda=dv+3drom (max-pseudo=7, alpha_teacher=0.99, lambda=1.0, epochs=5)
+
+**slurm-2906340_458**: runs on gmvds1c1 and mvx->wildtrack, 5 epochs. Baseline=pre+dv+3drom, uda=dv+3drom (max-pseudo=7, lambda=1.0, epochs=5)
+| benchmark                   | baseline | alpha=0 | alpha = 0.9 | **alpha = 0.99** | alpha = 0.999 | alpha = 1 |
+| --------------------------- | -------- | ------- | ----------- | ---------------- | ------------- | --------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 85.3    | 88.0        | 88.2             | 83.5          | 79.0      |
+| multiviewx -> wildtrack_uda | 70.0     | 5.3     | 61.7        | 79.7             | 76.3          | 77.2      |
+
+**ONGOING 2907121_x**: runs on gmvds1c1 and mvx->wildtrack, 20 epochs. Baseline=pre+dv+3drom, uda=dv+3drom (max-pseudo=7, lambda=1.0, epochs=20)
+| benchmark                   | baseline | alpha=0 | alpha = 0.9 | alpha = 0.99 | **alpha = 0.999** | alpha = 1 |
+| --------------------------- | -------- | ------- | ----------- | ------------ | ----------------- | --------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 86.8    | 87.9        | 87.8         | 85.3              | 79.2      |
+| multiviewx -> wildtrack_uda | 70.0     | 11.7    | 65.4        | 79.1         | 81.2              | 77.3      |
 
 
 **Table 8**: max_pseudo_th, shwoing robustness to varying max-pseudo-th.
-**TODO**: exps on mvx -> wildtrack and gmvds1c1. Same as table 7, but varying max-pseudo-th instead. alpha_teacher=0.99 and 5 epochs should do.
-
+**ONGOING slurm-2907140_5x**: exps on mvx -> wildtrack and gmvds1c1. Same as table 7, but varying max-pseudo-th instead. alpha_teacher=0.99 and 5 epochs should do.
+| benchmark               | baseline | training method | k_size=3 | k_size = 5 | k_size = 7 | k_size=11 | k_size=15 |
+| ----------------------- | -------- | --------------- | -------- | ---------- | ---------- | --------- | --------- |
+| gmvd s1c1 -> multiviewx | 70.3     | 1               | 86.9     | 88.1       | 88.0       | 87.8      | 86.4      |
+| multiviewx -> wildtrack | 70.0     | 1               | 81.2     | 80.9       | 79.9       | 78.3      | 63.4      |
 
 
 
@@ -192,20 +206,12 @@ slurm-2905426_63x
 
 ## Ls + lambda*Lt
 
-| benchmark                   | baseline | lambda=0.1 | lambda = 0.5                   | **lambda = 1.0** | lambda = 2.0                  | linear ramp |
-| --------------------------- | -------- | ---------- | ------------------------------ | ---------------- | ----------------------------- | ----------- |
-| gmvd s1c1 -> multiviewx     | 70.3     | 85.3       | 88.4                           | 87.8             | 87.8                          | 88.8        |
-| multiviewx -> wildtrack_uda | 70.0     | 74.8       | 77.8 ongoing slurm-2895183_465 | 79.9             | 82.2 ongoin slurm-2895183_469 | 73.9        |
+**ONGOING 2907162_x** same as alpha teacher exps but 
+| benchmark                   | baseline | lambda=0.1 | lambda = 0.5 | **lambda = 1.0** | lambda = 2.0 | linear ramp |
+| --------------------------- | -------- | ---------- | ------------ | ---------------- | ------------ | ----------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 85.7       | 87.1         | 87.8             | 88.4         | 87.3        |
+| multiviewx -> wildtrack_uda | 70.0     | 75.4       | 77.7         | 79.7             | 79.1         | 77.2        |
 
-2890333_46x, 2890461_463, 2890443_467, 2890821_46x, 2895183_
-
-For these experiments, I use 
-baseline=pre+dv+3drom (from above baseline dev table)
-target loss weight = [0.1, 0.5, 1.0, 2.0, linearly increasing from 0.1 to 1.0]
-alpha_teacher = 0.99
-max-pseudo = True
-pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
-UDA_aug = dropview
 
 
 

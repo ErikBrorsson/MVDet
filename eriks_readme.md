@@ -2490,6 +2490,23 @@ I would expect that
 
 **fastest way to results: skip EMA TEACHER, run all exps with alpha_teacher==1, 5 epochs should be enough**
 
+| benchmark                   | baseline | lambda=0.1 | lambda = 0.5                   | **lambda = 1.0** | lambda = 2.0                  | linear ramp |
+| --------------------------- | -------- | ---------- | ------------------------------ | ---------------- | ----------------------------- | ----------- |
+| gmvd s1c1 -> multiviewx     | 70.3     | 85.3       | 88.4                           | 87.8             | 87.8                          | 88.8        |
+| multiviewx -> wildtrack_uda | 70.0     | 74.8       | 77.8 ongoing slurm-2895183_465 | 79.9             | 82.2 ongoin slurm-2895183_469 | 73.9        |
+
+2890333_46x, 2890461_463, 2890443_467, 2890821_46x, 2895183_
+
+For these experiments, I use 
+baseline=pre+dv+3drom (from above baseline dev table)
+target loss weight = [0.1, 0.5, 1.0, 2.0, linearly increasing from 0.1 to 1.0]
+alpha_teacher = 0.99
+max-pseudo = True
+pseudo-label-th = 0.3 for gmvd and 0.4 for multiviewx->wildtrack
+UDA_aug = dropview
+
+
+
 # TODO
 
 Reasons why MVDet is more suited for UDA than GMVD is?
