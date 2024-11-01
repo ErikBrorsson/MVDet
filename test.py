@@ -390,7 +390,7 @@ def main(args):
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
-    # cls_thres_array = [0.05]
+    cls_thres_array = [0.05]
     test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics

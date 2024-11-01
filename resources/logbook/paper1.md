@@ -4,9 +4,12 @@
 - [x] pseudo-labelling method (simple self-training without data augmentation. Here I choose appropriate pseudo-label thresholds for each benchmark and choose pseudo-labelling strategy) 
 - [x] uda development (After choosing ps-label-th and pseduo-labelling method above. I choose data augmentation and persp supervision. 5 epochs, 0.99 alpha teacher, 1.0 lambda, max_pseudo)
 - [x] UDA sota exps (running with 0.999 alpha teacher and 20 epochs boosts performance slightly on all but one benchmark)
-- [ ] alpha teacher experiments (analyze the importance of the teacher model, alpha ranging from 0 to 1. Also show how it is connected to the number of epochs.)
-- [ ] max-pseudo-threshold table (show that my pseudo-labelling method is robust to the choice of max-pseudo-threshold)
-- [ ] lambda table (show performance of different lambdas. It would make sense to design the loss as (1-lambda)*Ls + lambda*Lt but perhaps it is too late for that)
+- [x] alpha teacher experiments (analyze the importance of the teacher model, alpha ranging from 0 to 1. Also show how it is connected to the number of epochs.)
+- [x] max-pseudo-threshold table (show that my pseudo-labelling method is robust to the choice of max-pseudo-threshold)
+- [x] lambda table (show performance of different lambdas. It would make sense to design the loss as (1-lambda)*Ls + lambda*Lt but perhaps it is too late for that)
+- [x] ablation study
+- [ ] evaluate the baseline with the max-pseudo post processing technique. The reader may question whether this brings more performance gains than the actual UDA method.
+- [ ] Oracle experiments (supervised training on target dataset is a reasonable oracle)
 
 
 # Abstract
@@ -74,32 +77,41 @@ For the other things, that probably seems a bit more general (should work on all
 - with persp. sup
 
 Table 4: Ablation study of UDA components
-| description             | mean teacher | self-training | ps-label trick | weak-strong aug | uda persp. sup | MODA |
-| ----------------------- | ------------ | ------------- | -------------- | --------------- | -------------- | ---- |
-| baseline                |              |               |                |                 |                |      |
-| full uda                | x            | x             | x              | x               | x              | ?    |
-| uda w/o persp. sup      | x            | x             | x              | x               |                | ?    |
-| uda w/o weak-strong aug | x            | x             | x              |                 | x              | ?    |
-| uda w/o mean-teacher    |              | x             | x              | x               | x              | ?    |
-| uda w/o ps-label trick  | x            | x             |                | x               | x              | ?    |
+
+multiviewx -> Wildtrack, slurm-3024084_660, slurm-3024084_661, slurm-3024084_662
+| description                | self-training | mean teacher | weak-strong aug | MODA | full res                                                                               |
+| -------------------------- | ------------- | ------------ | --------------- | ---- | -------------------------------------------------------------------------------------- |
+| baseline                   |               |              |                 | 70.0 |                                                                                        |
+| naive self-training        | x             |              |                 | 75.0 | max_moda: 75.0%, max_modp: 73.3%, max_precision: 92.0%, max_recall: 82.1%, epoch: 2.0% |
+| mean teacher self-training | x             | x            |                 | 78.7 | max_moda: 78.7%, max_modp: 74.2%, max_precision: 92.1%, max_recall: 86.0%, epoch: 3.0% |
+| full uda                   | x             | x            | x               | 85.4 | max_moda: 85.4%, max_modp: 75.3%, max_precision: 96.5%, max_recall: 88.7%, epoch: 4.0% |
+
+gmvds1c1 -> multiviewx, slurm-3024089_663, slurm-3024089_664, slurm-3024089_665
+| description                | self-training | mean teacher | weak-strong aug | MODA | full res                                                                               |
+| -------------------------- | ------------- | ------------ | --------------- | ---- | -------------------------------------------------------------------------------------- |
+| baseline                   |               |              |                 | 70.3 |                                                                                        |
+| naive self-training        | x             |              |                 | 76.6 | max_moda: 76.6%, max_modp: 76.0%, max_precision: 91.5%, max_recall: 84.5%, epoch: 5.0% |
+| mean teacher self-training | x             | x            |                 | 87.2 | max_moda: 87.2%, max_modp: 76.6%, max_precision: 97.6%, max_recall: 89.4%, epoch: 3.0% |
+| full uda                   | x             | x            | x               | 89.0 | max_moda: 89.0%, max_modp: 78.4%, max_precision: 97.0%, max_recall: 91.8%, epoch: 4.0% |
 
 # Analysis of extra interesting/important components
 
 Table 5: Naive pseudo-labelling vs max_pseudo-labelling
 Baseline: pre+dv+3drom (no mvaug, no persp sup)
 UDA: no augmentation, no persp sup, max_pseudo_th=7, lambda=1.0, alpha_teacher=0.99, epochs=5
-| benchmark                    | baseline         | uda naive                                   | uda max_pseudo                              |
-| ---------------------------- | ---------------- | ------------------------------------------- | ------------------------------------------- |
-| multiviewx -> wildtrack      | 70.0 2883235_356 | 19.9 (th=0.2), 42.5 (th=0.3), 78.6 (th=0.4) | 55.8 (th=0.2), 70.8 (th=0.3), 75.8 (th=0.4) |
-| wildtrack -> multiviewx      | 35.9 2883159_416 | 0.0 (th=0.2), 48.1 (th=0.3), 47.9 (th=0.4)  | 73.2 (th=0.2), 68.7 (th=0.3), 43.5 (th=0.4) |
-| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 0 (th=0.2), 73.8 (th=0.3), 78.5 (th=0.4)    | 65.3 (th=0.2), 78.6 (th=0.3), 77.7 (th=0.4) |
-| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 0.4 (th=0.2), 57.9 (th=0.3), 73.4 (th=0.4)  | 71.0 (th=0.2), 79.8 (th=0.3), 60.6 (th=0.4) |
-| multiviewx cam adapt         | 54.7 2883235_446 | 15.5 (th=0.2), 40.6 (th=0.3), 55.2 (th=0.4) | 58.1 (th=0.2), 63.1 (th=0.3), 56.3 (th=0.4) |
-| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 69.1 (th=0.2), 87.8 (th=0.3), 81.5 (th=0.4) | 73.4 (th=0.2), 87.8 (th=0.3), 81.3 (th=0.4) |
-| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 0 (th=0.2), 74.9 (th=0.3), 82.8 (th=0.4)    | 79.9 (th=0.2), 88.1 (th=0.3), 80.1 (th=0.4) |
+| benchmark                    | baseline         | uda naive                                                  | uda max_pseudo                                          |
+| ---------------------------- | ---------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| multiviewx -> wildtrack      | 70.0 2883235_356 | 19.9 (th=0.2), 42.5 (th=0.3), 78.6 (th=0.4), 72.2 (th=0.5) | 55.8 (th=0.2), 70.8 (th=0.3), 75.8 (th=0.4), - (th=0.5) |
+| wildtrack -> multiviewx      | 35.9 2883159_416 | 0.00 (th=0.2), 48.1 (th=0.3), 47.9 (th=0.4), - (th=0.5)    | 73.2 (th=0.2), 68.7 (th=0.3), 43.5 (th=0.4), - (th=0.5) |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2 2883159_436 | 0.00 (th=0.2), 73.8 (th=0.3), 78.5 (th=0.4), - (th=0.5)    | 65.3 (th=0.2), 78.6 (th=0.3), 77.7 (th=0.4), - (th=0.5) |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3 2883159_426 | 0.40 (th=0.2), 57.9 (th=0.3), 73.4 (th=0.4), - (th=0.5)    | 71.0 (th=0.2), 79.8 (th=0.3), 60.6 (th=0.4), - (th=0.5) |
+| multiviewx cam adapt         | 54.7 2883235_446 | 15.5 (th=0.2), 40.6 (th=0.3), 55.2 (th=0.4), - (th=0.5)    | 58.1 (th=0.2), 63.1 (th=0.3), 56.3 (th=0.4), - (th=0.5) |
+| gmvd s1c1 -> multiviewx      | 70.3 2861528_392 | 69.1 (th=0.2), 87.8 (th=0.3), 81.5 (th=0.4), - (th=0.5)    | 73.4 (th=0.2), 87.8 (th=0.3), 81.3 (th=0.4), - (th=0.5) |
+| gmvd s1c2 -> multiviewx      | 66.9 2883159_406 | 0.00 (th=0.2), 74.9 (th=0.3), 82.8 (th=0.4), - (th=0.5)    | 79.9 (th=0.2), 88.1 (th=0.3), 80.1 (th=0.4), - (th=0.5) |
 2903285_x
 2903311_x
 2902658_x
+2911771_6x
 
 Figure 1: comparison pseudo-labels between naive pseudo-labelling and max_pseudo-labelling.
 This will help me explain why we introduce max_pseudo. 
@@ -172,6 +184,7 @@ I would like to motivate the choices for the UDA method used:
 
 Baseline: pre+dv+3drom (no mvaug, no persp sup)
 UDA: max_pseudo_th=7, lambda=1.0, alpha_teacher=0.99, epochs=5
+slurm-2904138_49x, slurm-2904143_50x, slurm-2904220_52x, slurm-2904225_53x, slurm-2904231_54x, slurm-2904236_47x, slurm-2904241_48x
 | benchmark                    | baseline         | jobscript | ps-label-th | base uda** | base+dv | base+mv | base+3dr | base + persp | base+dv+mv+3drom | base+dv+3drom |
 | ---------------------------- | ---------------- | --------- | ----------- | ---------- | ------- | ------- | -------- | ------------ | ---------------- | ------------- |
 | multiviewx -> wildtrack      | 70.0 2883235_356 | 490-494   | 0.4         | 76.8       | 79.7    | 80.8    | 85.0     | 75.5         | 81.8             | 84.7          |
@@ -192,6 +205,7 @@ mv: 5/7, 1/7
 Try ablating mv aug just since it wasnt used in baseline (and because it's complicated) => mv aug degrades performance. 
 **use base+dv+3DROM**
 
+Can it be beneficial with longer trainings? Try 20 epochs with alpha_teacher=0.999 (include this in appendix?)
 jobscripts 630-636
 slurm-2905426_63x
 | benchmark                    | baseline         | ps-label-th | base+dv+3drom (20 epochs, 0.999 ema) |
@@ -206,12 +220,64 @@ slurm-2905426_63x
 
 ## Ls + lambda*Lt
 
-**ONGOING 2907162_x** same as alpha teacher exps but 
+**ONGOING 2907162_x** same as alpha teacher exps but alpha_teacher=0.99
 | benchmark                   | baseline | lambda=0.1 | lambda = 0.5 | **lambda = 1.0** | lambda = 2.0 | linear ramp |
 | --------------------------- | -------- | ---------- | ------------ | ---------------- | ------------ | ----------- |
 | gmvd s1c1 -> multiviewx     | 70.3     | 85.7       | 87.1         | 87.8             | 88.4         | 87.3        |
 | multiviewx -> wildtrack_uda | 70.0     | 75.4       | 77.7         | 79.7             | 79.1         | 77.2        |
 
 
+
+
+# formatting
+| benchmark                    | base | base+pre | base+pre+persp | base+pre+dv | base+pre+mv | base+pre+3drom | base+pre+dv+mv+3drom | base+pre+dv+3drom |
+| ---------------------------- | ---- | -------- | -------------- | ----------- | ----------- | -------------- | -------------------- | ----------------- |
+| multiviewx -> wildtrack      | 46.3 | 72.4     | 72.2           | 73.2        | 67.1        | 70.4           | 67.8                 | 70.0              |
+| wildtrack -> multiviewx      | 16.9 | 32.0     | 33.3           | 35.0        | 30.1        | 36.1           | 32.1                 | 35.9              |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 64.9 | 68.7     | 68.9           | 70.0        | 71.3        | 74.6           | 72.3                 | 75.2              |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 46.6 | 62.1     | 56.9           | 65.5        | 59.6        | 66.2           | 66.8                 | 72.3              |
+| multiviewx cam adapt         | 28.1 | 46.2     | 47.7           | 51.2        | 52.5        | 52.5           | 53.7                 | 54.7              |
+| gmvd s1c1 -> multiviewx      | 35.3 | 60.5     | 66.0           | 65.1        | 64.3        | 70.8           | 70.7                 | 70.3              |
+| gmvd s1c2 -> multiviewx      | 35.1 | 60.0     | 60.3           | 57.6        | 65.4        | 64.7           | 68.4                 | 66.9              |
+
+
+| benchmark                    | baseline | ps-label-th | base uda** | base+dv | base+mv | base+3dr | base + persp | base+dv+mv+3drom | base+dv+3drom |
+| ---------------------------- | -------- | ----------- | ---------- | ------- | ------- | -------- | ------------ | ---------------- | ------------- |
+| multiviewx -> wildtrack      | 70.0     | 0.4         | 76.8       | 79.7    | 80.8    | 85.0     | 75.5         | 81.8             | 84.7          |
+| wildtrack -> multiviewx      | 35.9     | 0.2         | 73.1       | 77.4    | 76.0    | 79.8     | 72.8         | 80.7             | 82.4          |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 75.2     | 0.3         | 78.0       | 79.3    | 79.4    | 79.2     | 78.2         | 79.0             | 79.4          |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 72.3     | 0.3         | 79.9       | 81.9    | 80.6    | 79.5     | 79.9         | 80.0             | 81.4          |
+| multiviewx cam adapt         | 54.7     | 0.3         | 62.9       | 63.6    | 65.1    | 63.3     | 62.8         | 62.6             | 64.2          |
+| gmvd s1c1 -> multiviewx      | 70.3     | 0.3         | 88.0       | 88.3    | 87.1    | 88.8     | 87.3         | 87.0             | 89.0          |
+| gmvd s1c2 -> multiviewx      | 66.9     | 0.3         | 87.9       | 87.8    | 87.7    | 89.1     | 87.8         | 87.4             | 88.8          |
+
+
+Interesting litterature:
+1. Multi-View Domain Adaptive Object Detection on Camera Networks: they study source free domain adaptation
+2. a deep topdown method: 
+3. ppm: they use a highly accurate instance segmentor in each view, and then fuse the predicted outlines of pedestrians in bev
+
+
+
+| benchmark                    | baseline full results                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| multiviewx -> wildtrack      | max_moda: 70.0%, max_modp: 73.6%, max_precision: 89.2%, max_recall: 79.6%, epoch: 5.0% 2883235_356  |
+| wildtrack -> multiviewx      | max_moda: 35.9%, max_modp: 66.4%, max_precision: 82.8%, max_recall: 45.2%, epoch: 11.0% 2883159_416 |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | max_moda: 75.2%, max_modp: 71.1%, max_precision: 91.5%, max_recall: 82.9%, epoch: 17.0% 2883159_436 |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | max_moda: 72.3%, max_modp: 68.1%, max_precision: 88.1%, max_recall: 83.5%, epoch: 9.0% 2883159_426  |
+| multiviewx cam adapt         | max_moda: 54.7%, max_modp: 69.0%, max_precision: 89.8%, max_recall: 61.7%, epoch: 15.0% 2883235_446 |
+| gmvd s1c1 -> multiviewx      | max_moda: 70.3%, max_modp: 74.5%, max_precision: 89.7%, max_recall: 79.5%, epoch: 16.0% 2861528_392 |
+| gmvd s1c2 -> multiviewx      | max_moda: 66.9%, max_modp: 74.0%, max_precision: 85.8%, max_recall: 80.1%, epoch: 16.0% 2883159_406 |
+
+
+| benchmark                    | uda full results (5 epochs)                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| multiviewx -> wildtrack      | slurm-2904754_616 max_moda: 84.7%, max_modp: 75.6%, max_precision: 94.1%, max_recall: 90.3%, epoch: 4.0% |
+| wildtrack -> multiviewx      | slurm-2904754_614 max_moda: 82.4%, max_modp: 75.4%, max_precision: 93.3%, max_recall: 88.8%, epoch: 5.0% |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | slurm-2904754_610 max_moda: 79.4%, max_modp: 77.8%, max_precision: 96.3%, max_recall: 82.6%, epoch: 5.0% |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | slurm-2904754_612 max_moda: 81.4%, max_modp: 68.8%, max_precision: 95.9%, max_recall: 85.1%, epoch: 1.0% |
+| multiviewx cam adapt         | slurm-2904754_622 max_moda: 64.2%, max_modp: 73.0%, max_precision: 91.3%, max_recall: 71.0%, epoch: 5.0% |
+| gmvd s1c1 -> multiviewx      | slurm-2904754_618 max_moda: 89.0%, max_modp: 79.3%, max_precision: 98.0%, max_recall: 90.8%, epoch: 5.0% |
+| gmvd s1c2 -> multiviewx      | slurm-2904754_620 max_moda: 88.8%, max_modp: 76.9%, max_precision: 97.2%, max_recall: 91.5%, epoch: 5.0% |
 
 
