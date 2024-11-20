@@ -43,7 +43,7 @@ class Wildtrack(VisionDataset):
 
         print(self.root)
         print(f'Dataset Name : {self.dataset_name}')
-        print(f'Cameras : {self.num_cam}, Frames : {self.num_frames}')
+        print(f'Cameras : {self.cameras}, Frames : {self.num_frames}')
         print(f'Image Shape(H,W) : {self.img_shape}')
         print(f'Grid Shape(rows,cols) : {self.world_grid_shape}')
         print(f'Grid Cell(in cm) : {self.grid_cell}cm i.e {self.grid_cell/100}m')

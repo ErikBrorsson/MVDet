@@ -27,6 +27,57 @@ from multiview_detector.evaluation.evaluate import evaluate
 from multiview_detector.utils.nms import nms
 from multiview_detector.datasets.concat_dataset import ConcatDataset
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import cv2
+
+def display_cam_layout(img, view_indicator_list):
+    temp = 255*img
+    temp = np.maximum(temp, 0)
+    temp = np.minimum(255, temp)
+    temp = temp.astype(np.uint8)
+    drawing = np.repeat(np.expand_dims(temp, axis=2), 3, axis=2)
+
+    color_list = [
+        (255,0,0),
+        (0,255,0),
+        (0,0,255),
+        (127,127,0),
+        (0,127,127),
+        (127,0,127),
+        (255,255,0)
+    ]
+
+    color_list = [
+        (0,255,0),
+        (0,0,255),
+        (255,127,0),
+        (0,255,127),
+        (127,0,255),
+        (255,255,0),
+        (255,0,255)
+    ]
+
+    for view_index, view in enumerate(view_indicator_list):
+        temp = (255*view[0][0,:,:].detach().cpu().numpy()).astype(np.uint8)
+        contours, hierarchy = cv2.findContours(temp, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        drawing=cv2.drawContours(drawing, contours, -1, color_list[view_index], 1)
+
+    c_grid = [
+        [170, 330],
+        [930, 100],
+        [700, 340],
+        [120, 290],
+        [520, 50],
+        [10, 80],
+        [350, 358],
+    ]
+
+    for i, _ in enumerate(view_indicator_list):
+        drawing = cv2.putText(drawing, f'C{i+1}', (c_grid[i][0], c_grid[i][1]), cv2.FONT_HERSHEY_SIMPLEX,
+                              1, color_list[i], 2, cv2.LINE_AA)  
+
+    return drawing
 
 def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, gt_fpath=None):
     model.eval()
@@ -39,7 +90,7 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
     for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, proj_mats_mvaug_features, dataset_name) in tqdm(enumerate(data_loader)):
         with torch.no_grad():
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
-            map_res, imgs_res, _ = model(data, proj_mats, config_dict, visualize=False)
+            map_res, imgs_res, (world_features, img_features, view_indicator_list) = model(data, proj_mats, config_dict, visualize=False)
         if res_fpath is not None:
             for cls_thres in cls_thres_array:
                 map_grid_res = map_res.detach().cpu().squeeze()
@@ -66,6 +117,19 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         recall = true_positive / (true_positive + false_negative + 1e-4)
         precision_s.update(precision)
         recall_s.update(recall)
+
+        fig = plt.figure(figsize=(16,9))
+        map_res_view = display_cam_layout(map_res.cpu().detach().numpy().squeeze(), view_indicator_list)
+        plt.imshow(map_res_view)
+        plt.savefig(os.path.join(os.path.dirname(res_fpath), f'map_{batch_idx}.jpg'))
+        plt.close(fig)
+
+        fig = plt.figure(figsize=(16,9))
+        label_view = display_cam_layout(criterion._traget_transform(map_res, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
+                    .cpu().detach().numpy().squeeze(), view_indicator_list)
+        plt.imshow(label_view)
+        plt.savefig(os.path.join(os.path.dirname(res_fpath), f'label_{batch_idx}.jpg'))
+        plt.close(fig)
 
     moda = 0
     moda_list = []
@@ -390,7 +454,7 @@ def main(args):
     #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
-    cls_thres_array = [0.05]
+    # cls_thres_array = [0.2]
     test_loss, metrics, metrics_04 = test(model, test_loader, cls_thres_array, criterion,
                                                                args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
     (moda, modp, precision, recall, cls_thres_var) = metrics

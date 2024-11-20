@@ -8,8 +8,50 @@
 - [x] max-pseudo-threshold table (show that my pseudo-labelling method is robust to the choice of max-pseudo-threshold)
 - [x] lambda table (show performance of different lambdas. It would make sense to design the loss as (1-lambda)*Ls + lambda*Lt but perhaps it is too late for that)
 - [x] ablation study
-- [ ] evaluate the baseline with the max-pseudo post processing technique. The reader may question whether this brings more performance gains than the actual UDA method.
-- [ ] Oracle experiments (supervised training on target dataset is a reasonable oracle)
+- [x] Oracle experiments (supervised training on target dataset is a reasonable oracle)
+
+# Introduction
+- [x] add references to first paragraph
+- [x] explain how our method differs from Lima et al more concretely? E.g., naive MT implementation doesn't perform adequately on all benchmarks => we solve it with new post-processing
+- [x] lägg till "kameorr" i figur 1 för att poängtera att det är en multi-kamera metod?
+- [x] lägg till referenser
+  
+# related work
+- [x] 2.1 diskutera de olika dataseten som GMVD använder? Eller räcker det i princip att säga att nuvarande metoder inte generaliserar väl?
+- [x] 2.1 första stycket måste revideras
+- [x] 2.1 skriv klart
+- [x] 2.2 lägg till fler referenser till första stycket
+
+# Method
+- [x] Beskriv i varje sektion hur vår metod relaterar till tidigare arbete? Tex
+    3.1: vi använder gmvd för att den är simpel och generaliserbar, 
+    3.2: vi använder sota metoder från monokulär UDA OD
+    3.3: vi studerar kvalitén av pseudo-etiketter eftersom pseudo-label noise är ett känt problem för self-training
+- [x] 3.3 fixa pseudo-labelling figuren
+- [x] 3.3 snygga till ekvationen som beskriver vår local-max metod
+- [ ] 3.3 kd i ekv 6 är egentligen (kd - 1)/2
+- [ ] lägg till referenser
+
+# results
+- [x] 4.5 In 4.5, we motivate K-d, alpha, post-processing, data augmentation. Unless stated otherw., the uda consists of kd=7, alpha=0.99, and no data augmentation
+- [x] 4.5 create data augmentation table
+- [x] beskriv experimenten i varje sektion
+- [x] fixa Table 5. Characteristics of pseudo-labels
+- [x] Fixa Table 8. data augmetnation
+- [x] Skriv momentum x och regularization x för SGD
+- [x] beskriv att local-max kerneln appliceras på nedskalade prediktioner så att kd=7 motsvarar kd=25 (jämför med nms 20)
+- [x] fixa tabell 1.
+    gruppera efter träningsdata: (1) tränad på labeled multiviewx, (2) tränad på labeled MVX och unlabeled WLDTRCK, (3) tränad på labeled MVX, unlabeled WLDTRCK och extra data
+    gruppera efter metoder som är godkända under min UDA definition: (1) metoder som använder (subset av) labeled MVX och unlabeled WLDTRCK, (2) metoder som använder extern data
+- [x] bold numbers i alla tabeller?
+- [x] använda Baseline, Oracle och MVUDA (ours) i tabell 1 & 2
+- [x] Table 4,6,7,8: behöver det stå MODA i tabellen? Fattar man baseline?
+- [x] Table 5: ändra method till post-processing? Och skriv vanilla vs local-max
+  
+# supplementary
+- [ ] lägg till tabell för longer trainings
+- [ ] lägg till qualitative examples
+- [ ] skriv klart
 
 
 # Abstract
@@ -270,6 +312,54 @@ Interesting litterature:
 | gmvd s1c2 -> multiviewx      | max_moda: 66.9%, max_modp: 74.0%, max_precision: 85.8%, max_recall: 80.1%, epoch: 16.0% 2883159_406 |
 
 
+| benchmark                    | baseline dir               | uda dir                    |
+| ---------------------------- | -------------------------- | -------------------------- |
+| mvx -> wildtrack             | 2024-09-30_15-13-21-040486 | 2024-11-01_13-18-59-051720 |
+| wildtrack -> mvx             | 2024-09-30_15-06-08-691207 | 2024-10-04_14-40-01-332310 |
+| wildtrack 2,4,5,6 -> 1,3,5,7 | 2024-09-30_15-05-58-086778 | 2024-10-04_14-39-55-650960 |
+| wildtrack 1,3,5,7 -> 2,4,5,6 | 2024-09-30_15-05-58-086427 | 2024-10-04_14-39-57-721872 |
+| multiviewx cam adapt         | 2024-09-30_15-13-10-806184 | 2024-10-04_14-39-56-552892 |
+| gmvd s1c1 -> multiviewx      | 2024-09-27_15-42-29-321121 | 2024-11-01_13-25-25-014100 |
+| gmvd s1c2 -> multiviewx      | 2024-09-30_15-07-08-248721 | 2024-10-04_14-41-02-026734 |
+
+mvx -> wildtrack
+logdir=/mnt/2024-09-30_15-13-21-040486
+logdir_uda=/mnt/2024-11-01_13-18-59-051720
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/Wildtrack --dataset wildtrack --avgpool
+
+wildtrack 2,4,5,6 -> 1,3,5,7
+logdir=/mnt/2024-09-30_15-05-58-086778
+logdir_uda=/mnt/2024-10-04_14-39-55-650960
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/Wildtrack --dataset wildtrack --avgpool --cam_adapt --trg_cams 1,3,5,7
+
+wildtrack 1,3,5,7 -> 2,4,5,6
+logdir=/mnt/2024-09-30_15-05-58-086427
+logdir_uda=/mnt/2024-10-04_14-39-57-721872
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/Wildtrack --dataset wildtrack --avgpool --cam_adapt --trg_cams 2,4,5,6
+
+
+wildtrack -> mvx
+logdir=/mnt/2024-09-30_15-06-08-691207
+logdir_uda=/mnt/2024-10-04_14-40-01-332310
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/MultiviewX --dataset multiviewx --avgpool
+
+multiviewx cam adapt
+logdir=/mnt/2024-09-30_15-13-10-806184
+logdir_uda=/mnt/2024-10-04_14-39-56-552892
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/MultiviewX --dataset multiviewx --avgpool --cam_adapt --trg_cams 3,4,5
+    
+gmvd1 -> mvx
+logdir=/mnt/2024-09-27_15-42-29-321121
+logdir_uda=/mnt/2024-11-01_13-25-25-014100
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/MultiviewX --dataset multiviewx --avgpool
+
+gmvd2 -> mvx
+logdir=/mnt/2024-09-30_15-07-08-248721
+logdir_uda=/mnt/2024-10-04_14-41-02-026734
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/MultiviewX --dataset multiviewx --avgpool
+
+
+
 | benchmark                    | uda full results (5 epochs)                                                                              |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
 | multiviewx -> wildtrack      | slurm-2904754_616 max_moda: 84.7%, max_modp: 75.6%, max_precision: 94.1%, max_recall: 90.3%, epoch: 4.0% |
@@ -281,3 +371,11 @@ Interesting litterature:
 | gmvd s1c2 -> multiviewx      | slurm-2904754_620 max_moda: 88.8%, max_modp: 76.9%, max_precision: 97.2%, max_recall: 91.5%, epoch: 5.0% |
 
 
+
+artiklar som använder vanlig NMS
+- mvdet
+- gmvd
+- 3drom
+
+
+Provide feed back on this CVPR introduction, in terms of clarity, style and formulation?

@@ -15,6 +15,12 @@ python test.py --log_dir /mnt/default/2024-07-02_09-33-24 --data_path /data/Wild
 
 python test.py --log_dir /mnt/2024-09-13_08-36-25-800234 --data_path /data/MultiviewX --dataset multiviewx --avgpool
 
+
+logdir=/mnt/2024-09-30_15-13-21-040486
+logdir_uda=/mnt/2024-11-01_13-18-59-051720
+python qualitative_results.py --log_dir $logdir --log_dir_uda $logdir_uda --data_path /data/Wildtrack --dataset wildtrack --avgpool
+
+
 rsync -r erikbro@alvis1:/mimer/NOBACKUP/groups/naiss2023-23-214/mvdet/results/logs/wildtrack_frame/default mnt0/
 
 
