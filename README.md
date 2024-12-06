@@ -1,85 +1,69 @@
-# Multiview Detection with Feature Perspective Transformation [[Website](https://hou-yz.github.io/publication/2020-eccv2020-mvdet)] [[arXiv](https://arxiv.org/abs/2007.07247)]
-
+# MVUDA: Unsupervised Domain Adaptation for Multi-view Pedestrian Detection [[arXiv](https://arxiv.org/abs/2412.04117)]
 ```
-@inproceedings{hou2020multiview,
-  title={Multiview Detection with Feature Perspective Transformation},
-  author={Hou, Yunzhong and Zheng, Liang and Gould, Stephen},
-  booktitle={ECCV},
-  year={2020}
+@misc{brorsson2024mvudaunsuperviseddomainadaptation,
+      title={MVUDA: Unsupervised Domain Adaptation for Multi-view Pedestrian Detection}, 
+      author={Erik Brorsson and Lennart Svensson and Kristofer Bengtsson and Knut Åkesson},
+      year={2024},
+      eprint={2412.04117},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2412.04117}, 
 }
 ```
 
-Please visit [link](https://github.com/hou-yz/MVDeTr) for our new work MVDeTr, a transformer-powered multiview detector that achieves new state-of-the-art!
-
-## Overview
-We release the PyTorch code for **MVDet**, a state-of-the-art multiview pedestrian detector; and **MultiviewX** dataset, a novel synthetic multiview pedestrian detection datatset.
-
-Wildtrack             |  MultiviewX
-:-------------------------:|:-------------------------:
-![alt text](https://hou-yz.github.io/images/eccv2020_mvdet_wildtrack_demo.gif "Detection results on Wildtrack dataset")  |  ![alt text](https://hou-yz.github.io/images/eccv2020_mvdet_multiviewx_demo.gif "Detection results on MultiviewX dataset")
-
- 
-## Content
-- [MultiviewX dataset](#multiviewx-dataset)
-    * [Download MultiviewX](#download-multiviewx)
-    * [Build your own version](#build-your-own-version)
-- [MVDet Code](#mvdet-code)
-    * [Dependencies](#dependencies)
-    * [Data Preparation](#data-preparation)
-    * [Training](#training)
+We address multi-view pedestrian detection in a setting where labeled data is collected using a multi-camera setup different from the one used for testing. While recent multi-view pedestrian detectors perform well on the camera rig used for training, their performance declines when applied to a different setup.
+To facilitate seamless deployment across varied camera rigs, we propose an unsupervised domain adaptation (UDA) method that adapts the model to new rigs without requiring additional labeled data. Specifically, we leverage the mean teacher self-training framework with a novel pseudo-labeling technique tailored to multi-view pedestrian detection. This method achieves state-of-the-art performance on multiple benchmarks, including MultiviewX$\rightarrow$Wildtrack. 
+Unlike previous methods, our approach eliminates the need for external labeled monocular datasets, thereby reducing reliance on labeled data. Extensive evaluations demonstrate the effectiveness of our method and validate key design choices. By enabling robust adaptation across camera setups, our work enhances the practicality of multi-view pedestrian detectors and establishes a strong UDA baseline for future research.
 
 
-
-## MultiviewX dataset
-Using pedestrian models from [PersonX](https://github.com/sxzrt/Dissecting-Person-Re-ID-from-the-Viewpoint-of-Viewpoint), in Unity, we build a novel synthetic dataset **MultiviewX**. 
-
-![alt text](https://hou-yz.github.io/images/eccv2020_mvdet_multiviewx_dataset.jpg "Visualization of MultiviewX dataset")
-
-MultiviewX dataset covers a square of 16 meters by 25 meters. We quantize the ground plane into a 640x1000 grid. There are 6 cameras with overlapping field-of-view in MultiviewX dataset, each of which outputs a 1080x1920 resolution image. We also generate annotations for 400 frames in MultiviewX at 2 fps (same as Wildtrack). On average, 4.41 cameras are covering the same location. 
-
-### Download MultiviewX
-Please refer to this [link](https://1drv.ms/u/s!AtzsQybTubHfhYZ9Ghhahbp20OX9kA?e=Hm9Xdg) for download.
-
-### Build your own version
-Please refer to this [repo](https://github.com/hou-yz/MultiviewX) for a detailed guide & toolkits you might need.
+<img src="resources/images/mvuda.png" width=40% height=40%>
 
 
-
-
-## MVDet Code
-This repo is dedicated to the code for **MVDet**. 
-
-![alt text](https://hou-yz.github.io/images/eccv2020_mvdet_architecture.png "Architecture for MVDet")
+## MVUDA Code
 
 ### Dependencies
-This code uses the following libraries
-- python 3.7+
-- pytorch 1.4+ & tochvision
-- numpy
-- matplotlib
-- pillow
-- opencv-python
-- kornia
-- matlab & matlabengine (required for evaluation) (see this [link](/multiview_detector/evaluation/README.md) for detailed guide)
+We conduct all our experiments in a docker environment (Docker version 24.0.2).  
+Please build from the provided Dockerfile.
 
 ### Data Preparation
-By default, all datasets are in `~/Data/`. We use [MultiviewX](#multiviewx-dataset) and [Wildtrack](https://www.epfl.ch/labs/cvlab/data/data-wildtrack/) in this project. 
-
-Your `~/Data/` folder should look like this
+We use [Wildtrack](https://www.epfl.ch/labs/cvlab/data/data-wildtrack/), [MultiviewX](https://github.com/hou-yz/MVDet?tab=readme-ov-file#multiviewx-dataset) and [GMVD](https://github.com/jeetv/GMVD_dataset) in this project. Follow the instructions in the respective links to download the data. 
+ 
+In our code, we further assume the existence of a config.json file for Wildtrack and MultiviewX, since we use the dataloader of GMVD.
+We also use a csv file for the case of GMVD describing which subsets of the GMVD dataset that is used.
+Copy (and rename) our config files from [here](configs/datasets) to the respective data folder.
+The data folder should look like this:
 ```
 Data
-├── MultiviewX/
-│   └── ...
-└── Wildtrack/ 
+├── Wildtrack/ 
     └── ...
+    └── config.json
+└── MultiviewX/
+    └── ...
+    └── config.json
+└── GMVD/
+    └── ...
+    └── scene1_config1.csv
+    └── scene1_config2.csv
 ```
 
 ### Training
-In order to train classifiers, please run the following,
-```shell script
-CUDA_VISIBLE_DEVICES=0,1 python main.py -d wildtrack
-``` 
-This should automatically return evaluation results similar to the reported 88.2\% MODA on Wildtrack dataset. 
+In order to train the model, run the below command with the desired config (examples are provided [here](configs/experiments)):
 
-### Pre-trained models
-You can download the checkpoints at this [link](https://1drv.ms/u/s!AtzsQybTubHfhNRE9Iy8IjsGMXB17A?e=CCqhIQ).
+python main.py --config "YOUR CONFIG"
+
+
+For example, configs/experiments/gmvd1_mvx_uda.json should yield similar results as presented below and reported in the paper on GMVD1->MultiviewX (89.0 MODA).
+
+### Results (on GMVD1->MultiviewX)
+
+MVUDA results:
+
+ ![alt text](resources/videos/GMVD1->MultiviewX_MVUDA.gif "MVUDA results") 
+ 
+ 
+ Comparison with the baseline:
+
+  ![alt text](resources/videos/movie.gif "baseline comparison") 
+
+
+

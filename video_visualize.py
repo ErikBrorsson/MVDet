@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+# modified by Erik Brorsson
 import os
 
 os.environ['OMP_NUM_THREADS'] = '1'

@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+# modified by Erik Brorsson
 import os
 
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -20,7 +22,6 @@ from multiview_detector.models.no_joint_conv_variant import NoJointConvVariant
 from multiview_detector.utils.logger import Logger
 from multiview_detector.utils.draw_curve import draw_curve2
 from multiview_detector.utils.image_utils import img_color_denormalize
-from multiview_detector.trainer import PerspectiveTrainer, Augmentation
 from multiview_detector.utils.meters import AverageMeter
 import time
 from multiview_detector.evaluation.evaluate import evaluate
@@ -159,9 +160,7 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
             recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath_i), os.path.abspath(gt_fpath),
                                                         data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-            # If you want to use the unofiicial python evaluation tool for convenient purposes.
-            # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-            #                                             data_loader.dataset.base.__name__)
+
             print("cls_thres: ", cls_thres)
             print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
@@ -197,75 +196,6 @@ def test(model, data_loader, cls_thres_array, criterion, alpha, res_fpath=None, 
         losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
 
     return losses / len(data_loader), (moda, modp, precision, recall, max_cls_thres), (moda_04, modp_04, precision_04, recall_04, 0.4)
-
-    # model.eval()
-    # losses = 0
-    # precision_s, recall_s = AverageMeter(), AverageMeter()
-    # all_res_list = []
-    # t0 = time.time()
-    # if res_fpath is not None:
-    #     assert gt_fpath is not None
-    # for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
-    #     with torch.no_grad():
-    #         config_dict = data_loader.dataset.dicts[dataset_name[0]]
-    #         map_res, imgs_res, (world_features, img_features, view_indicator_list) = model(data, proj_mats, config_dict)
-    #     if res_fpath is not None:
-    #         map_grid_res = map_res.detach().cpu().squeeze()
-    #         v_s = map_grid_res[map_grid_res > cls_thres].unsqueeze(1)
-    #         grid_ij = (map_grid_res > cls_thres).nonzero()
-    #         if data_loader.dataset.dicts[dataset_name[0]]['base'].indexing == 'xy':
-    #             grid_xy = grid_ij[:, [1, 0]]
-    #         else:
-    #             grid_xy = grid_ij
-    #         all_res_list.append(torch.cat([torch.ones_like(v_s) * frame, grid_xy.float() *
-    #                                     data_loader.dataset.dicts[dataset_name[0]]['base'].grid_reduce, v_s], dim=1))
-
-    #     loss = 0
-    #     for img_res, img_gt in zip(imgs_res, imgs_gt):
-    #         loss += criterion(img_res, img_gt.to(img_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].img_kernel)
-    #     loss = criterion(map_res, map_gt.to(map_res.device), data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel) + \
-    #         loss / len(imgs_gt) * alpha
-    #     losses += loss.item()
-    #     pred = (map_res > cls_thres).int().to(map_gt.device)
-    #     true_positive = (pred.eq(map_gt) * pred.eq(1)).sum().item()
-    #     false_positive = pred.sum().item() - true_positive
-    #     false_negative = map_gt.sum().item() - true_positive
-    #     precision = true_positive / (true_positive + false_positive + 1e-4)
-    #     recall = true_positive / (true_positive + false_negative + 1e-4)
-    #     precision_s.update(precision)
-    #     recall_s.update(recall)
-
-    # t1 = time.time()
-    # t_epoch = t1 - t0
-
-    # moda = 0
-    # if res_fpath is not None:
-    #     all_res_list = torch.cat(all_res_list, dim=0)
-    #     np.savetxt(os.path.abspath(os.path.dirname(res_fpath)) + '/all_res.txt', all_res_list.numpy(), '%.8f')
-    #     res_list = []
-    #     for frame in np.unique(all_res_list[:, 0]):
-    #         res = all_res_list[all_res_list[:, 0] == frame, :]
-    #         positions, scores = res[:, 1:3], res[:, 3]
-    #         ids, count = nms(positions, scores, 20, np.inf)
-    #         res_list.append(torch.cat([torch.ones([count, 1]) * frame, positions[ids[:count], :]], dim=1))
-    #     res_list = torch.cat(res_list, dim=0).numpy() if res_list else np.empty([0, 3])
-    #     np.savetxt(res_fpath, res_list, '%d')
-
-    #     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-    #                                             data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
-
-    #     # If you want to use the unofiicial python evaluation tool for convenient purposes.
-    #     # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-    #     #                                             data_loader.dataset.base.__name__)
-
-    #     print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-    #         format(moda, modp, precision, recall))
-
-    # print('Test, Loss: {:.6f}, Precision: {:.1f}%, Recall: {:.1f}, \tTime: {:.3f}'.format(
-    #     losses / (len(data_loader) + 1), precision_s.avg * 100, recall_s.avg * 100, t_epoch))
-
-    # return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
-
 
 
 def main(args):
@@ -392,12 +322,6 @@ def main(args):
     print('Settings:')
     print(vars(args))
 
-    augmentation = Augmentation(args.dropview)
-
-    # trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
-    # trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
-
-    # learn
     resume_fname = os.path.join(args.log_dir, args.model)
     print("Loading saved model from: ", resume_fname)
     model.load_state_dict(torch.load(resume_fname))
@@ -407,51 +331,9 @@ def main(args):
     for param in ema_model.parameters():
         param.detach_()
     ema_model.load_state_dict(model.state_dict()) # this method correctly copies the parameters
-    # with torch.no_grad():
-    #     for param, param_ema in zip(model.parameters(), ema_model.parameters()):
-    #         param_ema.data.copy_(param.data)
-
-    # mp = list(model.parameters())
-    # mcp = list(ema_model.parameters())
-    # n = len(mp)
-    # for i in range(0, n):
-    #     mcp[i].data[:] = mp[i].data[:].clone()
-
-    # print(list(model.parameters()))
-    # print(list(ema_model.parameters()))
-    # raise Exception
-    # torch.tensor([[[[ 3.4448e-03, -4.5242e-03, -4.0137e-03],
-    #         [ 1.6153e-02, -4.8835e-03,  1.9083e-03],
-    #         [ 1.1061e-02, -2.0071e-03, -7.6424e-03]],
-
-    #         [[-2.2611e-03,  1.6325e-03, -2.4068e-03],
-    #         [-3.8178e-03,  1.9401e-02,  1.7969e-02],
-    #         [-3.0742e-03,  3.6021e-03, -6.0891e-05]],
-
-    #         [[ 3.1648e-04, -3.3402e-04, -2.1599e-03],
-    #         [-2.9053e-03, -1.4272e-03, -1.4952e-03],
-    #         [-5.8189e-04, -1.7111e-03, -7.9807e-04]],
-
-    #         ...,
-
-    #         [[ 1.1829e-03, -1.8705e-03,  8.2475e-04],
-    #         [ 1.1289e-03, -1.2800e-04, -1.3853e-03],
-    #         [ 4.8036e-04,  6.6727e-04,  1.3871e-03]],
-
-    #         [[ 1.4330e-03,  1.2188e-03, -9.1717e-04],
-    #         [ 1.3699e-03,  8.1890e-06,  3.8926e-04],
-    #         [ 3.8501e-04, -1.2613e-03, -1.6909e-03]],
-
-    #         [[ 5.0788e-03,  7.6537e-03,  3.4672e-03],
-    #         [ 1.1022e-03,  6.7827e-03,  9.5977e-04],
-    #         [ 2.1339e-03, -1.0416e-03, -3.8518e-03]]]], device='cuda:0')
-
 
     print('Testing...')
-    # if args.train_set:
-    #     trainer.test(train_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
-    # else:
-    #     trainer.test(test_loader, os.path.join(logdir, 'test.txt'), test_set.gt_fpath, True, args.persp_map, args.test_aug)
+
     print("test_set.gt_fpath: ", test_set.gt_fpath)
     cls_thres_array = np.arange(0.05, 0.95, 0.05)
     # cls_thres_array = [0.2]
@@ -481,7 +363,6 @@ def main(args):
     
 
 
-    # test(model, test_loader, [0.4], criterion, args.alpha,  os.path.join(logdir, 'test.txt'), test_set.gt_fpath)
 
 if __name__ == '__main__':
     # settings
@@ -506,10 +387,7 @@ if __name__ == '__main__':
                         help="specify src_cams if the model was trained with a different number of cameras than expected for testing")
     parser.add_argument('--model', type=str, default="MultiviewDetector.pth")
     parser.add_argument("--data_path", type=str, default=None)
-    parser.add_argument("--persp_map", action="store_true")
-    parser.add_argument("--test_aug", action="store_true")
     parser.add_argument("--avgpool", action="store_true")
-    parser.add_argument("--dropview", action="store_true")
 
     args = parser.parse_args()
 
