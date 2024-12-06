@@ -1,11 +1,9 @@
+# code from https://github.com/cvlab-epfl/MVAug/tree/main
+# modified by Erik Brorsson
 import math 
-
 import torch
-
 from torchvision.transforms.functional import _get_perspective_coeffs, vflip, hflip
-
 from multiview_detector.augmentation.reapeatabletransform import RepeatableTransform
-
 
 class AlignedResizedCropTransform(RepeatableTransform):
     def __init__(self, resized_crop):

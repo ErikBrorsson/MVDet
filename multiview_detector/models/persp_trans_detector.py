@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+# modified by Erik Brorsson
 import os
 import numpy as np
 import torch
@@ -6,7 +8,7 @@ import torch.nn.functional as F
 import kornia
 from torchvision.models.vgg import vgg11
 from multiview_detector.models.resnet import resnet18
-from multiview_detector.misc.geometry import warp_features_pytorch
+from multiview_detector.utils.geometry import warp_features_pytorch
 
 import matplotlib.pyplot as plt
 

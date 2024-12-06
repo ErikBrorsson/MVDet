@@ -12,17 +12,10 @@ from multiview_detector.evaluation.evaluate import evaluate
 from multiview_detector.utils.nms import nms
 from multiview_detector.utils.meters import AverageMeter
 from multiview_detector.utils.image_utils import add_heatmap_to_image
-from multiview_detector.utils.projection import get_imagecoord_from_worldcoord, get_worldcoord_from_imagecoord,\
-    get_worldcoord_from_imagecoord_w_projmat, get_worldgrid_from_worldcoord
-from multiview_detector.loss.gaussian_mse import WeightedGaussianMSE
-
 import torchvision
 from multiview_detector.augmentation.homographyaugmentation import HomographyDataAugmentation
-from multiview_detector.evaluation.pyeval.CLEAR_MOD_HUN import CLEAR_MOD_HUN
 
-import kornia
 
-from multiview_detector.misc.geometry import warp_features_pytorch
 
 
 def display_cam_layout(img, view_indicator_list):
@@ -668,11 +661,7 @@ class PerspectiveTrainer(BaseTrainer):
 
                                 world_grid = self.model.proj_mats[cam_number] @ temp  
                                 world_grid = (world_grid/world_grid[2,:]).detach().cpu().numpy()
-                                # temp = temp * data_loader.dataset.img_reduce
 
-                                # print("using projmat ", cam_number)
-                                # world_coord = get_worldcoord_from_imagecoord_w_projmat(temp, self.model.proj_mats[cam_number])
-                                # world_grid = get_worldgrid_from_worldcoord(world_coord)# / data_loader.dataset.grid_reduce
                                 for coord_indx, p in enumerate(world_grid.transpose()):
                                     if p[0]>=0 and p[1] >= 0 and p[0]<map_res_from_perspective.shape[3] and p[1]<map_res_from_perspective.shape[2]:
                                         map_res_from_perspective[0, 0, int(p[1]), int(p[0])] = 1

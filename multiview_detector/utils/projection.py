@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+
 import numpy as np
 
 def get_worldcoord_from_imagecoord_w_projmat(image_coord, proj_mat):

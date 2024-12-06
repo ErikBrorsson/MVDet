@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+# modified by Erik Brorsson
 import numpy as np
 import torch
 from torch import nn

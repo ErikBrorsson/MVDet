@@ -1,3 +1,5 @@
+# code from https://github.com/hou-yz/MVDet/tree/master
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 

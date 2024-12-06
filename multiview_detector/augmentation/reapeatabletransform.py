@@ -1,3 +1,5 @@
+# code from https://github.com/cvlab-epfl/MVAug/tree/main
+# modified by Erik Brorsson
 import torch
 from contextlib import contextmanager
 

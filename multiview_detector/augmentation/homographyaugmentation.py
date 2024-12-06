@@ -1,4 +1,5 @@
-
+# code from https://github.com/cvlab-epfl/MVAug/tree/main
+# modified by Erik Brorsson
 import numpy as np
 import torch
 import torchvision
