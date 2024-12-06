@@ -63,7 +63,7 @@ MVUDA results:
  
  Comparison with the baseline:
 
-  ![alt text](resources/videos/movie.gif "baseline comparison") 
+  ![alt text](resources/videos/baseline_comparison.gif "baseline comparison") 
 
 
 
