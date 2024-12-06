@@ -6,7 +6,7 @@ import torchvision
 
 import multiview_detector.augmentation.alignedaugmentation as alaug 
 # from dataset.utils import is_in_frame
-from multiview_detector.misc import geometry
+from multiview_detector.utils import geometry
 
 class HomographyDataAugmentation(torch.nn.Module):
     """

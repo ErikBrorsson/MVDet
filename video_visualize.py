@@ -10,7 +10,7 @@ import torch
 import torchvision.transforms as T
 import torch.nn.functional as F
 from multiview_detector.datasets import frameDataset, Wildtrack, MultiviewX
-from multiview_detector.misc.geometry import warp_features_pytorch
+from multiview_detector.utils.geometry import warp_features_pytorch
 
 def _traget_transform(target, kernel):
     with torch.no_grad():
