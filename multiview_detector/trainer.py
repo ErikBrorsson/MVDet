@@ -50,41 +50,22 @@ def display_cam_layout(img, view_indicator_list):
     return drawing
 
 class Augmentation:
-    def __init__(self, dropview=False, permutation=False, mvaug=False, rom3d=False,
+    def __init__(self, dropview=False, mvaug=False, rom3d=False,
                  grid_reduce=4, img_reduce=4, img_shape=[1080, 1920] , worldgrid_shape = [480, 1440]  # H,W; N_row,N_col
 ) -> None:
         self.dropview = dropview
-        self.permutation = permutation
         self.mvaug = mvaug
         self.rom3d = rom3d
         self.img_reduce = img_reduce
         self.img_shape = img_shape
         self.reducedgrid_shape = list(map(lambda x: int(x / grid_reduce), worldgrid_shape))
 
-
     def dropview_augment(self, imgs, map_label, imgs_labels, proj_mats):
         # imgs.shape = (1, 4, 3, 720, 1280) = (batch_size, n_cams, RGB, height, width)
 
-        # print("imgs.shape", imgs.shape)
-        # print("map_gt.shape", map_gt.shape)
-        # for img_gt in imgs_gt:
-        #     print("img_gt.shape", img_gt.shape)
         r = np.random.rand()
         if r >= 0.5: # drop one image with 50% probability if dropview is activated
             drop_indx = np.random.choice(np.arange(imgs.shape[1]))
-            # duplicate_indx = np.random.choice([i for i in range(imgs.shape[1]) if drop_indx!=i])
-
-            # replace the dropped image with one of the kept images.
-            # imgs_clone[:, drop_indx, :, :, :] = imgs_clone[:, duplicate_indx, :, :, :]
-
-            # # set the perspective view label for the dropped view to None
-            # # since don't want to provide supervision on a dropped view.
-            # imgs_labels_clone[drop_indx] = None
-
-            # if self.avgpool:
-            #     proj_mats[drop_indx] = None
-            # else:
-            #     proj_mats[drop_indx] = proj_mats[duplicate_indx]
 
             select_indx = [i for i in range(imgs.shape[1]) if i!=drop_indx]
             imgs = imgs[:, select_indx, :, :, :]
@@ -97,29 +78,8 @@ class Augmentation:
             proj_mats = proj_mats_new
             imgs_labels = imgs_labels_new
 
-        # imgs_new= torch.clone(imgs)
-        # imgs_labels_new= [torch.clone(x) if x is not None else None for x in imgs_labels]
-            
-
-
         return imgs, map_label, imgs_labels, proj_mats
     
-
-    def camera_permutation_augment(self, imgs, map_label, imgs_labels, proj_mats):
-        imgs_shuffled = torch.zeros_like(imgs)
-        imgs_labels_shuffled = [None]*len(imgs_labels)
-        proj_mats_shuffled = [None]*len(proj_mats)
-
-        permutation = np.random.permutation(imgs.shape[1])
-        # permutation = [3,0,2,1]
-        for i, p in enumerate(permutation):
-            imgs_shuffled[:, p, :, :] = imgs[:, i, :, :]
-            imgs_labels_shuffled[p] = imgs_labels[i]
-            proj_mats_shuffled[p] = proj_mats[i]
-
-        return imgs_shuffled, map_label, imgs_labels_shuffled, proj_mats_shuffled
-    
-
     def mvaug_augmentation(self, data, map_gt, imgs_gt, proj_mats_mvaug_features, weak=False):
         
         if weak:
@@ -130,7 +90,7 @@ class Augmentation:
             scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
                     degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10)) # parameters set according to MVAug's proposal
 
-        # TODO there is a slight difference between map_gt_aug_temp and map_gt_aug. I'm not sure why
+        # TODO of unknown reason, there is a slight difference between map_gt_aug_temp and map_gt_aug.
         # augment the map_label
         map_gt_aug_temp = scene_aug(torch.clone(map_gt))
 
@@ -228,12 +188,9 @@ class Augmentation:
         else:
             proj_mats = [torch.linalg.inv(m) for m in proj_mats]
 
-        if self.permutation:
-            imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
         if self.dropview:
             imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
         return imgs, map_label, imgs_labels, proj_mats
-
 
     def weak_augmentation(self, imgs, map_label, imgs_labels, proj_mats):
         """
@@ -249,20 +206,10 @@ class Augmentation:
             imgs_labels
             proj_mats: output is MVDet standard (image->bev)
         """
-        # TODO not using any augmentation for the teacher
-        if False:
-            r = np.random.rand() # augment 50% of data with mvaug
-            if r >= 0.5:
-                imgs, map_label, imgs_labels, proj_mats = self.mvaug_augmentation(imgs, map_label, imgs_labels, proj_mats, weak=True)
-            else:
-                proj_mats = [torch.linalg.inv(m) for m in proj_mats]
-        else:
-            proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+        # not using any augmentation for the teacher
 
-        # if self.permutation:
-        #     imgs, map_label, imgs_labels, proj_mats = self.camera_permutation_augment(imgs, map_label, imgs_labels, proj_mats)
-        # if self.dropview:
-        #     imgs, map_label, imgs_labels, proj_mats = self.dropview_augment(imgs, map_label, imgs_labels, proj_mats)
+        proj_mats = [torch.linalg.inv(m) for m in proj_mats]
+
         return imgs, map_label, imgs_labels, proj_mats
 
 
@@ -288,38 +235,6 @@ class PerspectiveTrainer(BaseTrainer):
         self.alpha_teacher = alpha_teacher
 
         self.visualize_train = visualize_train
-
-
-    def duplicate_images(self, imgs, imgs_labels, proj_mats):
-        B, N, C, H, W = imgs.shape
-
-        duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
-        cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
-        cam_ordering_labels = [] # same list as cam_ordering, but with None instead of duplicates, e.g, [0,None,1,2,3,None,4]
-        for i in range(N):
-            cam_ordering.append(i) # ensures that all views are added
-            cam_ordering_labels.append(i)
-            n_duplicates = np.sum(duplicate_indices == i)
-            for j in range(n_duplicates):
-                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication.
-                cam_ordering_labels.append(None) 
-        assert len(cam_ordering) == self.model.num_cam
-        assert len(cam_ordering_labels) == self.model.num_cam
-        print("duplicates ordering: ", cam_ordering)
-
-        imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
-        proj_mats_extended = [None]*self.model.num_cam
-        imgs_labels_extended = [None]*self.model.num_cam
-        for i in range(self.model.num_cam):
-            for batch in range(B):
-                imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
-                proj_mats_extended[i] = proj_mats[cam_ordering[i]]
-                if not imgs_labels is None:
-                    if not cam_ordering_labels[i] is None:
-                        imgs_labels_extended[i] = imgs_labels[cam_ordering_labels[i]]
-
-        return imgs_extended, imgs_labels_extended, proj_mats_extended
-
 
     def visualize_grid_and_bev(self, proj_mat, img, bev, f_name, foot_points, reducedgrid_shape, map_label=None):
         # bev_h = 360
@@ -364,32 +279,6 @@ class PerspectiveTrainer(BaseTrainer):
         plt.savefig(f_name)
         plt.close(fig)
 
-    # def warp_features_pytorch(self, features, proj_mat):
-    #     bev_h = 360
-    #     bev_w = 120
-    #     # x = torch.linspace(0, bev_h-1, bev_h)
-    #     x = torch.linspace(0, bev_h-1, bev_h)
-    #     # y = torch.linspace(0, bev_w-1, bev_w)
-    #     y = torch.linspace(0, bev_w-1, bev_w)
-    #     mesh = torch.meshgrid([x,y], indexing="xy")
-    #     grid = torch.concat([mesh[0].unsqueeze(0), mesh[1].unsqueeze(0)])
-    #     grid = grid.reshape((2, -1))
-    #     grid_homo = torch.ones((3, grid.shape[1]))
-    #     grid_homo[0:2, :] = grid
-    #     grid_homo = grid_homo.unsqueeze(0)
-    #     grid_persp = torch.bmm(proj_mat.float().to('cuda:0'), grid_homo.to('cuda:0')).squeeze()#.cpu().numpy().squeeze()
-    #     z = grid_persp[2, :]
-    #     grid_persp = grid_persp / z
-    #     grid_persp = (grid_persp[0:2,:] / torch.tensor([features.shape[-2]-1, features.shape[-1]-1], device="cuda:0").reshape((2, 1)))*2 - 1
-
-    #     grid_persp[0:2, z < 0] = -10 # remove all points that are behind the camera
-    #     grid_persp = grid_persp.reshape((2, y.shape[0], x.shape[0])).unsqueeze(0)
-    #     grid_persp = grid_persp.permute(0,2,3,1)
-
-    #     features_warped = torch.nn.functional.grid_sample(features, grid_persp, mode='bilinear')
-
-    #     return features_warped
-
     def train(self, epoch, data_loader, optimizer, log_interval=100, cyclic_scheduler=None):
         self.model.train()
         losses = 0
@@ -401,190 +290,7 @@ class PerspectiveTrainer(BaseTrainer):
         for batch_idx, (data, map_gt, imgs_gt, _, proj_mats, proj_mats_mvaug, projm_img2bevred, projm_imgred2bevred, proj_mats_mvaug_features, dataset_name) in enumerate(data_loader):
             optimizer.zero_grad()
 
-            mv_aug_viz = False
-            if mv_aug_viz:
-                scene_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
-                        degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10))
-                
-                # augment the map_label
-                map_gt_aug_temp = scene_aug(map_gt)
-
-                map_gt_aug = torch.zeros_like(map_gt)
-                foot_gt = map_gt[0, 0]
-                foot_points = (foot_gt == 1).nonzero().float()
-                temp = torch.zeros_like(foot_points)
-                temp[:, 0] = foot_points[:, 1]
-                temp[:, 1] = foot_points[:, 0]
-                foot_points = temp
-                foot_points_aug, pedestrian_ids = scene_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=map_gt.shape[-2:])
-                for pos in foot_points_aug:
-                    map_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
-
-
-                # Maybe there could be some sampling that "misses" a gt point otherwise.
-                # assert torch.sum(map_label_aug) == torch.sum(map_gt), "some pedestrian label vanished in scene augmentation"
-                fig = plt.figure()
-                subplt0 = fig.add_subplot(111, title="map_label")
-                subplt0.imshow(self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(f'imap_label.jpg'))
-                plt.close(fig)
-
-                fig = plt.figure()
-                subplt1 = fig.add_subplot(111, title="map_label_aug")
-                subplt1.imshow(self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(f'imap_label_aug.jpg'))
-                plt.close(fig)
-
-                fig = plt.figure()
-                subplt1 = fig.add_subplot(111, title="map_label_aug2")
-                subplt1.imshow(self.criterion._traget_transform(map_gt_aug_temp, map_gt_aug_temp, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel).cpu().detach().numpy().squeeze())
-                plt.savefig(os.path.join(f'imap_label_aug2.jpg'))
-                plt.close(fig)
-
-                # initialize augmented images, image labels, and projection matrices
-                data_aug = torch.zeros_like(data)
-                proj_mat_aug_list = []
-                img_gt_aug_list = []
-
-                proj_mat_aug_list_without_scene = []
-                # loop over the images and apply augmentation
-                for i, img_gt in enumerate(imgs_gt):
-                    persp_aug = HomographyDataAugmentation(torchvision.transforms.RandomAffine(
-                        degrees = 45, translate = (0.2, 0.2), scale = (0.8,1.2), shear = 10))
-
-                    img = data[0, i, :, :]
-                    # proj_mat_aug = proj_mats_mvaug[i] # bev-grid reduced -> image (720x1280)
-
-                    # augment the image
-                    data_aug[0, i] = persp_aug(img)
-
-                    # augment the image label
-                    img_gt_aug = torch.zeros_like(img_gt)
-                    foot_gt = img_gt[0, 1]
-                    foot_points = (foot_gt == 1).nonzero().float()
-                    temp = torch.zeros_like(foot_points)
-                    temp[:, 0] = foot_points[:, 1]
-                    temp[:, 1] = foot_points[:, 0]
-                    foot_points = temp
-                    foot_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(foot_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
-                    for pos in foot_points_aug:
-                        img_gt_aug[:,1,int(pos[1].item()), int(pos[0].item())] = 1
-                    head_gt = img_gt[0, 0]
-                    head_points = (head_gt == 1).nonzero().float()
-                    temp = torch.zeros_like(head_points)
-                    temp[:, 0] = head_points[:, 1]
-                    temp[:, 1] = head_points[:, 0]
-                    head_points = temp
-                    head_points_aug, pedestrian_ids = persp_aug.augment_gt_point_view_based(head_points, gt_person_ids=None, filter_out_of_frame=True, frame_size=img_gt.shape[-2:])
-                    for pos in head_points_aug:
-                        img_gt_aug[:,0,int(pos[1].item()), int(pos[0].item())] = 1
-                    img_gt_aug_list.append(img_gt_aug)
-
-                    # augment the projection matrix to account for persp aug
-                    # temp = torch.tensor([data.shape[-2] // data_loader.dataset.img_reduce, data.shape[-1] // data_loader.dataset.img_reduce])
-                    temp = torch.tensor([int(x / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce) for x in data_loader.dataset.dicts[dataset_name[0]]['base'].img_shape])
-                    proj_mat_aug_f = persp_aug.augment_homography_view_based(proj_mats_mvaug_features[i].float(), (temp).float()) # bev-grid reduced -> warped image (720x1280)
-                    proj_mat_aug_list_without_scene.append(torch.linalg.inv(proj_mat_aug_f))
-
-                    temp = torch.tensor(data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
-                    proj_mat_aug_f = scene_aug.augment_homography_scene_based(proj_mat_aug_f, [int(x) for x in temp])
-
-                    proj_mat_aug_list.append(torch.linalg.inv(proj_mat_aug_f))
-
-
-                    # # visualization ###############################################################################################################################
-                    # # augment the projection matrix to account for persp aug
-                    # temp = torch.tensor([data.shape[-2], data.shape[-1]])
-                    # proj_mat_aug = persp_aug.augment_homography_view_based(proj_mat_aug.float(), (temp).float()) # bev-grid reduced -> warped image (720x1280)
-
-                    # # visualize img and projection to bev
-                    # img = self.denormalize(data[0,i])
-                    # world_feature = kornia.geometry.transform.warp_perspective(img.to('cuda:0'), projm_img2bevred[i].float().to('cuda:0'), data_loader.dataset.reducedgrid_shape)
-                    # self.visualize_grid_and_bev(torch.linalg.inv(projm_img2bevred[i]), img, world_feature, os.path.join(f'img_and_bev{i}.jpg'),
-                    #                             foot_points * data.shape[-2] / img_gt.shape[-2]) # adjust foot_points for size difference between img and img_gt
-
-                    # # visualize "img features" and projection to bev
-                    # resize = torchvision.transforms.Resize((int(img.shape[-2] / data_loader.dataset.img_reduce), int(img.shape[-1] / data_loader.dataset.img_reduce)))
-                    # img_resized = resize(img)
-                    # world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'),
-                    #                                                            projm_imgred2bevred[i].float().to('cuda:0'), data_loader.dataset.reducedgrid_shape)
-                    # self.visualize_grid_and_bev(torch.linalg.inv(projm_imgred2bevred[i]), img_resized, world_feature,
-                    #                             os.path.join(f'img_and_bev_resized{i}.jpg'),
-                    #                             foot_points  * data.shape[-2] / img_gt.shape[-2] / data_loader.dataset.img_reduce) # adjust foot_points for size difference between img and img_gt
-
-
-                    # visualize augmented image and projection to bev
-                    img_aug = self.denormalize(data_aug[0, i])
-                    # world_feature = kornia.geometry.transform.warp_perspective(img_aug.to('cuda:0'), torch.linalg.inv(proj_mat_aug).to('cuda:0'), data_loader.dataset.reducedgrid_shape)
-                    # self.visualize_grid_and_bev(proj_mat_aug, img_aug, world_feature, os.path.join(f'img_and_bev_aug{i}.jpg'),
-                    #                             foot_points_aug * data.shape[-2] / img_gt.shape[-2]) # adjust foot_points for size difference between img and img_gt
-
-                    # visualize augmneted "img features" and projection to bev
-                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce), int(img_gt.shape[-1] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce)))
-                    img_resized = resize(img_aug)
-                    temp_mat =  proj_mat_aug_list_without_scene[i]
-                    temp_mat_inv = torch.linalg.inv(temp_mat)
-                    world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
-                    self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
-                                                os.path.join(f'img_and_bev_aug_resized{i}.jpg'),
-                                                foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
-                                                data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
-                                                self.criterion._traget_transform(map_gt, map_gt, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
-                    
-                    # visualize augmneted "img features" and projection to bev, including sene augmentation
-                    resize = torchvision.transforms.Resize((int(img_gt.shape[-2] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce), int(img_gt.shape[-1] / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce)))
-                    img_resized = resize(img_aug)
-                    temp_mat = proj_mat_aug_list[i]
-                    temp_mat_inv = torch.linalg.inv(temp_mat)
-
-                    kornia_proj = False
-                    if kornia_proj:
-                        world_feature = kornia.geometry.transform.warp_perspective(img_resized.to('cuda:0'), temp_mat.to('cuda:0'), data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape)
-                    else:
-                        world_feature = warp_features_pytorch(img_resized.to("cuda:0"), temp_mat_inv.to("cuda:0"),
-                                                              data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
-                                                              data_loader.dataset.dicts[dataset_name[0]]['base'].indexing)
-
-                    self.visualize_grid_and_bev(temp_mat_inv, img_resized, world_feature,
-                                                os.path.join(f'img_and_bev_aug_resized_sceneaug{i}.jpg'),
-                                                foot_points_aug / data_loader.dataset.dicts[dataset_name[0]]['base'].img_reduce,
-                                                data_loader.dataset.dicts[dataset_name[0]]['base'].reducedgrid_shape,
-                                                self.criterion._traget_transform(map_gt_aug, map_gt_aug, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel))
-                    
-
-                    # img_label_hm = self.criterion._traget_transform(img_gt, img_gt, data_loader.dataset.img_kernel).cpu().detach().numpy().squeeze()
-                    # img_label_hm_head = img_label_hm[0]
-                    # img_label_hm_foot = img_label_hm[1]
-                    # img0 = Image.fromarray((img.cpu().numpy().squeeze().transpose([1, 2, 0]) * 255).astype('uint8'))
-                    # foot_gt_img = add_heatmap_to_image(img_label_hm_foot, img0)
-                    # head_gt_img = add_heatmap_to_image(img_label_hm_head, img0)
-
-                    # img_label_hm = self.criterion._traget_transform(img_gt_aug, img_gt_aug, data_loader.dataset.img_kernel).cpu().detach().numpy().squeeze()
-                    # img_label_hm_head = img_label_hm[0]
-                    # img_label_hm_foot = img_label_hm[1]
-                    # img0 = Image.fromarray((img_aug.cpu().numpy().squeeze().transpose([1, 2, 0]) * 255).astype('uint8'))
-                    # foot_gt_img_aug = add_heatmap_to_image(img_label_hm_foot, img0)
-                    # head_gt_img_aug = add_heatmap_to_image(img_label_hm_head, img0)
-
-                    # fig = plt.figure(figsize=(16,9))
-                    # subplt0 = fig.add_subplot(221, title="foot_gt")
-                    # subplt1 = fig.add_subplot(222, title="head_gt")                
-                    # subplt2 = fig.add_subplot(223, title="foot_gt_aug")                
-                    # subplt3 = fig.add_subplot(224, title="head_gt_aug")                
-                    # subplt0.imshow(np.array(foot_gt_img))
-                    # subplt1.imshow(np.array(head_gt_img))
-                    # subplt2.imshow(np.array(foot_gt_img_aug))
-                    # subplt3.imshow(np.array(head_gt_img_aug))
-                    # plt.savefig(f'ifoot_and_head_gts.jpg', dpi=800)
-                    # plt.close(fig)
-                    # visualization ###############################################################################################################################
-
-
             data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features) 
-            if not self.model.avgpool:
-                B, N, C, H, W = data.shape
-                if N < self.model.num_cam:
-                    data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
             map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats, config_dict)
@@ -849,12 +555,6 @@ class PerspectiveTrainer(BaseTrainer):
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                                 data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                    #                                             data_loader.dataset.base.__name__)
-                    # print("cls_thres: ", cls_thres)
-                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                    #         format(moda, modp, precision, recall))
                     moda_list.append(moda)
                     modp_list.append(modp)
                     precision_list.append(precision)
@@ -896,11 +596,6 @@ class PerspectiveTrainer(BaseTrainer):
             for batch_idx, (data, map_gt, imgs_gt, frame, proj_mats, _, _, _, _, dataset_name) in enumerate(data_loader):
                 if test_time_aug:
                     data, map_gt, imgs_gt, proj_mats = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats)
-
-                if not self.model.avgpool:
-                    B, N, C, H, W = data.shape
-                    if N < self.model.num_cam:
-                        data, imgs_gt, proj_mats = self.duplicate_images(data, imgs_gt, proj_mats)
 
                 with torch.no_grad():
                     config_dict = data_loader.dataset.dicts[dataset_name[0]]
@@ -1108,9 +803,6 @@ class PerspectiveTrainer(BaseTrainer):
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                         data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                #                                             data_loader.dataset.base.__name__)
 
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
@@ -1217,12 +909,6 @@ class PerspectiveTrainer(BaseTrainer):
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                                 data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                    #                                             data_loader.dataset.base.__name__)
-                    # print("cls_thres: ", cls_thres)
-                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                    #         format(moda, modp, precision, recall))
                     moda_list.append(moda)
                     modp_list.append(modp)
                     precision_list.append(precision)
@@ -1338,10 +1024,6 @@ class PerspectiveTrainer(BaseTrainer):
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                         data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                #                                             data_loader.dataset.base.__name__)
-
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
 
@@ -1350,24 +1032,13 @@ class PerspectiveTrainer(BaseTrainer):
 
             return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
     
-
-
-
-
     @staticmethod
     def update_ema_variables(ema_model, model, alpha_teacher, iteration):
 
-        # Use the "true" average until the exponential average is more correct
-        # alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
-        # if len(gpus)>1:
-        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
-        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
-        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
-        # else:
         for ema_param, param in zip(ema_model.parameters(), model.parameters()):
-            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
             ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
         return ema_model
+
 
 class BBOXTrainer(BaseTrainer):
     def __init__(self, model, criterion, cls_thres):
@@ -1463,8 +1134,8 @@ class BBOXTrainer(BaseTrainer):
 class UDATrainer(BaseTrainer):
     def __init__(self, model, ema_model, criterion, logdir, denormalize, cls_thres=0.4, alpha=1.0,
                  visualize_train=False, target_cameras=None, alpha_teacher=0.99,
-                 soft_labels=False, augmentation_module: Augmentation=Augmentation(),
-                 weighted_mse=False, low_th=0.1, high_th=0.9, persp_sup=True, uda_persp_sup=False, auto_th=False,
+                 augmentation_module: Augmentation=Augmentation(),
+                 persp_sup=True, uda_persp_sup=False,
                  uda_nms_th=20, augmentation_uda: Augmentation=Augmentation(), max_pseudo=False, max_pseudo_th=11):
         super(BaseTrainer, self).__init__()
         self.model = model
@@ -1475,7 +1146,6 @@ class UDATrainer(BaseTrainer):
         self.denormalize = denormalize
         self.alpha = alpha
 
-        # self.pseudo_threshold = 0.7
         self.visualize_train = visualize_train
         self.ema_model = ema_model
 
@@ -1483,52 +1153,16 @@ class UDATrainer(BaseTrainer):
         self.target_cameras = target_cameras
 
         self.alpha_teacher = alpha_teacher
-        self.soft_labels = soft_labels
 
         self.augmentation = augmentation_module
         self.augmentation_uda = augmentation_uda
 
-        self.weighted_mse = weighted_mse
-        self.low_th = low_th
-        self.high_th = high_th
         self.uda_persp_sup = uda_persp_sup
         self.persp_sup = persp_sup
-        self.auto_th = auto_th
         self.uda_nms_th = uda_nms_th
 
         self.max_pseudo = max_pseudo
         self.k_size = max_pseudo_th
-
-    def duplicate_images(self, imgs, imgs_labels, proj_mats):
-        B, N, C, H, W = imgs.shape
-
-        duplicate_indices = np.random.choice(N, self.model.num_cam - N, replace=True)
-        cam_ordering = [] # a list with indices with length==self.model.num_cam, e.g., [0,0,1,2,3,3,4] if N==5 and self.cam_num==7
-        cam_ordering_labels = [] # same list as cam_ordering, but with None instead of duplicates, e.g, [0,None,1,2,3,None,4]
-        for i in range(N):
-            cam_ordering.append(i) # ensures that all views are added
-            cam_ordering_labels.append(i)
-            n_duplicates = np.sum(duplicate_indices == i)
-            for j in range(n_duplicates):
-                cam_ordering.append(i) # add x copies of the current view if it is selected for duplication.
-                cam_ordering_labels.append(None) 
-        assert len(cam_ordering) == self.model.num_cam
-        assert len(cam_ordering_labels) == self.model.num_cam
-        print("duplicates ordering: ", cam_ordering)
-
-        imgs_extended = torch.zeros((B, self.model.num_cam, C, H, W))
-        proj_mats_extended = [None]*self.model.num_cam
-        imgs_labels_extended = [None]*self.model.num_cam
-        for i in range(self.model.num_cam):
-            for batch in range(B):
-                imgs_extended[batch, i, :, :, :] = imgs[batch, cam_ordering[i], :, :, :]
-                proj_mats_extended[i] = proj_mats[cam_ordering[i]]
-                if not imgs_labels is None:
-                    if not cam_ordering_labels[i] is None:
-                        imgs_labels_extended[i] = imgs_labels[cam_ordering_labels[i]]
-
-        return imgs_extended, imgs_labels_extended, proj_mats_extended
-
 
     def train(self, epoch, data_loader, data_loader_target, optimizer, log_interval=100, cyclic_scheduler=None, target_weight=0., pseudo_label_th=0.2):
 
@@ -1550,13 +1184,6 @@ class UDATrainer(BaseTrainer):
             # train on source data
             optimizer.zero_grad()
             data, map_gt, imgs_gt, proj_mats_source = self.augmentation.strong_augmentation(data, map_gt, imgs_gt, proj_mats_mvaug_features_src)
-
-            if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                # if the target data includes less views than source data, we resort to duplicating some views.
-                B, N, C, H, W = data.shape
-                if N < self.model.num_cam:
-                    data, imgs_gt, proj_mats_source = self.duplicate_images(data, imgs_gt, proj_mats_source)
-
 
             config_dict = data_loader.dataset.dicts[dataset_name[0]]
             map_res, imgs_res, (world_features, img_features, view_indicator_list) = self.model(data, proj_mats_source, config_dict)
@@ -1700,18 +1327,11 @@ class UDATrainer(BaseTrainer):
             # create bev pseudo-labels
             if target_weight != 0:
                 with torch.no_grad():
-                    # TODO weak_augmentation cannot include mvaug since subsequent projection of bev labels to persp view labels doesn't work in that case
-                    if self.augmentation_uda.rom3d:
+                    if self.augmentation_uda.rom3d: # the teacher is fed data that is not augmneted with 3DROM
                         data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_no3drom_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
                     else:
                         data_teacher, _, _, proj_mats_teacher = self.augmentation_uda.weak_augmentation(data_target, map_gt_target, imgs_gt_target, proj_mats_mvaug_features_trg)
                     
-                    if not self.ema_model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                        # if the target data includes less views than source data, we resort to duplicating some views.
-                        B, N, C, H, W = data_teacher.shape
-                        if N < self.model.num_cam:
-                            data_teacher, _, proj_mats_teacher = self.duplicate_images(data_teacher, None, proj_mats_teacher)
-
                     config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
 
                     if self.alpha_teacher == 0: # if alpha_teacher == 0, use student model for pseudo-labelling
@@ -1722,144 +1342,74 @@ class UDATrainer(BaseTrainer):
                         map_pred_teacher, imgs_teacher_pred, (world_features, img_features, view_indicator_list_teacher)  = self.ema_model(data_teacher, proj_mats_teacher, config_dict)
                 temp = map_pred_teacher.detach().cpu().squeeze()
 
-                if not self.soft_labels:
-                    if self.auto_th:
-                        gt_pos = (map_gt_target.detach().cpu().squeeze() > 0).nonzero().float()
-                        gtAllMatrix = np.zeros((gt_pos.shape[0], 4))
-                        gtAllMatrix[:,1] = np.array([i for i in range(gtAllMatrix.shape[0])])
-                        gtAllMatrix[:,2] = gt_pos[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                        gtAllMatrix[:,3] = gt_pos[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
+                if self.max_pseudo:
+                    k_size = self.k_size
+                    pad_size = int(k_size/2)
 
-                        # find the optimal (in moda sense) pseudo-label threshold for the current sample
-                        best_th = 0.4 # use 0.4 if moda is 0 for all varying_th
-                        best_moda = 0
-                        moda_04 = 0
-                        for varying_th in np.arange(0.05, 0.95, 0.05):
-                            scores = temp[temp > varying_th]
-                            positions = (temp > varying_th).nonzero().float()
-                            if not torch.numel(positions) == 0:
-                                ids, count = nms(positions.float(), scores, self.uda_nms_th / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
-                                positions = positions[ids[:count], :]
-                                scores = scores[ids[:count]]
-                            else:
-                                continue
-                            detAllMatrix = np.zeros((positions.shape[0], 4))
-                            detAllMatrix[:,1] = np.array([i for i in range(detAllMatrix.shape[0])])
-                            detAllMatrix[:,2] = positions[:,0].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                            detAllMatrix[:,3] = positions[:,1].cpu().detach().numpy() * data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce
-                            _, _, moda_i, _ = CLEAR_MOD_HUN(gtAllMatrix, detAllMatrix) # CLEAR MOD HUN uses distance threshold 20, so it expects gt and pred at full scale
-                            if moda_i > best_moda:
-                                best_moda = moda_i
-                                best_th = varying_th
-                            if varying_th == 0.4:
-                                moda_04 = moda_i
-                        pseudo_label_th = best_th
-
-
-                    if self.max_pseudo:
-                        k_size = self.k_size
-                        pad_size = int(k_size/2)
-
-                        map_pred_teacher_pooled = torch.max_pool2d(map_pred_teacher, k_size, stride=1,padding=(pad_size, pad_size))
-                        maximas = map_pred_teacher_pooled == map_pred_teacher
-                        maximas = maximas & (map_pred_teacher >= pseudo_label_th)
-                        map_pseudo_label = maximas.float()
-                        scores = map_pred_teacher[maximas].cpu()
-                        maximas = maximas.float()
-                        positions = (maximas.squeeze() > 0).nonzero().float().cpu()
-                    else:
-                        scores = temp[temp > pseudo_label_th]
-                        positions = (temp > pseudo_label_th).nonzero().float()
-                        # if data_loader.dataset.base.indexing == 'xy':
-                        #     positions = positions[:, [1, 0]]
-                        # else:
-                        #     positions = positions
-                        if not torch.numel(positions) == 0:
-                            ids, count = nms(positions.float(), scores, self.uda_nms_th / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
-                            positions = positions[ids[:count], :]
-                            scores = scores[ids[:count]]
-                        map_pseudo_label = torch.zeros_like(map_pred_teacher)
-                        for pos in positions:
-                            map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
-                    
-                    if self.weighted_mse:
-                        filled_pseudo_label = self.criterion._traget_transform(map_pred_teacher, map_pseudo_label, data_loader_target.dataset.map_kernel)
-                        map_pseudo_label_weight = (torch.logical_or(map_pred_teacher < self.low_th, filled_pseudo_label > 0.1)).float()
-                        
-
-                    # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
-                    if data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].indexing == 'xy':
-                        positions = positions[:, [1, 0]]
-                    else:
-                        positions = positions
-                    imgs_pseudo_labels = []
-                    if self.uda_persp_sup:
-                        for cam in self.target_cameras:
-                            img_pseudo_label = torch.zeros(img_gt_shape)
-
-                            for grid_pos in positions:
-                                pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
-                                bbox = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.bbox_by_pos_cam[pos.item()][cam]
-                                if bbox is None:
-                                    continue                    
-                                foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
-                                head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
-                                img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
-                                img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
-
-                            imgs_pseudo_labels.append(img_pseudo_label)
-                    else:
-                        for cam in self.target_cameras:
-                            imgs_pseudo_labels.append(None)
-
-                    # apply augmentation to target images and pseudo-labels prior to student training
-                    map_pseudo_label_unaug = torch.clone(map_pseudo_label)
-
-
-                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
-                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
-                    
-                    if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                        # if the target data includes less views than source data, we resort to duplicating some views.
-                        B, N, C, H, W = data_student.shape
-                        if N < self.model.num_cam:
-                            data_student, _, proj_mats_student = self.duplicate_images(data_student, None, proj_mats_student)
-
-                    # student predict and compute loss
-                    config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
-                    map_res_target, imgs_res_target, (world_features, img_features, view_indicator_list)  = self.model(data_student, proj_mats_student, config_dict)
-                    loss = 0
-                    for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
-                        if not img_pseudo_label is None:
-                            loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].img_kernel)
-                    if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
-                        loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
-
-                    if self.weighted_mse:
-                        loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel, map_pseudo_label_weight)
-                    else:                    
-                        loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel)
+                    map_pred_teacher_pooled = torch.max_pool2d(map_pred_teacher, k_size, stride=1,padding=(pad_size, pad_size))
+                    maximas = map_pred_teacher_pooled == map_pred_teacher
+                    maximas = maximas & (map_pred_teacher >= pseudo_label_th)
+                    map_pseudo_label = maximas.float()
+                    scores = map_pred_teacher[maximas].cpu()
+                    maximas = maximas.float()
+                    positions = (maximas.squeeze() > 0).nonzero().float().cpu()
                 else:
-                    # apply augmentation to target images and pseudo-labels prior to student training
-                    map_pseudo_label = map_pred_teacher
-                    imgs_pseudo_labels = [None]*len(self.target_cameras) 
+                    scores = temp[temp > pseudo_label_th]
+                    positions = (temp > pseudo_label_th).nonzero().float()
+                    if not torch.numel(positions) == 0:
+                        ids, count = nms(positions.float(), scores, self.uda_nms_th / data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].grid_reduce, np.inf)
+                        positions = positions[ids[:count], :]
+                        scores = scores[ids[:count]]
+                    map_pseudo_label = torch.zeros_like(map_pred_teacher)
+                    for pos in positions:
+                        map_pseudo_label[:,:,int(pos[0].item()), int(pos[1].item())] = 1
+                
 
-                    data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
-                                                                                                                map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
-                    
+                # create perspective view pseudo-labels by projecting bev pseudo-labels into camera
+                if data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].indexing == 'xy':
+                    positions = positions[:, [1, 0]]
+                else:
+                    positions = positions
+                imgs_pseudo_labels = []
+                if self.uda_persp_sup:
+                    for cam in self.target_cameras:
+                        img_pseudo_label = torch.zeros(img_gt_shape)
 
-                    if not self.model.avgpool: # duplication is not needed if we use gmvd avg pooling
-                        # if the target data includes less views than source data, we resort to duplicating some views.
-                        B, N, C, H, W = data_student.shape
-                        if N < self.model.num_cam:
-                            data_student, _, proj_mats_student = self.duplicate_images(data_student,None, proj_mats_student)
+                        for grid_pos in positions:
+                            pos = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.get_pos_from_worldgrid(grid_pos * data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].grid_reduce)
+                            bbox = data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].base.bbox_by_pos_cam[pos.item()][cam]
+                            if bbox is None:
+                                continue                    
+                            foot_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[3])]
+                            head_2d = [int((bbox[0] + bbox[2]) / 2), int(bbox[1])]
+                            img_pseudo_label[:,0,head_2d[1], head_2d[0]] = 1
+                            img_pseudo_label[:,1,foot_2d[1],foot_2d[0]] = 1
 
-                    # student predict and compute loss
-                    map_res_target, imgs_res_target, (world_features, img_features, view_indicator_list)  = self.model(data_student, proj_mats_student)
-                    loss = 0
-                    loss = self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), None) # TODO no perspective supervision when using soft-targets?
+                        imgs_pseudo_labels.append(img_pseudo_label)
+                else:
+                    for cam in self.target_cameras:
+                        imgs_pseudo_labels.append(None)
 
-                # update student
+                # apply augmentation to target images and pseudo-labels prior to student training
+                map_pseudo_label_unaug = torch.clone(map_pseudo_label)
+
+
+                data_student, map_pseudo_label, imgs_pseudo_labels, proj_mats_student = self.augmentation_uda.strong_augmentation(data_target,
+                                                                                                            map_pseudo_label, imgs_pseudo_labels, proj_mats_mvaug_features_trg)
+                
+                # student predict and compute loss
+                config_dict = data_loader_target.dataset.dicts[dataset_name_trg[0]]
+                map_res_target, imgs_res_target, (world_features, img_features, view_indicator_list)  = self.model(data_student, proj_mats_student, config_dict)
+                loss = 0
+                for img_res_target, img_pseudo_label in zip(imgs_res_target, imgs_pseudo_labels):
+                    if not img_pseudo_label is None:
+                        loss += self.criterion(img_res_target, img_pseudo_label.to(img_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].img_kernel)
+                if len([x for x in imgs_pseudo_labels if x is not None]) > 0:
+                    loss = loss / len([x for x in imgs_pseudo_labels if x is not None]) * self.alpha
+
+                loss += self.criterion(map_res_target, map_pseudo_label.to(map_res_target.device), data_loader_target.dataset.dicts[dataset_name_trg[0]]["base"].map_kernel)
+
+            # update student
                 loss = loss * target_weight # weight the target loss with a weight that grows with increased confidence of pseudo-labels
                 loss.backward()
                 losses_target += loss.item()
@@ -1920,16 +1470,12 @@ class UDATrainer(BaseTrainer):
                         student_res_view = display_cam_layout(map_res_target.cpu().detach().numpy().squeeze(), view_indicator_list)
                         label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_gt_target, data_loader.dataset.dicts[dataset_name[0]]['base'].map_kernel)
                                     .cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
-                        if self.soft_labels:
-                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label_unaug, None).cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
-                        else:
-                            pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label_unaug,
-                                                                                 data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
-                        if self.soft_labels:
-                            pseudo_label_view_aug = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label, None).cpu().detach().numpy().squeeze(), view_indicator_list)
-                        else:
-                            pseudo_label_view_aug = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label,
-                                                                                 data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list)
+
+                        pseudo_label_view = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label_unaug,
+                                                                                data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
+
+                        pseudo_label_view_aug = display_cam_layout(self.criterion._traget_transform(map_res_target, map_pseudo_label,
+                                                                                data_loader_target.dataset.dicts[dataset_name_trg[0]]['base'].map_kernel).cpu().detach().numpy().squeeze(), view_indicator_list)
                         teacher_res_view = display_cam_layout(map_pred_teacher.cpu().detach().numpy().squeeze(), view_indicator_list_teacher)
 
                         subplt0.imshow(student_res_view)
@@ -2040,9 +1586,6 @@ class UDATrainer(BaseTrainer):
                             foot_cam_result = add_heatmap_to_image(heatmap0_foot, img0)
                             foot_cam_result.save(os.path.join(epoch_dir, f'student_output_cam{cam_num+1}_foot_{batch_idx}.jpg'))
                     
-                    if self.auto_th:
-                        print("best_th=", best_th, " => moda=", best_moda, ". While moda_04=", moda_04)
-
 
                 # print(cyclic_scheduler.last_epoch, optimizer.param_groups[0]['lr'])
                 t1 = time.time()
@@ -2159,12 +1702,6 @@ class UDATrainer(BaseTrainer):
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                                 data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                    #                                             data_loader.dataset.base.__name__)
-                    # print("cls_thres: ", cls_thres)
-                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                    #         format(moda, modp, precision, recall))
                     moda_list.append(moda)
                     modp_list.append(modp)
                     precision_list.append(precision)
@@ -2280,9 +1817,6 @@ class UDATrainer(BaseTrainer):
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                         data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                #                                             data_loader.dataset.base.__name__)
 
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
@@ -2292,7 +1826,6 @@ class UDATrainer(BaseTrainer):
 
             return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
     
-
     def test_ema(self, data_loader, res_fpath=None, gt_fpath=None, visualize=False, varying_cls_thres=False):
         if varying_cls_thres:
             cls_thres_array = np.arange(0.05, 0.95, 0.05)
@@ -2390,12 +1923,6 @@ class UDATrainer(BaseTrainer):
                     recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                                 data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                    # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                    # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                    #                                             data_loader.dataset.base.__name__)
-                    # print("cls_thres: ", cls_thres)
-                    # print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
-                    #         format(moda, modp, precision, recall))
                     moda_list.append(moda)
                     modp_list.append(modp)
                     precision_list.append(precision)
@@ -2511,10 +2038,6 @@ class UDATrainer(BaseTrainer):
                 recall, precision, moda, modp = evaluate(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
                                                         data_loader.dataset.dicts[dataset_name[0]]['base'].base.__name__)
 
-                # If you want to use the unofiicial python evaluation tool for convenient purposes.
-                # recall, precision, modp, moda = python_eval(os.path.abspath(res_fpath), os.path.abspath(gt_fpath),
-                #                                             data_loader.dataset.base.__name__)
-
                 print('moda: {:.1f}%, modp: {:.1f}%, precision: {:.1f}%, recall: {:.1f}%'.
                     format(moda, modp, precision, recall))
 
@@ -2523,20 +2046,10 @@ class UDATrainer(BaseTrainer):
 
             return losses / len(data_loader), (moda, modp, precision, recall, self.cls_thres), (moda, modp, precision, recall, self.cls_thres)
     
-
-
     @staticmethod
     def update_ema_variables(ema_model, model, alpha_teacher, iteration):
 
-        # Use the "true" average until the exponential average is more correct
-        # alpha_teacher = min(1 - 1 / (iteration + 1), alpha_teacher)
-        # if len(gpus)>1:
-        #     for ema_param, param in zip(ema_model.module.parameters(), model.module.parameters()):
-        #         #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
-        #         ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
-        # else:
         for ema_param, param in zip(ema_model.parameters(), model.parameters()):
-            #ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
             ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
         return ema_model
 

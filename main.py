@@ -265,34 +265,20 @@ def main(args):
 
     # model
     if args.variant == 'default':
-        model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
+        model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
 
         # load pre-trained model before initializing EMA
         if args.resume_model is not None:
-            # resume_dir = f'logs/{args.dataset}_frame/{args.variant}/' + args.resume
-            # resume_fname = resume_dir + '/MultiviewDetector.pth'
             resume_fname = args.resume_model
             print("Loading saved model from: ", resume_fname)
             model.load_state_dict(torch.load(resume_fname))
 
-        # if args.uda:
         # init ema model
-        ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool, avgpool_ext=args.avgpool_ext, warp_kornia=args.warp_kornia)
+        ema_model = PerspTransDetector(args.arch, pretrained=args.pretrained, avgpool=args.avgpool)
         ema_model.load_state_dict(model.state_dict()) # using load_state_dict here to copy parameters and buffers (buffers include e.g. batch_norm mean)
         for param in ema_model.parameters():
             param.detach_()
-        # mp = list(model.parameters())
-        # mcp = list(ema_model.parameters())
-        # n = len(mp)
-        # for i in range(0, n):
-        #     mcp[i].data[:] = mp[i].data[:].clone()
 
-    # elif args.variant == 'img_proj':
-    #     model = ImageProjVariant(train_set, args.arch)
-    # elif args.variant == 'res_proj':
-    #     model = ResProjVariant(train_set, args.arch)
-    # elif args.variant == 'no_joint_conv':
-    #     model = NoJointConvVariant(train_set, args.arch)
     else:
         raise Exception('no support for this variant')
 
@@ -311,13 +297,6 @@ def main(args):
 
     # if args.resume is None:
     os.makedirs(logdir, exist_ok=True)
-
-    # copying files like this gave rise to issues on the cluster when running many experiments simultaneously
-    # copy_tree('./multiview_detector', logdir + '/scripts/multiview_detector')
-    # for script in os.listdir('.'):
-    #     if script.split('.')[-1] == 'py':
-    #         dst_file = os.path.join(logdir, 'scripts', os.path.basename(script))
-    #         shutil.copyfile(script, dst_file)
     sys.stdout = Logger(os.path.join(logdir, 'log.txt'), )
 
     # draw curve
@@ -337,14 +316,12 @@ def main(args):
     cls_thres_list_var= []
     cls_thres_list_fix = []
 
-    augmentation = Augmentation(args.dropview, args.permutation, args.mvaug)
+    augmentation = Augmentation(args.dropview, args.mvaug)
     if args.dropview_uda is None:
         args.dropview_uda = args.dropview
-    if args.permutation_uda is None:
-        args.permutation_uda = args.permutation
     if args.mvaug_uda is None:
         args.mvaug_uda = args.mvaug
-    augmentation_uda = Augmentation(args.dropview_uda, args.permutation_uda, args.mvaug_uda, rom3d=args.rom3d_uda)
+    augmentation_uda = Augmentation(args.dropview_uda, args.mvaug_uda, rom3d=args.rom3d_uda)
 
     print('Settings:')
     for k, v in vars(args).items():
@@ -353,50 +330,16 @@ def main(args):
     print("logdir: ", logdir)
 
     if args.uda:
-        # pom = train_dataset_list[0].base.read_pom() # TODO doesn't generalize to multiple target datasets
         trainer = UDATrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha,
                              args.train_viz, target_cameras=target_base.cameras,
-                             alpha_teacher=args.alpha_teacher, soft_labels=args.soft_labels,
-                             augmentation_module=augmentation, weighted_mse=args.weighted_mse,
-                             low_th=args.low_th, high_th=args.high_th, uda_persp_sup=args.uda_persp_sup,
-                             persp_sup=args.persp_sup, auto_th=args.auto_th, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda,
+                             alpha_teacher=args.alpha_teacher,
+                             augmentation_module=augmentation, uda_persp_sup=args.uda_persp_sup,
+                             persp_sup=args.persp_sup, uda_nms_th=args.uda_nms_th, augmentation_uda=augmentation_uda,
                              max_pseudo=args.max_pseudo, max_pseudo_th=args.max_pseudo_th)
     else:
         trainer = PerspectiveTrainer(model, ema_model, criterion, logdir, denormalize, args.cls_thres, args.alpha,
                                      augmentation_module=augmentation, persp_sup=args.persp_sup, visualize_train=args.train_viz)
 
-
-    if args.uda:
-        if args.target_epoch_start is None or args.target_weight_start is None or args.target_weight_end is None:
-            # randomize the target weight schedule
-            # target_epoch_start = np.random.choice(10) + 1
-            target_epoch_start = np.random.choice(7) + 5
-            target_weight_start = np.random.rand()
-            target_weight_end = target_weight_start + (1- target_weight_start)*np.random.rand()
-        else:
-            target_epoch_start = args.target_epoch_start
-            target_weight_start = args.target_weight_start
-            target_weight_end = args.target_weight_end
-        
-        target_weights = [0. for x in range(args.epochs)]
-        increment_steps = args.epochs - target_epoch_start
-        if increment_steps == 0:
-            step_size = 0
-        else:
-            step_size = (target_weight_end - target_weight_start) / increment_steps
-        for i in range(increment_steps + 1):
-            target_weights[i + target_epoch_start - 1] = target_weight_start + step_size * i
-
-        print("target_epoch_start: ", target_epoch_start)
-        print("target_weight_start: ", target_weight_start)
-        print("target_weight_end: ", target_weight_end)
-        print("target_weights: ", target_weights)
-
-        if args.pseudo_label_th is None:
-            pseudo_label_th = 0.37 + np.random.rand()*0.05 # random value between 0.3 and 0.45
-        else:
-            pseudo_label_th = args.pseudo_label_th
-        print("pseudo_label_th: ", pseudo_label_th)
 
     print('Testing...')
     test_loss, (moda, modp, precision, recall, cls_thres_var), (moda_04, modp_04, precision_04, recall_04, cls_thres_fix) = trainer.test(test_loader, os.path.join(logdir, 'test.txt'),
@@ -411,8 +354,7 @@ def main(args):
     for epoch in tqdm.tqdm(range(1, args.epochs + 1)):
         print('Training...')
         if args.uda:
-            target_weight = target_weights[epoch - 1]
-            train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler,target_weight,pseudo_label_th)
+            train_loss, train_prec = trainer.train(epoch, train_loader, train_loader_target, optimizer, args.log_interval, scheduler, args.lambda_weight, args.pseudo_label_th)
         else:
             train_loss, train_prec = trainer.train(epoch, train_loader, optimizer, args.log_interval, scheduler)
         print('Testing...')
@@ -485,11 +427,6 @@ if __name__ == '__main__':
     parser.add_argument('--variant', type=str, default='default',
                         choices=['default', 'img_proj', 'res_proj', 'no_joint_conv'])
     parser.add_argument('--arch', type=str, default='resnet18', choices=['vgg11', 'resnet18'])
-    parser.add_argument('-d', '--dataset', type=str, default='wildtrack', choices=['wildtrack', 'multiviewx'])
-    parser.add_argument("--data_path", type=str, default=None)
-    parser.add_argument("--data_path_src", type=str, default=None)
-    parser.add_argument("--data_path_trg", type=str, default=None)
-    parser.add_argument("--gmvd_csv", type=str, default="train_datapath.csv")
     parser.add_argument('-j', '--num_workers', type=int, default=4)
     parser.add_argument('-b', '--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 1)')
@@ -505,48 +442,43 @@ if __name__ == '__main__':
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument('--train_viz', action='store_true')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: None)')
-    parser.add_argument('--cam_adapt', action="store_true")
-    parser.add_argument('--uda', action="store_true")
+
+    parser.add_argument('--pretrained', action="store_true")
+    parser.add_argument('--avgpool', action="store_true")
+    parser.add_argument('--persp_sup', action="store_true", default=False)
+    parser.add_argument('--varying_cls_thres', action="store_true")
+
+    # data augmentation
     parser.add_argument('--dropview', action="store_true")
-    parser.add_argument("--permutation", action="store_true")
     parser.add_argument("--mvaug", action="store_true")
     parser.add_argument("--rom3d", action="store_true")
 
-    parser.add_argument('--dropview_uda', action="store_true", default=None)
-    parser.add_argument("--permutation_uda", action="store_true", default=None)
-    parser.add_argument("--mvaug_uda", action="store_true", default=None)
-    parser.add_argument("--rom3d_uda", action="store_true", default=None)
-
-    parser.add_argument('--soft_labels', action="store_true")
-    parser.add_argument('--pretrained', action="store_true")
-    parser.add_argument('--src_cams', type=str, default=None)
-    parser.add_argument('--trg_cams', type=str, default=None)
-    parser.add_argument('--alpha_teacher', type=float, default=0.99)
-    parser.add_argument('--avgpool', action="store_true")
-    parser.add_argument('--avgpool_ext', action="store_true")
-    parser.add_argument('--weighted_mse', action="store_true")
-    parser.add_argument('--uda_persp_sup', action="store_true")
-    parser.add_argument('--varying_cls_thres', action="store_true")
+    # datasets
+    parser.add_argument('-d', '--dataset', type=str, default='wildtrack', choices=['wildtrack', 'multiviewx'])
+    parser.add_argument("--data_path", type=str, default=None)
+    parser.add_argument("--data_path_src", type=str, default=None)
+    parser.add_argument("--data_path_trg", type=str, default=None)
+    parser.add_argument("--gmvd_csv", type=str, default="train_datapath.csv")
     parser.add_argument('--gmvd2multiviewx', action="store_true")
     parser.add_argument('--multiviewx2wildtrack', action="store_true")
     parser.add_argument('--wildtrack2multiviewx', action="store_true")
-    parser.add_argument('--persp_sup', action="store_true", default=False)
-    parser.add_argument('--warp_kornia', action="store_true", default=False)
+    parser.add_argument('--cam_adapt', action="store_true")
+    parser.add_argument('--src_cams', type=str, default=None)
+    parser.add_argument('--trg_cams', type=str, default=None)
+
+    # uda parameters
+    parser.add_argument('--uda', action="store_true")
     parser.add_argument('--max_pseudo', action="store_true")
     parser.add_argument('--max_pseudo_th', type=int, default=11, help='The kernel size when finding local_maxima for max_pseudo pseudo-label creation')
-    parser.add_argument('--auto_th', action="store_true")
     parser.add_argument('--test_ema', action="store_true")
-    parser.add_argument('--low_th', type=float, default=0.1, help='The threshold used for mining confident negatives in UDA setting')
-    parser.add_argument('--high_th', type=float, default=0.9, help='The threhsold used for mining confident positive in UDA setting')
     parser.add_argument('--uda_nms_th', type=int, default=20, help='The NMS distance threshold used when creating pseudo-labels')
-
-
-    # below parameters are randomized if not set
-    parser.add_argument('--target_epoch_start', type=int, default=None, help='the epoch at which training on target domain starts')
-    parser.add_argument('--target_weight_start', type=float, default=None, help='the initial weight when training on target domain starts')
-    parser.add_argument('--target_weight_end', type=float, default=None, help='the final weight when training on target domain ends')
-    parser.add_argument('--pseudo_label_th', type=float, default=None, help='confidenbce threshold for creating pseudo-labels')
-
+    parser.add_argument('--alpha_teacher', type=float, default=0.99)
+    parser.add_argument('--uda_persp_sup', action="store_true")
+    parser.add_argument('--lambda_weight', type=float, default=None, help='weight lambda determining the influence of self-training')
+    parser.add_argument('--pseudo_label_th', type=float, default=None, help='confidence threshold for creating pseudo-labels')
+    parser.add_argument('--dropview_uda', action="store_true", default=None)
+    parser.add_argument("--mvaug_uda", action="store_true", default=None)
+    parser.add_argument("--rom3d_uda", action="store_true", default=None)
 
     args = parser.parse_args()
 
@@ -558,5 +490,8 @@ if __name__ == '__main__':
 
         for k,v in data.items():
             args_d[k] = v
+
+    if not args.avgpool:
+        raise Exception("Our UDA trainer is only compatible with GMVD architecture using avgpool")
 
     main(args)

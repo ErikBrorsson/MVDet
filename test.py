@@ -392,7 +392,7 @@ def main(args):
     print('Settings:')
     print(vars(args))
 
-    augmentation = Augmentation(args.dropview, args.permutation)
+    augmentation = Augmentation(args.dropview)
 
     # trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
     # trainer = PerspectiveTrainer(model, criterion, logdir, denormalize, args.cls_thres, args.alpha, augmentation)
@@ -510,7 +510,6 @@ if __name__ == '__main__':
     parser.add_argument("--test_aug", action="store_true")
     parser.add_argument("--avgpool", action="store_true")
     parser.add_argument("--dropview", action="store_true")
-    parser.add_argument("--permutation", action="store_true")
 
     args = parser.parse_args()
 

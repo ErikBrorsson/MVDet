@@ -12,13 +12,9 @@ import matplotlib.pyplot as plt
 
 
 class PerspTransDetector(nn.Module):
-    def __init__(self, arch='resnet18', pretrained=False, avgpool=False, avgpool_ext=False, num_cam = None, warp_kornia=True):
+    def __init__(self, arch='resnet18', pretrained=False, avgpool=False, num_cam = None, warp_kornia=False):
         super().__init__()
-        # self.num_cam = dataset.num_cam
-        # print("# cameras in model: ", self.num_cam)
-        # self.img_shape, self.reducedgrid_shape = dataset.img_shape, dataset.reducedgrid_shape
-        # self.coord_map = self.create_coord_map(self.reducedgrid_shape + [1])
-        # self.upsample_shape = list(map(lambda x: int(x / dataset.img_reduce), self.img_shape))
+
         self.warp_kornia = warp_kornia
         if num_cam is None:
             self.num_cam = 8
@@ -26,7 +22,6 @@ class PerspTransDetector(nn.Module):
             self.num_cam = num_cam
 
         self.avgpool = avgpool
-        self.avgpool_ext = avgpool_ext
 
         if arch == 'vgg11':
             base = vgg11().features
@@ -49,11 +44,7 @@ class PerspTransDetector(nn.Module):
                                             nn.Conv2d(64, 2, 1, bias=False)).to('cuda:0')
         
         if self.avgpool:
-            if self.avgpool_ext:
-                print("using GMVD with Mean, max, min")
-                n_inputs_channels = out_channel * 3 + 2
-            else:
-                n_inputs_channels = out_channel + 2
+            n_inputs_channels = out_channel + 2
         else:
             n_inputs_channels = out_channel * self.num_cam + 2
 
@@ -92,8 +83,7 @@ class PerspTransDetector(nn.Module):
             imgs_result.append(img_res)
             proj_mat = proj_mats[i].repeat([B, 1, 1]).float().to('cuda:0')
 
-            # here, the proj_mat has been constructed for a specific grid (output) and image (input) size.
-            # it is critical that the shape of img_feature equals the intended input size, and that self.reducedgrid_shape specifies the intended output size.
+            # TODO CAUTION! kornia warp_perspective doesn't handle points that are behind the camera, leading to undesirable artifacts in the output.
             if self.warp_kornia:
                 world_feature = kornia.geometry.transform.warp_perspective(img_feature.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             else:
@@ -106,12 +96,9 @@ class PerspTransDetector(nn.Module):
                 subplt1.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
                 plt.savefig(f"img_and_bev_features_{i}.jpg")
                 plt.close(fig)
-                # plt.imshow(torch.norm(img_feature[0].detach(), dim=0).cpu().numpy())
-                # plt.show()
-                # plt.imshow(torch.norm(world_feature[0].detach(), dim=0).cpu().numpy())
-                # plt.show()
 
             view_indicator = torch.ones_like(img_feature)
+            # TODO CAUTION! kornia warp_perspective doesn't handle points that are behind the camera, leading to undesirable artifacts in the output.
             if self.warp_kornia:
                 view_indicator = kornia.geometry.transform.warp_perspective(view_indicator.to('cuda:0'), proj_mat, reducedgrid_shape) # reducedgrid_shape=[480/4, 1440/4]
             else:
@@ -125,14 +112,8 @@ class PerspTransDetector(nn.Module):
         if self.avgpool:
             world_features = [x.unsqueeze(0) for x in world_features]
             world_features = torch.cat(world_features, dim=1)
-            if self.avgpool_ext:
-                world_features_mean = torch.mean(world_features, dim=1)   
-                world_features_min = torch.min(world_features, dim=1)[0]   
-                world_features_max = torch.max(world_features, dim=1)[0]
-                world_features = torch.cat([world_features_mean] + [world_features_min] + [world_features_max]  + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
-            else: 
-                world_features = torch.mean(world_features, dim=1)    
-                world_features = torch.cat([world_features] + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
+            world_features = torch.mean(world_features, dim=1)    
+            world_features = torch.cat([world_features] + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
         else:
             world_features = torch.cat(world_features + [coord_map.repeat([B, 1, 1, 1]).to('cuda:0')], dim=1)
 
